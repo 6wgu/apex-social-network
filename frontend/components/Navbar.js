@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
+import NotificationBell from "@/components/NotificationBell";
 
 const links = [
   { href: "/", label: "Home" },
@@ -12,7 +13,8 @@ const links = [
 ];
 
 // Shown on every page. Logged out, it only offers Log in / Register.
-// The bell and chat badge are slots filled in Phase 2/4.
+// The notification bell (red, round badge) is live; the chat badge (blue,
+// square) is a slot filled in Phase 4, so the two never look alike.
 export default function Navbar() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
@@ -54,10 +56,7 @@ export default function Navbar() {
       </nav>
 
       <div className="nav-actions">
-        <button className="icon-btn" aria-label="Notifications" data-slot="notifications">
-          🔔
-          <span className="badge badge-notification" hidden />
-        </button>
+        <NotificationBell />
         <Link href={`/profile/${user.id}`} className="nav-profile" aria-label="My profile">
           <Avatar user={user} size={32} />
           <span>{user.first_name}</span>

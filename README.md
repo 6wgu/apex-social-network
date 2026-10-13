@@ -78,7 +78,8 @@ backend/
     └── ws/                    WebSocket hub: live connections per user, push JSON events
 frontend/
 ├── app/                       Next.js pages (App Router)
-├── components/                Navbar, AuthProvider (current user + route guard), Avatar
+├── components/                Navbar, AuthProvider (current user + route guard), RealtimeProvider (one WebSocket per tab),
+│                              NotificationBell, FollowButton, EditProfile, UserList, Avatar
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
 └── next.config.mjs            proxies /api, /uploads, /ws to the backend
 ```

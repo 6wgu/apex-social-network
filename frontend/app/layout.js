@@ -1,6 +1,7 @@
 import "./globals.css";
 import AuthProvider, { AuthGate } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
+import RealtimeProvider from "@/components/RealtimeProvider";
 
 export const metadata = {
   title: "Social Network",
@@ -12,10 +13,12 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AuthProvider>
-          <Navbar />
-          <main className="container">
-            <AuthGate>{children}</AuthGate>
-          </main>
+          <RealtimeProvider>
+            <Navbar />
+            <main className="container">
+              <AuthGate>{children}</AuthGate>
+            </main>
+          </RealtimeProvider>
         </AuthProvider>
       </body>
     </html>

@@ -1,36 +1,83 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import EditProfile from "@/components/EditProfile";
+import FollowButton from "@/components/FollowButton";
+import UserList from "@/components/UserList";
+import { FOLLOWS_CHANGED } from "@/components/NotificationBell";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 const TABS = ["Posts", "Followers", "Following"];
 
 // /profile/{id}, or /profile/me for the logged-in user.
 // What a private profile reveals is decided by the backend: for a profile we
-// may not see, GET /api/users/{id} simply does not contain the private fields.
+// may not see, GET /api/users/{id} simply does not contain the private fields,
+// and the followers/following lists answer 403.
 export default function ProfilePage() {
   const params = useParams();
   const { user: me, setUser } = useAuth();
-  const id = params.id === "me" ? me.id : params.id;
+  const id = params.id === "me" ? String(me.id) : params.id;
 
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState(TABS[0]);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [list, setList] = useState(null); // users in the Followers / Following tab
+  const [listError, setListError] = useState("");
+
+  // Loads (or reloads) the profile without blanking the page.
+  const load = useCallback(
+    () =>
+      api(`/api/users/${encodeURIComponent(id)}`)
+        .then((p) => {
+          setProfile(p);
+          setError("");
+        })
+        .catch((err) => setError(err.status === 404 ? "This user does not exist." : err.message)),
+    [id]
+  );
 
   useEffect(() => {
     setProfile(null);
     setError("");
     setEditing(false);
-    api(`/api/users/${encodeURIComponent(id)}`)
-      .then(setProfile)
-      .catch((err) => setError(err.status === 404 ? "This user does not exist." : err.message));
-  }, [id]);
+    setTab(TABS[0]);
+    load();
+  }, [load]);
+
+  const canView = profile?.can_view;
+  const listKind = tab === "Followers" ? "followers" : tab === "Following" ? "following" : null;
+
+  // The Followers / Following tab content. Reloads whenever the profile does
+  // (e.g. after following), so the list and the counts always agree.
+  useEffect(() => {
+    setList(null);
+    setListError("");
+    if (!listKind || !canView) return;
+    api(`/api/users/${encodeURIComponent(id)}/${listKind}`)
+      .then(setList)
+      .catch((err) => setListError(err.status === 403 ? "This list is private." : err.message));
+  }, [id, listKind, canView, profile]);
+
+  // Keep counts and visibility current when follows change elsewhere:
+  // a request accepted from the bell, or a live notification about this profile.
+  useEffect(() => {
+    window.addEventListener(FOLLOWS_CHANGED, load);
+    return () => window.removeEventListener(FOLLOWS_CHANGED, load);
+  }, [load]);
+  useRealtime((event) => {
+    if (event.type !== "notification" || !profile) return;
+    const n = event.payload;
+    const aboutThisProfile = n.actor && String(n.actor.id) === String(profile.user.id);
+    if ((profile.follow_status === "self" && n.type === "new_follower") || (aboutThisProfile && n.type === "follow_accepted")) {
+      load();
+    }
+  });
 
   async function togglePrivacy(e) {
     const isPublic = !e.target.checked; // the switch reads "Private profile"
@@ -38,8 +85,8 @@ export default function ProfilePage() {
     setError("");
     try {
       const updated = await api("/api/me/privacy", { method: "PATCH", body: { is_public: isPublic } });
-      setProfile((p) => ({ ...p, user: updated }));
       setUser(updated);
+      await load(); // going public accepts pending requests, so counts can change
     } catch (err) {
       setError(err.message);
     } finally {
@@ -62,7 +109,7 @@ export default function ProfilePage() {
   }
   if (!profile) return <p className="muted center">Loading…</p>;
 
-  const { user, can_view: canView } = profile;
+  const { user } = profile;
   const isMine = profile.follow_status === "self";
 
   return (
@@ -76,7 +123,13 @@ export default function ProfilePage() {
           {user.nickname && <p className="muted">@{user.nickname}</p>}
           {canView && (
             <p className="profile-counts">
-              <strong>{profile.follower_count}</strong> followers · <strong>{profile.following_count}</strong> following
+              <button className="link-btn" onClick={() => setTab("Followers")}>
+                <strong>{profile.follower_count}</strong> followers
+              </button>{" "}
+              ·{" "}
+              <button className="link-btn" onClick={() => setTab("Following")}>
+                <strong>{profile.following_count}</strong> following
+              </button>
               <span className={`pill ${user.is_public ? "pill-public" : "pill-private"}`}>
                 {user.is_public ? "Public" : "Private"}
               </span>
@@ -84,7 +137,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {isMine && (
+        {isMine ? (
           <div className="profile-actions">
             <label className="switch" title="A private profile is only visible to your followers">
               <input type="checkbox" checked={!user.is_public} onChange={togglePrivacy} disabled={saving} />
@@ -96,6 +149,10 @@ export default function ProfilePage() {
                 Edit profile
               </button>
             )}
+          </div>
+        ) : (
+          <div className="profile-actions">
+            <FollowButton userId={user.id} status={profile.follow_status} onChange={load} />
           </div>
         )}
       </section>
@@ -110,7 +167,11 @@ export default function ProfilePage() {
             🔒
           </span>
           <h2>This profile is private</h2>
-          <p className="muted">Only followers of {user.first_name} can see their details and posts.</p>
+          <p className="muted">
+            {profile.follow_status === "pending"
+              ? `Your follow request is waiting for ${user.first_name} to accept it.`
+              : `Follow ${user.first_name} to see their details, posts and followers.`}
+          </p>
         </section>
       ) : (
         <>
@@ -135,7 +196,20 @@ export default function ProfilePage() {
                 </button>
               ))}
             </div>
-            <p className="muted tab-placeholder">{tab} will be listed here in the next phase.</p>
+            {tab === "Posts" && <p className="muted tab-placeholder">Posts will be listed here soon.</p>}
+            {listKind && listError && <p className="form-error tab-placeholder">{listError}</p>}
+            {listKind && !list && !listError && <p className="muted tab-placeholder">Loading…</p>}
+            {listKind && list && (
+              <UserList
+                users={list}
+                meId={me.id}
+                empty={
+                  listKind === "followers"
+                    ? `${isMine ? "You have" : `${user.first_name} has`} no followers yet.`
+                    : `${isMine ? "You are" : `${user.first_name} is`} not following anyone yet.`
+                }
+              />
+            )}
           </section>
         </>
       )}
