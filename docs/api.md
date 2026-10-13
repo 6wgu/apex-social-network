@@ -104,9 +104,9 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 | POST | `/api/posts` | multipart: `content` (up to 5000 characters), `privacy`, `viewer_ids` (only for `private`: repeat the field once per id, or send `1,2,3`), optional `image` (JPEG/PNG/GIF, 5 MB) | `201 Post`. `400` when: both `content` and `image` are empty; `privacy` is not one of the three; a `private` post has no viewers; a non-private post has `viewer_ids`; a viewer is not one of your **accepted** followers (the message names the id); or the image is invalid |
 | GET | `/api/posts/{id}` | none | `200 Post`. `404` if it does not exist **or you may not see it** (the two look the same) |
 | GET | `/api/users/{id}/posts?before={postId}` | none | `200 [Post]`: that user's posts that you may see, newest first, 20 per page. `403 "this profile is private"` for a private profile you neither own nor follow, `404` unknown user, `400` bad `before` |
-| GET | `/api/feed?before={postId}` | none | (step 5) `200 [Post]`: up to 20, newest first, only posts you may see |
-| GET | `/api/posts/{id}/comments` | none | `200 [Comment]` oldest first. `404` if you can't see the post |
-| POST | `/api/posts/{id}/comments` | multipart: `content`, optional `image` | `201 Comment`. `404` if you can't see the post |
+| GET | `/api/feed?before={postId}` | none | `200 [Post]`: every post you may see, your own included, newest first, 20 per page. The privacy rule is part of the SQL query, so hidden posts are never loaded. `400` bad `before` |
+| GET | `/api/posts/{id}/comments?after={commentId}` | none | `200 [Comment]`: oldest first, 50 per page (pass the last `id` as `after`). `404` if the post does not exist **or you may not see it**. `400` bad `after` |
+| POST | `/api/posts/{id}/comments` | multipart: `content` (up to 2000 characters), optional `image` (JPEG/PNG/GIF, 5 MB) | `201 Comment`. `404` if you may not see the post (visibility is checked again in the `INSERT` itself). `400` if both are empty, the text is too long, or the image is invalid |
 
 Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVisibleSQL` in `pkg/handlers/posts.go`, and every endpoint that returns posts uses it:
 - The author always sees their own post.
@@ -116,7 +116,9 @@ Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVis
 
 `GET /api/users/{id}/posts` also applies the profile rule (`CanViewProfile`) first, answering `403` instead of an empty list for a private profile you neither own nor follow.
 
-**Images.** `GET /uploads/{name}` checks whether the file belongs to a post. If it does, it applies that post's `CanViewPost`, and someone who may not see the post gets the same `404` as for a missing file. Any other stored image (an avatar) is served to every logged-in user. Post images are sent with `Cache-Control: private, no-cache`.
+**Comments** are visible to exactly the users who can see their post. Losing access to a post (for example by unfollowing) also takes away its comments and their images.
+
+**Images.** `GET /uploads/{name}` checks whether the file belongs to a post or to a comment on a post. If it does, it applies that post's `CanViewPost`, and someone who may not see the post gets the same `404` as for a missing file. Any other stored image (an avatar) is served to every logged-in user. Post images are sent with `Cache-Control: private, no-cache`.
 
 ## Groups and events (Phase 3)
 

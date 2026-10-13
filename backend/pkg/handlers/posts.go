@@ -60,9 +60,11 @@ type post struct {
 	CreatedAt    string             `json:"created_at"`
 }
 
-// postColumns selects a post (alias p) with its author (alias u).
+// postColumns selects a post (alias p) with its author (alias u) and its
+// number of comments.
 const postColumns = `p.id, p.content, p.image_path, p.privacy, strftime('%Y-%m-%d %H:%M:%S', p.created_at),
-	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
+	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)`
 
 const postFrom = `FROM posts p JOIN users u ON u.id = p.user_id`
 
@@ -70,7 +72,7 @@ func scanPost(row interface{ Scan(...any) error }) (post, error) {
 	var p post
 	a := &p.Author
 	err := row.Scan(&p.ID, &p.Content, &p.ImagePath, &p.Privacy, &p.CreatedAt,
-		&a.ID, &a.FirstName, &a.LastName, &a.Nickname, &a.AvatarPath)
+		&a.ID, &a.FirstName, &a.LastName, &a.Nickname, &a.AvatarPath, &p.CommentCount)
 	return p, err
 }
 
@@ -309,11 +311,16 @@ func (a *App) userPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 // canViewUpload decides GET /uploads/{name} for viewerID. A file that
-// belongs to a post follows that post's privacy; any other stored image
-// (an avatar) may be seen by every logged-in user.
+// belongs to a post, or to a comment on a post, follows that post's
+// privacy; any other stored image (an avatar) may be seen by every
+// logged-in user.
 func (a *App) canViewUpload(viewerID int64, path string) (bool, error) {
 	var postID int64
-	err := a.DB.QueryRow(`SELECT id FROM posts WHERE image_path = ?`, path).Scan(&postID)
+	err := a.DB.QueryRow(`
+		SELECT id FROM posts WHERE image_path = ?1
+		UNION ALL
+		SELECT post_id FROM comments WHERE image_path = ?1
+		LIMIT 1`, path).Scan(&postID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return true, nil
 	}
@@ -321,4 +328,23 @@ func (a *App) canViewUpload(viewerID int64, path string) (bool, error) {
 		return false, err
 	}
 	return a.CanViewPost(viewerID, postID)
+}
+
+// feed handles GET /api/feed?before={postId}: every post the viewer may
+// see (their own included), newest first, 20 per page. The privacy rule is
+// part of the query (postVisibleSQL), so hidden posts never leave the
+// database.
+func (a *App) feed(w http.ResponseWriter, r *http.Request) {
+	before, ok := beforeParam(w, r)
+	if !ok {
+		return
+	}
+	posts, err := a.queryPosts(`SELECT `+postColumns+` `+postFrom+`
+		WHERE p.id < ?2 AND `+postVisibleSQL+`
+		ORDER BY p.id DESC LIMIT ?3`, currentUserID(r), before, postsPerPage)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, posts)
 }
