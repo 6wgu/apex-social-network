@@ -46,9 +46,7 @@ export default function Navbar() {
 
       <nav className="nav-links">
         {links.map((l) => (
-          // No prefetch: Groups and Chats do not exist until Phase 3/4, and a
-          // prefetch of a missing page never completes.
-          <Link key={l.href} href={l.href} prefetch={false} className={pathname === l.href ? "active" : ""}>
+          <Link key={l.href} href={l.href} className={pathname === l.href ? "active" : ""}>
             {l.label}
             {l.href === "/chats" && <span className="badge badge-message" data-slot="unread-messages" hidden />}
           </Link>

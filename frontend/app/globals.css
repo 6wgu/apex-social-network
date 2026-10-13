@@ -529,3 +529,35 @@ button {
     padding: 3px;
   }
 }
+
+/* ---- edit profile ---- */
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  font-weight: 400 !important;
+}
+
+.checkbox input {
+  width: auto;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .profile-actions {
+    align-items: flex-start;
+    width: 100%;
+  }
+}

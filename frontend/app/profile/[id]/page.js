@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
+import EditProfile from "@/components/EditProfile";
 
 const TABS = ["Posts", "Followers", "Following"];
 
@@ -20,10 +21,12 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState(TABS[0]);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     setProfile(null);
     setError("");
+    setEditing(false);
     api(`/api/users/${encodeURIComponent(id)}`)
       .then(setProfile)
       .catch((err) => setError(err.status === 404 ? "This user does not exist." : err.message));
@@ -42,6 +45,12 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function saved(updated) {
+    setProfile((p) => ({ ...p, user: updated }));
+    setUser(updated);
+    setEditing(false);
   }
 
   if (error && !profile) {
@@ -76,15 +85,24 @@ export default function ProfilePage() {
         </div>
 
         {isMine && (
-          <label className="switch" title="A private profile is only visible to your followers">
-            <input type="checkbox" checked={!user.is_public} onChange={togglePrivacy} disabled={saving} />
-            <span className="switch-track" aria-hidden="true" />
-            <span>Private profile</span>
-          </label>
+          <div className="profile-actions">
+            <label className="switch" title="A private profile is only visible to your followers">
+              <input type="checkbox" checked={!user.is_public} onChange={togglePrivacy} disabled={saving} />
+              <span className="switch-track" aria-hidden="true" />
+              <span>Private profile</span>
+            </label>
+            {!editing && (
+              <button className="btn-secondary" onClick={() => setEditing(true)}>
+                Edit profile
+              </button>
+            )}
+          </div>
         )}
       </section>
 
       {error && <p className="form-error">{error}</p>}
+
+      {isMine && editing && <EditProfile user={user} onSaved={saved} onCancel={() => setEditing(false)} />}
 
       {!canView ? (
         <section className="card private-notice">
