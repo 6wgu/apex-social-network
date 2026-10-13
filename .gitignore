@@ -1,0 +1,15 @@
+# backend runtime data
+backend/data/
+backend/uploads/
+*.db
+*.db-shm
+*.db-wal
+*.exe
+
+# frontend
+frontend/node_modules/
+frontend/.next/
+npm-debug.log*
+
+.env
+.DS_Store
