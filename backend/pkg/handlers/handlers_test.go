@@ -61,3 +61,23 @@ func TestWrongMethodIs405(t *testing.T) {
 		t.Errorf("GET /api/nope = %d, want 404", res2.StatusCode)
 	}
 }
+
+func TestUploadsNeedASession(t *testing.T) {
+	app := newTestApp(t)
+	if err := os.WriteFile(filepath.Join(app.UploadDir, "pic.png"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+
+	for _, path := range []string{"/uploads", "/uploads/", "/uploads/pic.png"} {
+		res, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusUnauthorized {
+			t.Errorf("GET %s without a cookie = %d, want 401", path, res.StatusCode)
+		}
+	}
+}

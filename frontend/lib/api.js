@@ -8,7 +8,8 @@ export class ApiError extends Error {
   }
 }
 
-const PUBLIC_PAGES = ["/login", "/register"];
+// Pages a logged-out visitor may see. Everything else needs a session.
+export const PUBLIC_PAGES = ["/login", "/register"];
 
 /**
  * api("/api/me")

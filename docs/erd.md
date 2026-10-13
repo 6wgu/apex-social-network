@@ -1,13 +1,13 @@
 # Database ERD
 
 Every table is created by a numbered migration in
-`backend/pkg/db/migrations/sqlite`. Only `users` and `sessions` exist so far
-(Phase 0); the rest are added by the phase that needs them.
+`backend/pkg/db/migrations/sqlite`. `users`, `sessions` and `follows` exist so
+far; the rest are added by the phase that needs them.
 
 | Table | Migration added in |
 |---|---|
 | users, sessions | Phase 0 |
-| follows | Phase 2 |
+| follows | Phase 1 (migration 000003: the table only, so private profiles can check it. The follow endpoints are Phase 2) |
 | posts, post_allowed_users, comments | Phase 2 |
 | notifications | Phase 2 |
 | groups, group_members, group_invites, group_requests, events, event_responses | Phase 3 |

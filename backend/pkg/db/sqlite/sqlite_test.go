@@ -41,7 +41,7 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err := MigrateUp(db, testMigrations); err != nil {
 		t.Fatalf("first up: %v", err)
 	}
-	for _, want := range []string{"users", "sessions"} {
+	for _, want := range []string{"users", "sessions", "follows"} {
 		if !tables(t, db)[want] {
 			t.Errorf("table %q missing after up", want)
 		}
@@ -141,5 +141,43 @@ func TestOpenEscapesPath(t *testing.T) {
 		if _, err := os.Stat(path); err != nil {
 			t.Errorf("%q: file was not created at the requested path: %v", name, err)
 		}
+	}
+}
+
+// Every migration on its own: roll it back, apply it, roll it back again.
+func TestEachMigrationDownThenUp(t *testing.T) {
+	files, err := filepath.Glob("../migrations/sqlite/*.up.sql")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no migrations found: %v", err)
+	}
+	db, err := Open(filepath.Join(t.TempDir(), "step.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := MigrateUp(db, testMigrations); err != nil {
+		t.Fatal(err)
+	}
+	step := func(n int, what string) {
+		t.Helper()
+		m, err := newMigrator(db, testMigrations)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := m.Steps(n); err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+	}
+	for i := len(files) - 1; i >= 0; i-- {
+		name := filepath.Base(files[i])
+		step(-1, name+" down")
+		step(+1, name+" up again")
+		step(-1, name+" down again")
+	}
+	if left := tables(t, db); len(left) != 0 {
+		t.Errorf("tables left after stepping everything down: %v", left)
+	}
+	if err := MigrateUp(db, testMigrations); err != nil {
+		t.Fatalf("up after stepping down: %v", err)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"social-network/pkg/middleware"
 )
 
 // App carries the shared dependencies every handler needs.
@@ -19,10 +21,23 @@ type App struct {
 // New features add their routes here, following docs/api.md.
 func (a *App) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
+	auth := middleware.RequireAuth(a.DB)
+	protected := func(h http.HandlerFunc) http.Handler { return auth(h) }
 
+	// Public: the only routes that work without a session.
 	mux.HandleFunc("GET /api/health", a.health)
+	mux.HandleFunc("POST /api/register", a.register)
+	mux.HandleFunc("POST /api/login", a.login)
 
-	mux.Handle("GET /uploads/", a.uploads())
+	// Everything below needs a valid session cookie (401 otherwise).
+	mux.Handle("POST /api/logout", protected(a.logout))
+	mux.Handle("GET /api/me", protected(a.me))
+	mux.Handle("PATCH /api/me", protected(a.updateMe))
+	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
+	mux.Handle("GET /api/users", protected(a.searchUsers))
+	mux.Handle("GET /api/users/{id}", protected(a.getProfile))
+	mux.Handle("GET /uploads/", auth(a.uploads()))
+	mux.Handle("GET /uploads", auth(a.uploads())) // 404, not a redirect to the folder
 
 	// Everything that matched no route above gets the JSON error shape instead
 	// of the default text response.

@@ -13,3 +13,6 @@ npm-debug.log*
 
 .env
 .DS_Store
+
+# review screenshots (never committed)
+screenshots/

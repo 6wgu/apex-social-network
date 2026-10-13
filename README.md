@@ -56,7 +56,7 @@ Migrations live in `backend/pkg/db/migrations/sqlite` as `NNNNNN_name.up.sql` / 
 cd backend
 go run . -migrate=down    # roll back every migration and exit
 go run .                  # apply them again and start
-go test ./pkg/db/sqlite   # automated check: fresh DB -> up -> down -> up
+go test ./...             # migrations (up/down, one by one), sessions, auth and profile rules
 ```
 
 Rule: a new table or column means a new numbered migration. Never edit a migration that has already been merged.
@@ -70,13 +70,13 @@ backend/
     ├── db/
     │   ├── migrations/sqlite/ numbered .up.sql / .down.sql files
     │   └── sqlite/sqlite.go   connection (FKs, WAL, busy timeout) + migrate up/down
-    ├── handlers/              routes and one file per feature
-    ├── middleware/            logging, panic recovery, CORS
+    ├── handlers/              routes and one file per feature (auth, profiles, upload)
+    ├── middleware/            logging, panic recovery, CORS, RequireAuth
     ├── models/                structs shared by DB and JSON
-    └── session/               sessions and cookies (Phase 1)
+    └── session/               sessions table + session_id cookie
 frontend/
 ├── app/                       Next.js pages (App Router)
-├── components/                Navbar, etc.
+├── components/                Navbar, AuthProvider (current user + route guard), Avatar
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
 └── next.config.mjs            proxies /api, /uploads, /ws to the backend
 ```

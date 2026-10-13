@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import Avatar from "@/components/Avatar";
 
 const links = [
   { href: "/", label: "Home" },
@@ -9,10 +11,32 @@ const links = [
   { href: "/chats", label: "Chats" },
 ];
 
-// Shown on every page. The bell and chat badge are slots filled in Phase 2/4;
-// Logout and the profile link are wired up in Phase 1.
+// Shown on every page. Logged out, it only offers Log in / Register.
+// The bell and chat badge are slots filled in Phase 2/4.
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, loading, logout } = useAuth();
+
+  if (!user) {
+    return (
+      <header className="navbar">
+        <Link href="/login" className="brand">
+          social<span>network</span>
+        </Link>
+        <span className="nav-links" />
+        {!loading && (
+          <div className="nav-actions">
+            <Link href="/login" className="btn-secondary">
+              Log in
+            </Link>
+            <Link href="/register" className="btn-primary">
+              Register
+            </Link>
+          </div>
+        )}
+      </header>
+    );
+  }
 
   return (
     <header className="navbar">
@@ -22,7 +46,9 @@ export default function Navbar() {
 
       <nav className="nav-links">
         {links.map((l) => (
-          <Link key={l.href} href={l.href} className={pathname === l.href ? "active" : ""}>
+          // No prefetch: Groups and Chats do not exist until Phase 3/4, and a
+          // prefetch of a missing page never completes.
+          <Link key={l.href} href={l.href} prefetch={false} className={pathname === l.href ? "active" : ""}>
             {l.label}
             {l.href === "/chats" && <span className="badge badge-message" data-slot="unread-messages" hidden />}
           </Link>
@@ -34,10 +60,11 @@ export default function Navbar() {
           🔔
           <span className="badge badge-notification" hidden />
         </button>
-        <Link href="/profile/me" className="icon-btn" aria-label="My profile">
-          👤
+        <Link href={`/profile/${user.id}`} className="nav-profile" aria-label="My profile">
+          <Avatar user={user} size={32} />
+          <span>{user.first_name}</span>
         </Link>
-        <button className="btn-secondary" data-slot="logout">
+        <button className="btn-secondary" onClick={logout}>
           Logout
         </button>
       </div>

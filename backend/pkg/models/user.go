@@ -15,3 +15,13 @@ type User struct {
 	IsPublic     bool   `json:"is_public"`
 	CreatedAt    string `json:"created_at"`
 }
+
+// UserSummary is the public face of a user: what lists, search results and
+// private profiles show. It has no email, birth date or about text.
+type UserSummary struct {
+	ID         int64  `json:"id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
+}

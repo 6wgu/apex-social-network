@@ -5,6 +5,12 @@ const backend = process.env.BACKEND_URL || "http://localhost:8080";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // The proxy cuts request bodies off at 10 MB by default, which turns a
+    // too-big upload into a broken request. Let it through (the backend's own
+    // cap is 32 MB) so the backend can answer with its "5 MB or smaller" error.
+    middlewareClientMaxBodySize: "33mb",
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${backend}/api/:path*` },

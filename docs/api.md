@@ -8,10 +8,10 @@ only by pull request, and tell both sides.
 - The browser calls everything on the frontend origin (`http://localhost:3000`). Next.js rewrites `/api/*`, `/uploads/*` and `/ws` to the backend (`:8080`).
 - JSON uses `snake_case`. Times are UTC strings in the format SQLite returns: `"2026-10-13 12:00:00"`.
 - Every error response has the same shape: `{"error": "human readable message"}`.
-- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry. Every route except `GET /api/health`, `POST /api/register` and `POST /api/login` returns **401** without a valid session.
+- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry. Every route except `GET /api/health`, `POST /api/register` and `POST /api/login` returns **401** without a valid session. That includes `/uploads/*`: images are only served to logged-in users.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
-- Images are JPEG, PNG or GIF, max 5 MB, checked by file bytes. They are served from `image_path`, e.g. `/uploads/3f2a….png`.
-- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `409` duplicate.
+- Images are JPEG, PNG or GIF, max 5 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
+- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate.
 
 ### Shared shapes
 
@@ -51,16 +51,18 @@ only by pull request, and tell both sides.
 `User` is the full profile without the password:
 `{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "created_at" }`
 
-Validation: valid email format, password at least 8 characters, a birth date in the past, and first and last name required. A duplicate email returns `409 {"error":"email already registered"}`.
+Validation (all on the server): valid email format, password 8 to 72 characters, a real birth date in the past, and first and last name required (max 50 characters). `nickname` is at most 30 characters and `about_me` at most 500. A duplicate email returns `409 {"error":"email already registered"}`; emails are compared without case and stored in lower case. A bad avatar returns `400` with `avatar: image must be a JPEG, PNG or GIF` or `avatar: image must be 5 MB or smaller`.
+
+Login with an unknown email or a wrong password returns the same `401 {"error":"wrong email or password"}`.
 
 ## Profiles and users (Phase 1)
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/users/{id}` | none | `200 Profile` |
-| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` | `200 User` |
-| PATCH | `/api/me/privacy` | `{"is_public": false}` | `200 User` |
-| GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users) |
+| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` | `200 User`. A field you leave out keeps its value; send it empty to clear it. `400` if none of the three is sent |
+| PATCH | `/api/me/privacy` | `{"is_public": false}` | `200 User`. Always changes the logged-in user; there is no way to name another user |
+| GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users). Matches first name, last name, full name or nickname, ignoring case |
 
 `Profile` when the viewer is the owner, the profile is public, or the viewer is an accepted follower:
 
