@@ -26,6 +26,12 @@ const (
 	dateLayout     = "2006-01-02"
 )
 
+// dummyHash is a bcrypt hash (same cost as real ones) of a password nobody
+// has. Login compares against it when the email is unknown, so an unknown
+// email takes as long to reject as a wrong password and response times do
+// not reveal which emails have accounts.
+const dummyHash = "$2a$10$ao.LYsoUHM3TPEfBMuDpQ.rXm.NuBqHqcsLoXoGzgpPRZdOxuUMna"
+
 // userColumns is the column list every query that fills a models.User selects.
 // created_at is formatted so it reads like SQLite's own datetime strings.
 const userColumns = `id, email, first_name, last_name, date_of_birth, avatar_path,
@@ -226,9 +232,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	// The same message for an unknown email and a wrong password, so the
-	// response does not reveal which emails have accounts.
-	if errors.Is(err, sql.ErrNoRows) || bcrypt.CompareHashAndPassword([]byte(hash), []byte(body.Password)) != nil {
+	// The same message, and the same bcrypt work, for an unknown email and a
+	// wrong password, so neither the response nor its timing reveals which
+	// emails have accounts.
+	unknown := errors.Is(err, sql.ErrNoRows)
+	if unknown {
+		hash = dummyHash
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(body.Password)) != nil || unknown {
 		writeError(w, http.StatusUnauthorized, "wrong email or password")
 		return
 	}
@@ -250,16 +261,18 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-// logout handles POST /api/logout: the session row is deleted, so the cookie
-// is useless even if someone kept a copy of it.
+// logout handles POST /api/logout. It is a public route on purpose: with an
+// expired or unknown cookie it still answers 204 and clears the cookie, so the
+// browser never keeps a dead one. A valid session row is deleted, so the
+// cookie is useless even if someone kept a copy of it.
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
+	session.ClearCookie(w)
 	if c, err := r.Cookie(session.CookieName); err == nil {
 		if err := session.Delete(a.DB, c.Value); err != nil {
 			serverError(w, err)
 			return
 		}
 	}
-	session.ClearCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 

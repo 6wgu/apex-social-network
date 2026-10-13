@@ -113,8 +113,9 @@ func (a *App) getProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
-// updateMe handles PATCH /api/me (multipart): any of nickname, about_me, avatar.
-// A field that is not sent keeps its value; sending it empty clears it.
+// updateMe handles PATCH /api/me (multipart): any of nickname, about_me,
+// avatar, remove_avatar. A text field that is not sent keeps its value;
+// sending it empty clears it. remove_avatar=1 deletes the current picture.
 func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 	defer removeFormFiles(r)
 	if !parseForm(w, r) {
@@ -144,7 +145,23 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		changed = true
 	}
 
+	// The file behind the current avatar is deleted once the row no longer
+	// points to it: after a replacement or a removal.
 	oldAvatar := user.AvatarPath
+	switch r.FormValue("remove_avatar") {
+	case "", "0":
+	case "1":
+		if _, _, err := r.FormFile("avatar"); err == nil {
+			writeError(w, http.StatusBadRequest, "send either avatar or remove_avatar, not both")
+			return
+		}
+		user.AvatarPath = ""
+		changed = true
+	default:
+		writeError(w, http.StatusBadRequest, "remove_avatar must be 1")
+		return
+	}
+
 	newAvatar, err := a.saveImage(r, "avatar")
 	var uploadErr uploadError
 	if errors.As(err, &uploadErr) {
@@ -160,7 +177,7 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		changed = true
 	}
 	if !changed {
-		writeError(w, http.StatusBadRequest, "nothing to update: send nickname, about_me or avatar")
+		writeError(w, http.StatusBadRequest, "nothing to update: send nickname, about_me, avatar or remove_avatar")
 		return
 	}
 
@@ -171,7 +188,7 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	if newAvatar != "" {
+	if user.AvatarPath != oldAvatar {
 		a.removeImage(oldAvatar)
 	}
 	writeJSON(w, http.StatusOK, user)

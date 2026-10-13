@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"social-network/pkg/middleware"
+	"social-network/pkg/ws"
 )
 
 // App carries the shared dependencies every handler needs.
 type App struct {
 	DB        *sql.DB
 	UploadDir string
+	Hub       *ws.Hub
 }
 
 // Routes registers every endpoint on a standard library ServeMux.
@@ -24,13 +26,15 @@ func (a *App) Routes() *http.ServeMux {
 	auth := middleware.RequireAuth(a.DB)
 	protected := func(h http.HandlerFunc) http.Handler { return auth(h) }
 
-	// Public: the only routes that work without a session.
+	// Public: the only routes that work without a session. Logout is public
+	// so it can always clear the cookie, even an expired or unknown one.
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("POST /api/register", a.register)
 	mux.HandleFunc("POST /api/login", a.login)
+	mux.HandleFunc("POST /api/logout", a.logout)
 
 	// Everything below needs a valid session cookie (401 otherwise).
-	mux.Handle("POST /api/logout", protected(a.logout))
+	mux.Handle("GET /ws", protected(a.serveWS))
 	mux.Handle("GET /api/me", protected(a.me))
 	mux.Handle("PATCH /api/me", protected(a.updateMe))
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
@@ -85,6 +89,12 @@ func (a *App) uploads() http.Handler {
 		}
 		files.ServeHTTP(w, r)
 	})
+}
+
+// serveWS handles GET /ws: RequireAuth has checked the session cookie sent
+// with the upgrade request, so the connection belongs to that user.
+func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
+	a.Hub.Serve(w, r, currentUserID(r))
 }
 
 func (a *App) health(w http.ResponseWriter, r *http.Request) {

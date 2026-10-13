@@ -46,7 +46,8 @@ Backend environment variables (all optional):
 | `DB_PATH` | `data/social-network.db` |
 | `UPLOAD_DIR` | `uploads` |
 | `MIGRATIONS_PATH` | `file://pkg/db/migrations/sqlite` |
-| `FRONTEND_ORIGIN` | `http://localhost:3000` (CORS, only used when the frontend calls `:8080` directly) |
+| `FRONTEND_ORIGIN` | `http://localhost:3000`: the only browser origin allowed to open `/ws`, and the CORS origin when the frontend calls `:8080` directly |
+| `COOKIE_SECURE` | unset. Set to `1` when the site is served over HTTPS, to add the `Secure` flag to the session cookie |
 
 ## Migrations
 
@@ -56,7 +57,7 @@ Migrations live in `backend/pkg/db/migrations/sqlite` as `NNNNNN_name.up.sql` / 
 cd backend
 go run . -migrate=down    # roll back every migration and exit
 go run .                  # apply them again and start
-go test ./...             # migrations (up/down, one by one), sessions, auth and profile rules
+go test ./...             # migrations (up/down, one by one), sessions, auth, profile rules, WebSocket hub
 ```
 
 Rule: a new table or column means a new numbered migration. Never edit a migration that has already been merged.
@@ -73,7 +74,8 @@ backend/
     ├── handlers/              routes and one file per feature (auth, profiles, upload)
     ├── middleware/            logging, panic recovery, CORS, RequireAuth
     ├── models/                structs shared by DB and JSON
-    └── session/               sessions table + session_id cookie
+    ├── session/               sessions table + session_id cookie
+    └── ws/                    WebSocket hub: live connections per user, push JSON events
 frontend/
 ├── app/                       Next.js pages (App Router)
 ├── components/                Navbar, AuthProvider (current user + route guard), Avatar

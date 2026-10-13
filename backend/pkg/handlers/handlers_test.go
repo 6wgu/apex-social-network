@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"social-network/pkg/db/sqlite"
+	"social-network/pkg/ws"
 )
 
 // Run from backend/: go test ./pkg/handlers
@@ -30,7 +31,7 @@ func newTestApp(t *testing.T) *App {
 	if err := os.MkdirAll(uploads, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return &App{DB: db, UploadDir: uploads}
+	return &App{DB: db, UploadDir: uploads, Hub: ws.NewHub("http://localhost:3000")}
 }
 
 func TestWrongMethodIs405(t *testing.T) {

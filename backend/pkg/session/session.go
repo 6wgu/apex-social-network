@@ -26,6 +26,11 @@ const (
 // ErrNotFound means there is no valid session: missing, unknown or expired.
 var ErrNotFound = errors.New("session not found")
 
+// SecureCookies adds the Secure flag to the session cookie, so the browser
+// only sends it over HTTPS. server.go turns it on with COOKIE_SECURE=1; it
+// stays off by default because the app runs on plain http://localhost.
+var SecureCookies = false
+
 // Create starts a session for userID and returns its ID and expiry time.
 func Create(db *sql.DB, userID int64) (string, time.Time, error) {
 	id := uuid.NewString()
@@ -87,6 +92,7 @@ func SetCookie(w http.ResponseWriter, id string, expires time.Time) {
 		Expires:  expires,
 		MaxAge:   int(time.Until(expires).Seconds()),
 		HttpOnly: true,
+		Secure:   SecureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -100,6 +106,7 @@ func ClearCookie(w http.ResponseWriter) {
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   SecureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

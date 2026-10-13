@@ -8,7 +8,7 @@ only by pull request, and tell both sides.
 - The browser calls everything on the frontend origin (`http://localhost:3000`). Next.js rewrites `/api/*`, `/uploads/*` and `/ws` to the backend (`:8080`).
 - JSON uses `snake_case`. Times are UTC strings in the format SQLite returns: `"2026-10-13 12:00:00"`.
 - Every error response has the same shape: `{"error": "human readable message"}`.
-- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry. Every route except `GET /api/health`, `POST /api/register` and `POST /api/login` returns **401** without a valid session. That includes `/uploads/*`: images are only served to logged-in users.
+- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login` and `POST /api/logout` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
 - Images are JPEG, PNG or GIF, max 5 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
 - Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate.
@@ -45,7 +45,7 @@ only by pull request, and tell both sides.
 |---|---|---|---|
 | POST | `/api/register` | multipart: `email`, `password`, `first_name`, `last_name`, `date_of_birth` (YYYY-MM-DD), optional `nickname`, `about_me`, `avatar` (file) | `201 User` and sets the cookie |
 | POST | `/api/login` | `{"email","password"}` | `200 User` and sets the cookie |
-| POST | `/api/logout` | none | `204`, deletes the session server-side |
+| POST | `/api/logout` | none | `204`, always. Public route: deletes the session row if the cookie names one, and always clears the cookie, even when it is expired or unknown |
 | GET | `/api/me` | none | `200 User` |
 
 `User` is the full profile without the password:
@@ -60,7 +60,7 @@ Login with an unknown email or a wrong password returns the same `401 {"error":"
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/users/{id}` | none | `200 Profile` |
-| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` | `200 User`. A field you leave out keeps its value; send it empty to clear it. `400` if none of the three is sent |
+| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` (file), `remove_avatar=1` | `200 User`. A field you leave out keeps its value; send `nickname` or `about_me` empty to clear it. `remove_avatar=1` clears the avatar and deletes its file; a new `avatar` replaces the old file. `400` if nothing is sent, if `avatar` and `remove_avatar` are both sent, or if `remove_avatar` is anything but `1` |
 | PATCH | `/api/me/privacy` | `{"is_public": false}` | `200 User`. Always changes the logged-in user; there is no way to name another user |
 | GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users). Matches first name, last name, full name or nickname, ignoring case |
 
@@ -175,9 +175,13 @@ The bell shows the follow, invite and join-request items with inline Accept / De
 | GET | `/api/messages/{userId}?before={messageId}` | `200 [Message]`: 50 per page, newest last; `403` if neither of you follows the other. Marks them read |
 | GET | `/api/groups/{id}/messages?before=` | `200 [GroupMessage]`: members only |
 
-## WebSocket `/ws` (Phase 1 to 4)
+## WebSocket `/ws` (hub since Phase 2 step 0; message types added in Phases 2 to 4)
 
-The connection is authenticated by the session cookie during the upgrade (`401` if invalid). Each tab has its own connection. Every frame is a JSON envelope:
+The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not `FRONTEND_ORIGIN`; requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
+
+Each tab has its own connection; an event for a user goes to all of that user's tabs. The server sends a ping every 30 s and drops a connection that sends nothing (not even a pong) for 60 s. Browsers answer pings automatically. Events for a user with no open connection are not queued: the data is in the database and the page loads it.
+
+Right now the server only sends events (none are defined yet; `notification` arrives in Phase 2 step 2) and ignores frames from the browser. Every frame is a JSON envelope:
 
 ```jsonc
 { "type": "...", "payload": { ... } }

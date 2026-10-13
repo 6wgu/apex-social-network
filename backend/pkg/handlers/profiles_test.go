@@ -104,7 +104,7 @@ func TestProfileRoutesNeedASession(t *testing.T) {
 
 	for _, route := range [][2]string{
 		{"GET", "/api/me"}, {"PATCH", "/api/me"}, {"PATCH", "/api/me/privacy"},
-		{"GET", "/api/users"}, {"GET", "/api/users/1"}, {"POST", "/api/logout"},
+		{"GET", "/api/users"}, {"GET", "/api/users/1"}, {"GET", "/ws"},
 	} {
 		if status, body := c.json(route[0], route[1], `{}`); status != http.StatusUnauthorized || body["error"] == nil {
 			t.Errorf("%s %s without a session = %d %v, want 401", route[0], route[1], status, body)

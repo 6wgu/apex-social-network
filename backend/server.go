@@ -13,6 +13,8 @@ import (
 	"social-network/pkg/db/sqlite"
 	"social-network/pkg/handlers"
 	"social-network/pkg/middleware"
+	"social-network/pkg/session"
+	"social-network/pkg/ws"
 )
 
 func env(key, fallback string) string {
@@ -56,11 +58,18 @@ func main() {
 		log.Fatalf("unknown -migrate value %q (use up or down)", *migrateFlag)
 	}
 
+	// Sessions that expired while the server was down are useless; drop them.
+	if err := session.DeleteExpired(db); err != nil {
+		log.Fatalf("delete expired sessions: %v", err)
+	}
+	// COOKIE_SECURE=1 when the site is served over HTTPS; off for http://localhost.
+	session.SecureCookies = os.Getenv("COOKIE_SECURE") == "1"
+
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		log.Fatalf("create upload dir: %v", err)
 	}
 
-	app := &handlers.App{DB: db, UploadDir: uploadDir}
+	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origin)}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,
 		middleware.Logger,

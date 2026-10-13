@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"social-network/pkg/db/sqlite"
 )
@@ -92,5 +93,20 @@ func TestCookieFlags(t *testing.T) {
 	}
 	if got := rec.Header().Get("Set-Cookie"); !strings.Contains(got, "SameSite=Lax") {
 		t.Errorf("Set-Cookie %q has no SameSite=Lax", got)
+	}
+}
+
+func TestSecureFlagFollowsSetting(t *testing.T) {
+	defer func() { SecureCookies = false }()
+	for _, secure := range []bool{false, true} {
+		SecureCookies = secure
+		rec := httptest.NewRecorder()
+		SetCookie(rec, "id", time.Now().Add(time.Hour))
+		ClearCookie(rec)
+		for _, c := range rec.Result().Cookies() {
+			if c.Secure != secure {
+				t.Errorf("SecureCookies=%v: cookie %q (MaxAge %d) has Secure=%v", secure, c.Name, c.MaxAge, c.Secure)
+			}
+		}
 	}
 }
