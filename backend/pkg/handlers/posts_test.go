@@ -142,7 +142,7 @@ func TestPrivateProfileHidesPostList(t *testing.T) {
 	fan, _ := register(t, srv.URL, "fan@example.com", "Fan")
 	stranger, _ := register(t, srv.URL, "stranger@example.com", "Stranger")
 	follows(t, fan, authorID)
-	author.createPost("hello", "public", nil, nil)
+	author.createPost("hello", "public", nil, tinyPNG(t))
 	author.json("PATCH", "/api/me/privacy", `{"is_public": false}`)
 
 	path := fmt.Sprintf("/api/users/%d/posts", authorID)
@@ -154,6 +154,25 @@ func TestPrivateProfileHidesPostList(t *testing.T) {
 	}
 	if status, list := author.list(path); status != http.StatusOK || len(list) != 1 {
 		t.Errorf("owner lists posts = %d %v", status, list)
+	}
+	// The profile's privacy wins over the post's: a public post of a private
+	// profile is hidden from non-followers everywhere, image included.
+	_, list := author.list(path)
+	postID := fmt.Sprint(int64(list[0]["id"].(float64)))
+	image := list[0]["image_path"].(string)
+	if got := stranger.status("/api/posts/" + postID); got != http.StatusNotFound {
+		t.Errorf("stranger GET a private profile's public post = %d, want 404", got)
+	}
+	if got := stranger.status(image); got != http.StatusNotFound {
+		t.Errorf("stranger GET a private profile's public post image = %d, want 404", got)
+	}
+	if got := fan.status("/api/posts/" + postID); got != http.StatusOK {
+		t.Errorf("follower GET a private profile's public post = %d, want 200", got)
+	}
+	// Going public again shows it to everyone.
+	author.json("PATCH", "/api/me/privacy", `{"is_public": true}`)
+	if got := stranger.status("/api/posts/" + postID); got != http.StatusOK {
+		t.Errorf("stranger GET the public post after the profile went public = %d, want 200", got)
 	}
 	if status, _ := stranger.list("/api/users/999/posts"); status != http.StatusNotFound {
 		t.Errorf("unknown user's posts = %d, want 404", status)

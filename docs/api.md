@@ -110,11 +110,11 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 
 Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVisibleSQL` in `pkg/handlers/posts.go`, and every endpoint that returns posts uses it:
 - The author always sees their own post.
-- `public`: every logged-in user.
+- `public`: every logged-in user when the author's profile is public. When the profile is **private**, only the author's accepted followers can see it: a private profile shows its posts to followers only, whatever each post's own setting.
 - `almost_private`: the author's accepted followers.
 - `private`: the followers chosen in `post_viewers`, **while they still follow** the author. Unfollowing takes the access away; following again gives it back.
 
-`GET /api/users/{id}/posts` first applies the profile rule (`CanViewProfile`): a private profile's posts, even its public ones, are listed only to the owner and to accepted followers.
+`GET /api/users/{id}/posts` also applies the profile rule (`CanViewProfile`) first, answering `403` instead of an empty list for a private profile you neither own nor follow.
 
 **Images.** `GET /uploads/{name}` checks whether the file belongs to a post. If it does, it applies that post's `CanViewPost`, and someone who may not see the post gets the same `404` as for a missing file. Any other stored image (an avatar) is served to every logged-in user. Post images are sent with `Cache-Control: private, no-cache`.
 

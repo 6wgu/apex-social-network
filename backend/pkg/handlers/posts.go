@@ -27,12 +27,18 @@ const (
 // the rule lives in one place and is applied by the database, not by
 // filtering in Go:
 //   - the author always sees their own post
-//   - public: every logged-in user
+//   - public: every logged-in user if the author's profile is public; only
+//     accepted followers if it is private (a private profile shows its
+//     posts to followers only, whatever each post's own setting)
 //   - almost_private: the author's accepted followers
 //   - private: the followers the author chose, while they still follow
 const postVisibleSQL = `(
 	p.user_id = ?1
-	OR p.privacy = 'public'
+	OR (p.privacy = 'public' AND (
+		EXISTS (SELECT 1 FROM users author WHERE author.id = p.user_id AND author.is_public = 1)
+		OR EXISTS (
+		SELECT 1 FROM follows f
+		WHERE f.follower_id = ?1 AND f.following_id = p.user_id AND f.status = 'accepted')))
 	OR (p.privacy = 'almost_private' AND EXISTS (
 		SELECT 1 FROM follows f
 		WHERE f.follower_id = ?1 AND f.following_id = p.user_id AND f.status = 'accepted'))
