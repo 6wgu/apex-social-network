@@ -1,15 +1,15 @@
 # Database ERD
 
 Every table is created by a numbered migration in
-`backend/pkg/db/migrations/sqlite`. `users`, `sessions` and `follows` exist so
-far; the rest are added by the phase that needs them.
+`backend/pkg/db/migrations/sqlite`. `users`, `sessions`, `follows` and `notifications` exist
+so far; the rest are added by the phase that needs them.
 
 | Table | Migration added in |
 |---|---|
 | users, sessions | Phase 0 |
 | follows | Phase 1 (migration 000003: the table only, so private profiles can check it. The follow endpoints are Phase 2) |
 | posts, post_allowed_users, comments | Phase 2 |
-| notifications | Phase 2 |
+| notifications | Phase 2 (migration 000004) |
 | groups, group_members, group_invites, group_requests, events, event_responses | Phase 3 |
 | messages, group_messages | Phase 4 |
 
@@ -123,9 +123,9 @@ erDiagram
     notifications {
         INTEGER id PK
         INTEGER user_id FK "recipient"
-        INTEGER actor_id FK "who caused it"
-        TEXT type
-        INTEGER ref_id "group / event / request id, depends on type"
+        INTEGER actor_id FK "who caused it, nullable"
+        TEXT type "checked in Go, no CHECK, so Phase 3 can add types"
+        INTEGER ref_id "NULL for follow types; group / event id in Phase 3"
         INTEGER is_read
         DATETIME created_at
     }

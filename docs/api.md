@@ -87,7 +87,7 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/users/{id}/follow` | none | `200 {"follow_status":"following"}` if the target is public, `200 {"follow_status":"pending"}` if private (Phase 2 step 2: the target also gets a `follow_request` notification). `400` for yourself, `404` unknown user, `409 "you already follow this user"` or `409 "you already sent a follow request to this user"` |
+| POST | `/api/users/{id}/follow` | none | `200 {"follow_status":"following"}` if the target is public, `200 {"follow_status":"pending"}` if private (the target gets a `follow_request` notification if private, `new_follower` if public). `400` for yourself, `404` unknown user, `409 "you already follow this user"` or `409 "you already sent a follow request to this user"` |
 | DELETE | `/api/users/{id}/follow` | none | `204`: unfollows, or cancels my pending request. `404 "you are not following this user and have no pending request to them"` if there is nothing to remove, or the user does not exist |
 | GET | `/api/follow-requests` | none | `200 [{ "user": UserSummary, "created_at" }]`: pending requests sent **to me**, oldest first |
 | POST | `/api/follow-requests/{userId}/accept` | none | `204`: `{userId}` now follows me. `404` if `{userId}` has no pending request to me. Only the person a request was sent to can answer it, because the request is looked up as `{userId}` → logged-in user |
@@ -146,30 +146,42 @@ Comments on group posts use the normal `/api/posts/{id}/comments` endpoints. Acc
 
 ## Notifications (Phase 2 to 4)
 
+Every query is limited to the logged-in user's own rows: someone else's notification id behaves exactly like an unknown one (`404`).
+
 | Method | Path | Response |
 |---|---|---|
-| GET | `/api/notifications` | `200 [Notification]` newest first (max 50) |
-| POST | `/api/notifications/{id}/read` | `204` |
+| GET | `/api/notifications?before={id}` | `200 [Notification]`: newest first, 50 per page. Pass the last `id` of a page as `before` for the next page. `400` if `before` is not a number |
+| GET | `/api/notifications/unread-count` | `200 {"unread": 3}` |
+| POST | `/api/notifications/{id}/read` | `204`. `404` if it is not yours or does not exist |
 | POST | `/api/notifications/read-all` | `204` |
 
 ```jsonc
 // Notification
-{ "id", "type", "actor": UserSummary, "ref_id": 3, "is_read": false, "created_at",
-  "group": { "id", "title" } | null,   // for group types
-  "event": { "id", "title" } | null }  // for group_event
+{ "id": 12, "type": "follow_request", "actor": UserSummary | null, "ref_id": null,
+  "is_read": false, "created_at": "2026-10-13 21:35:45" }
 ```
 
-| type | Sent to | ref_id |
-|---|---|---|
-| `follow_request` | private user who got a request | requester user id |
-| `group_invite` | invitee | invite id |
-| `group_join_request` | group creator | request id |
-| `group_event` | every group member except the creator | event id |
-| `new_follower` (extra) | public user who got a follower | follower user id |
-| `follow_accepted` (extra) | requester whose request was accepted | user id |
-| `group_request_accepted` (extra) | user whose join request was accepted | group id |
+`actor` is the user who caused the notification. It is `null` only if that account no longer exists. Phase 3 will add `group` and `event` objects for the group types.
 
-The bell shows the follow, invite and join-request items with inline Accept / Decline buttons. Those buttons call the endpoints above.
+| type | Sent to | actor | ref_id | Lifetime |
+|---|---|---|---|---|
+| `follow_request` | private user who got a request | requester | null | **Removed** when the request is accepted, declined or cancelled, or when the user goes public. Answer it with `POST /api/follow-requests/{actor.id}/accept` or `/decline` |
+| `new_follower` (extra) | public user who got a follower | follower | null | stays |
+| `follow_accepted` (extra) | requester whose request was accepted (by hand, or by the user going public) | the user who accepted | null | stays |
+| `group_invite` (Phase 3) | invitee | inviter | group id | |
+| `group_join_request` (Phase 3) | group creator | requester | group id | |
+| `group_event` (Phase 3) | every group member except the creator | event creator | event id | |
+
+### Live updates
+
+Over the WebSocket (`/ws`), the recipient's open tabs get:
+
+| type | payload | when |
+|---|---|---|
+| `notification` | `Notification` | a notification was created for you |
+| `notification_removed` | `{"id": 12}` | one of your notifications was resolved and deleted (e.g. a follow request was cancelled) |
+
+Pushes are sent only after the database transaction has committed. A user with no open tab gets nothing pushed; `GET /api/notifications` shows everything on the next page load.
 
 ## Chat (Phase 4)
 
@@ -185,7 +197,7 @@ The connection is authenticated by the session cookie during the upgrade (`401` 
 
 Each tab has its own connection; an event for a user goes to all of that user's tabs. The server sends a ping every 30 s and drops a connection that sends nothing (not even a pong) for 60 s. Browsers answer pings automatically. Events for a user with no open connection are not queued: the data is in the database and the page loads it.
 
-Right now the server only sends events (none are defined yet; `notification` arrives in Phase 2 step 2) and ignores frames from the browser. Every frame is a JSON envelope:
+Right now the server only sends events (`notification` and `notification_removed`, see Notifications) and ignores frames from the browser. Every frame is a JSON envelope:
 
 ```jsonc
 { "type": "...", "payload": { ... } }
@@ -198,6 +210,7 @@ Right now the server only sends events (none are defined yet; `notification` arr
 | server → client | `private_message` | `Message`: sent to the receiver's tabs and echoed to the sender's tabs |
 | server → client | `group_message` | `GroupMessage`: sent to every online member |
 | server → client | `notification` | `Notification` |
+| server → client | `notification_removed` | `{ "id": 12 }` |
 | server → client | `error` | `{ "message": "you can't message this user" }` |
 
 ```jsonc

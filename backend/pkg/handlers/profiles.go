@@ -220,8 +220,9 @@ func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+	var n notifier
 	if *body.IsPublic {
-		if err := acceptPendingRequests(tx, userID); err != nil {
+		if err := acceptPendingRequests(tx, &n, userID); err != nil {
 			serverError(w, err)
 			return
 		}
@@ -230,6 +231,7 @@ func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+	a.push(&n)
 	user, err := a.userByID(userID)
 	if err != nil {
 		serverError(w, err)

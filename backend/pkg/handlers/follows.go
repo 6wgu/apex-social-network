@@ -103,10 +103,23 @@ func (a *App) follow(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+
+	// A private target gets a request to answer; a public one is just told.
+	var n notifier
+	if status == "pending" {
+		err = n.add(tx, targetID, me, notifFollowRequest, nil)
+	} else {
+		err = n.add(tx, targetID, me, notifNewFollower, nil)
+	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		serverError(w, err)
 		return
 	}
+	a.push(&n)
 	writeJSON(w, http.StatusOK, map[string]string{"follow_status": apiFollowStatus(status)})
 }
 
@@ -117,15 +130,36 @@ func (a *App) unfollow(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	res, err := a.DB.Exec(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`, currentUserID(r), targetID)
+	me := currentUserID(r)
+	tx, err := a.DB.Begin()
 	if err != nil {
 		serverError(w, err)
 		return
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	defer tx.Rollback()
+	var status string
+	err = tx.QueryRow(`DELETE FROM follows WHERE follower_id = ? AND following_id = ? RETURNING status`, me, targetID).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "you are not following this user and have no pending request to them")
 		return
 	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	// A cancelled request disappears from the target's bell.
+	var n notifier
+	if status == "pending" {
+		if err := n.remove(tx, targetID, me, notifFollowRequest); err != nil {
+			serverError(w, err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		serverError(w, err)
+		return
+	}
+	a.push(&n)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -176,11 +210,18 @@ func (a *App) answerFollowRequest(accept bool) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "follow request not found")
 			return
 		}
+		me := currentUserID(r)
 		query := `DELETE FROM follows WHERE follower_id = ? AND following_id = ? AND status = 'pending'`
 		if accept {
 			query = `UPDATE follows SET status = 'accepted' WHERE follower_id = ? AND following_id = ? AND status = 'pending'`
 		}
-		res, err := a.DB.Exec(query, requesterID, currentUserID(r))
+		tx, err := a.DB.Begin()
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		defer tx.Rollback()
+		res, err := tx.Exec(query, requesterID, me)
 		if err != nil {
 			serverError(w, err)
 			return
@@ -189,6 +230,22 @@ func (a *App) answerFollowRequest(accept bool) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "follow request not found")
 			return
 		}
+		// The request is answered: it leaves my bell either way, and the
+		// requester hears about an acceptance.
+		var n notifier
+		err = n.remove(tx, me, requesterID, notifFollowRequest)
+		if err == nil && accept {
+			err = n.add(tx, requesterID, me, notifFollowAccepted, nil)
+		}
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			serverError(w, err)
+			return
+		}
+		a.push(&n)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -254,8 +311,34 @@ func (a *App) userSummaries(query string, args ...any) ([]models.UserSummary, er
 }
 
 // acceptPendingRequests is used when a profile turns public: everyone still
-// waiting becomes a follower, inside the caller's transaction.
-func acceptPendingRequests(tx *sql.Tx, userID int64) error {
-	_, err := tx.Exec(`UPDATE follows SET status = 'accepted' WHERE following_id = ? AND status = 'pending'`, userID)
-	return err
+// waiting becomes a follower, inside the caller's transaction. Their
+// follow_request notifications are resolved and each requester is told,
+// exactly as if the user had accepted them one by one.
+func acceptPendingRequests(tx *sql.Tx, n *notifier, userID int64) error {
+	rows, err := tx.Query(`UPDATE follows SET status = 'accepted' WHERE following_id = ? AND status = 'pending' RETURNING follower_id`, userID)
+	if err != nil {
+		return err
+	}
+	var requesters []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		requesters = append(requesters, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, requesterID := range requesters {
+		if err := n.remove(tx, userID, requesterID, notifFollowRequest); err != nil {
+			return err
+		}
+		if err := n.add(tx, requesterID, userID, notifFollowAccepted, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }

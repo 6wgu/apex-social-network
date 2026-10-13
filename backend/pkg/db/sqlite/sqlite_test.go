@@ -41,7 +41,7 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err := MigrateUp(db, testMigrations); err != nil {
 		t.Fatalf("first up: %v", err)
 	}
-	for _, want := range []string{"users", "sessions", "follows"} {
+	for _, want := range []string{"users", "sessions", "follows", "notifications"} {
 		if !tables(t, db)[want] {
 			t.Errorf("table %q missing after up", want)
 		}
