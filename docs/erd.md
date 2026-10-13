@@ -1,14 +1,15 @@
 # Database ERD
 
 Every table is created by a numbered migration in
-`backend/pkg/db/migrations/sqlite`. `users`, `sessions`, `follows` and `notifications` exist
-so far; the rest are added by the phase that needs them.
+`backend/pkg/db/migrations/sqlite`. `users`, `sessions`, `follows`, `notifications`, `posts`
+and `post_viewers` exist so far; the rest are added by the phase that needs them.
 
 | Table | Migration added in |
 |---|---|
 | users, sessions | Phase 0 |
 | follows | Phase 1 (migration 000003: the table only, so private profiles can check it. The follow endpoints are Phase 2) |
-| posts, post_allowed_users, comments | Phase 2 |
+| posts, post_viewers | Phase 2 (migrations 000005, 000006) |
+| comments | Phase 2 |
 | notifications | Phase 2 (migration 000004) |
 | groups, group_members, group_invites, group_requests, events, event_responses | Phase 3 |
 | messages, group_messages | Phase 4 |
@@ -47,14 +48,13 @@ erDiagram
     }
     posts {
         INTEGER id PK
-        INTEGER user_id FK
-        INTEGER group_id FK "NULL = profile post"
-        TEXT content
-        TEXT image_path
+        INTEGER user_id FK "author"
+        TEXT content "may be empty if there is an image"
+        TEXT image_path "may be empty if there is text"
         TEXT privacy "public | almost_private | private"
         DATETIME created_at
     }
-    post_allowed_users {
+    post_viewers {
         INTEGER post_id PK,FK
         INTEGER user_id PK,FK
     }
@@ -134,8 +134,8 @@ erDiagram
     users ||--o{ follows : "follower"
     users ||--o{ follows : "following"
     users ||--o{ posts : writes
-    posts ||--o{ post_allowed_users : "visible to"
-    users ||--o{ post_allowed_users : "chosen viewer"
+    posts ||--o{ post_viewers : "visible to"
+    users ||--o{ post_viewers : "chosen viewer"
     posts ||--o{ comments : has
     users ||--o{ comments : writes
     users ||--o{ groups : creates
@@ -143,7 +143,7 @@ erDiagram
     users ||--o{ group_members : "member of"
     groups ||--o{ group_invites : has
     groups ||--o{ group_requests : has
-    groups ||--o{ posts : contains
+    groups ||--o{ posts : "contains (Phase 3 adds posts.group_id)"
     groups ||--o{ events : has
     events ||--o{ event_responses : has
     users ||--o{ event_responses : answers
