@@ -40,6 +40,13 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
 	mux.Handle("GET /api/users", protected(a.searchUsers))
 	mux.Handle("GET /api/users/{id}", protected(a.getProfile))
+	mux.Handle("POST /api/users/{id}/follow", protected(a.follow))
+	mux.Handle("DELETE /api/users/{id}/follow", protected(a.unfollow))
+	mux.Handle("GET /api/users/{id}/followers", protected(a.listFollows(true)))
+	mux.Handle("GET /api/users/{id}/following", protected(a.listFollows(false)))
+	mux.Handle("GET /api/follow-requests", protected(a.listFollowRequests))
+	mux.Handle("POST /api/follow-requests/{userId}/accept", protected(a.answerFollowRequest(true)))
+	mux.Handle("POST /api/follow-requests/{userId}/decline", protected(a.answerFollowRequest(false)))
 	mux.Handle("GET /uploads/", auth(a.uploads()))
 	mux.Handle("GET /uploads", auth(a.uploads())) // 404, not a redirect to the folder
 

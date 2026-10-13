@@ -70,8 +70,8 @@ Login with an unknown email or a wrong password returns the same `401 {"error":"
 {
   "user": User,                 // email etc. included, never the password
   "can_view": true,
-  "follow_status": "none",      // none | pending | accepted  (viewer -> this user); "self" on own profile
-  "follower_count": 3, "following_count": 5
+  "follow_status": "none",      // none | pending | following  (viewer -> this user); "self" on own profile
+  "follower_count": 3, "following_count": 5   // accepted follows only; pending requests are not counted
 }
 ```
 
@@ -83,15 +83,19 @@ Otherwise (private and not following) only basic info is returned:
 
 ## Followers (Phase 2)
 
+A row in `follows` means *follower → following*. Its `status` is `pending` until a private user accepts, and `accepted` after that. A public user is followed with `accepted` straight away. Declining, cancelling and unfollowing delete the row, so the same pair can start over at any time. The API calls the states `none`, `pending`, `following` and `self`.
+
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/users/{id}/follow` | none | `200 {"status":"accepted"}` if the target is public, `{"status":"pending"}` if private (and the target gets a notification). `400` for yourself, `409` if a row already exists |
-| DELETE | `/api/users/{id}/follow` | none | `204`: unfollows, or cancels a pending request. `404` if there is no row |
-| GET | `/api/follow-requests` | none | `200 [{ "user": UserSummary, "created_at" }]` (incoming pending requests) |
-| POST | `/api/follow-requests/{userId}/accept` | none | `204` |
-| POST | `/api/follow-requests/{userId}/decline` | none | `204` (deletes the request; the requester may ask again) |
-| GET | `/api/users/{id}/followers` | none | `200 [UserSummary]`, or `403` if the profile is private and you don't follow it |
-| GET | `/api/users/{id}/following` | none | same as followers |
+| POST | `/api/users/{id}/follow` | none | `200 {"follow_status":"following"}` if the target is public, `200 {"follow_status":"pending"}` if private (Phase 2 step 2: the target also gets a `follow_request` notification). `400` for yourself, `404` unknown user, `409 "you already follow this user"` or `409 "you already sent a follow request to this user"` |
+| DELETE | `/api/users/{id}/follow` | none | `204`: unfollows, or cancels my pending request. `404 "you are not following this user and have no pending request to them"` if there is nothing to remove, or the user does not exist |
+| GET | `/api/follow-requests` | none | `200 [{ "user": UserSummary, "created_at" }]`: pending requests sent **to me**, oldest first |
+| POST | `/api/follow-requests/{userId}/accept` | none | `204`: `{userId}` now follows me. `404` if `{userId}` has no pending request to me. Only the person a request was sent to can answer it, because the request is looked up as `{userId}` → logged-in user |
+| POST | `/api/follow-requests/{userId}/decline` | none | `204`: deletes the request; the requester may ask again. `404` as for accept |
+| GET | `/api/users/{id}/followers` | none | `200 [UserSummary]`: users who follow `{id}` (accepted only), sorted by name. `403 "this profile is private"` if the profile is private and you are neither its owner nor an accepted follower, `404` unknown user |
+| GET | `/api/users/{id}/following` | none | `200 [UserSummary]`: users `{id}` follows (accepted only). Same `403` / `404` rule as followers |
+
+`PATCH /api/me/privacy` with `{"is_public": true}` also accepts every pending request to you, in the same transaction.
 
 ## Posts and comments (Phase 2)
 

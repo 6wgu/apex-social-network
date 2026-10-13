@@ -47,18 +47,18 @@ func (a *App) CanViewProfile(viewerID, ownerID int64) (bool, error) {
 	return allowed, err
 }
 
-// followStatus describes viewer -> owner: "self", "accepted", "pending" or "none".
+// followStatus describes viewer -> owner: "self", "following", "pending" or "none".
 func (a *App) followStatus(viewerID, ownerID int64) (string, error) {
 	if viewerID == ownerID {
-		return "self", nil
+		return followSelf, nil
 	}
 	var status string
 	err := a.DB.QueryRow(`SELECT status FROM follows WHERE follower_id = ? AND following_id = ?`,
 		viewerID, ownerID).Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "none", nil
+		return followNone, nil
 	}
-	return status, err
+	return apiFollowStatus(status), err
 }
 
 // getProfile handles GET /api/users/{id}.
@@ -195,7 +195,9 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 // updatePrivacy handles PATCH /api/me/privacy. There is no user ID in the
-// request: it always changes the profile of the session's owner.
+// request: it always changes the profile of the session's owner. Going
+// public accepts every pending follow request in the same transaction, so
+// a public profile never has requests waiting.
 func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IsPublic *bool `json:"is_public"`
@@ -208,7 +210,23 @@ func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := currentUserID(r)
-	if _, err := a.DB.Exec(`UPDATE users SET is_public = ? WHERE id = ?`, *body.IsPublic, userID); err != nil {
+	tx, err := a.DB.Begin()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE users SET is_public = ? WHERE id = ?`, *body.IsPublic, userID); err != nil {
+		serverError(w, err)
+		return
+	}
+	if *body.IsPublic {
+		if err := acceptPendingRequests(tx, userID); err != nil {
+			serverError(w, err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		serverError(w, err)
 		return
 	}
