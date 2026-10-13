@@ -40,6 +40,7 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
 	mux.Handle("GET /api/users", protected(a.searchUsers))
 	mux.Handle("GET /api/users/{id}", protected(a.getProfile))
+	mux.Handle("GET /api/users/{id}/posts", protected(a.userPosts))
 	mux.Handle("POST /api/users/{id}/follow", protected(a.follow))
 	mux.Handle("DELETE /api/users/{id}/follow", protected(a.unfollow))
 	mux.Handle("GET /api/users/{id}/followers", protected(a.listFollows(true)))
@@ -47,6 +48,8 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/follow-requests", protected(a.listFollowRequests))
 	mux.Handle("POST /api/follow-requests/{userId}/accept", protected(a.answerFollowRequest(true)))
 	mux.Handle("POST /api/follow-requests/{userId}/decline", protected(a.answerFollowRequest(false)))
+	mux.Handle("POST /api/posts", protected(a.createPost))
+	mux.Handle("GET /api/posts/{id}", protected(a.getPost))
 	mux.Handle("GET /api/notifications", protected(a.listNotifications))
 	mux.Handle("GET /api/notifications/unread-count", protected(a.unreadNotifications))
 	mux.Handle("POST /api/notifications/{id}/read", protected(a.readNotification))
@@ -83,8 +86,10 @@ func (a *App) noRoute(mux *http.ServeMux, w http.ResponseWriter, r *http.Request
 
 // uploads serves the stored images. Files live flat in UploadDir, so any path
 // that is empty or has a separator is a directory request and gets a 404
-// instead of the file server's listing. nosniff stops browsers from guessing
-// a different type than the one we send.
+// instead of the file server's listing. A post's image follows the post's
+// privacy (canViewUpload): a viewer who may not see the post gets the same
+// 404 as for a missing file. nosniff stops browsers from guessing a
+// different type than the one we send.
 func (a *App) uploads() http.Handler {
 	files := http.StripPrefix("/uploads/", http.FileServer(http.Dir(a.UploadDir)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +103,17 @@ func (a *App) uploads() http.Handler {
 			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
+		allowed, err := a.canViewUpload(currentUserID(r), "/uploads/"+name)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		// Private images must not be kept by shared caches.
+		w.Header().Set("Cache-Control", "private, no-cache")
 		files.ServeHTTP(w, r)
 	})
 }

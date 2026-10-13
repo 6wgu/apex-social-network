@@ -8,7 +8,7 @@ only by pull request, and tell both sides.
 - The browser calls everything on the frontend origin (`http://localhost:3000`). Next.js rewrites `/api/*`, `/uploads/*` and `/ws` to the backend (`:8080`).
 - JSON uses `snake_case`. Times are UTC strings in the format SQLite returns: `"2026-10-13 12:00:00"`.
 - Every error response has the same shape: `{"error": "human readable message"}`.
-- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login` and `POST /api/logout` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users.
+- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login` and `POST /api/logout` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users, and post images only to users who may see the post.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
 - Images are JPEG, PNG or GIF, max 5 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
 - Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate.
@@ -21,9 +21,9 @@ only by pull request, and tell both sides.
 
 // Post
 {
-  "id": 10, "author": UserSummary, "group_id": null,
-  "content": "Hello 👋", "image_path": "",
-  "privacy": "public",            // public | almost_private | private (group posts: always "public")
+  "id": 10, "author": UserSummary,
+  "content": "Hello 👋", "image_path": "",   // either may be empty, never both
+  "privacy": "public",            // public | almost_private | private
   "comment_count": 2, "created_at": "2026-10-13 12:00:00"
 }
 
@@ -101,16 +101,22 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/posts` | multipart: `content`, `privacy`, `allowed_user_ids` (repeat the field once per id, only for `private`; each must be one of your followers), optional `image` | `201 Post` |
-| GET | `/api/feed?before={postId}` | none | `200 [Post]`: up to 20, newest first, only posts you may see |
-| GET | `/api/users/{id}/posts?before=` | none | `200 [Post]` that you may see, or `403` for a private profile you don't follow |
+| POST | `/api/posts` | multipart: `content` (up to 5000 characters), `privacy`, `viewer_ids` (only for `private`: repeat the field once per id, or send `1,2,3`), optional `image` (JPEG/PNG/GIF, 5 MB) | `201 Post`. `400` when: both `content` and `image` are empty; `privacy` is not one of the three; a `private` post has no viewers; a non-private post has `viewer_ids`; a viewer is not one of your **accepted** followers (the message names the id); or the image is invalid |
+| GET | `/api/posts/{id}` | none | `200 Post`. `404` if it does not exist **or you may not see it** (the two look the same) |
+| GET | `/api/users/{id}/posts?before={postId}` | none | `200 [Post]`: that user's posts that you may see, newest first, 20 per page. `403 "this profile is private"` for a private profile you neither own nor follow, `404` unknown user, `400` bad `before` |
+| GET | `/api/feed?before={postId}` | none | (step 5) `200 [Post]`: up to 20, newest first, only posts you may see |
 | GET | `/api/posts/{id}/comments` | none | `200 [Comment]` oldest first. `404` if you can't see the post |
 | POST | `/api/posts/{id}/comments` | multipart: `content`, optional `image` | `201 Comment`. `404` if you can't see the post |
 
-Who can see a profile post:
-- `public`: everyone.
-- `almost_private`: the author and accepted followers.
-- `private`: the author and the users listed in `post_allowed_users`.
+Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVisibleSQL` in `pkg/handlers/posts.go`, and every endpoint that returns posts uses it:
+- The author always sees their own post.
+- `public`: every logged-in user.
+- `almost_private`: the author's accepted followers.
+- `private`: the followers chosen in `post_viewers`, **while they still follow** the author. Unfollowing takes the access away; following again gives it back.
+
+`GET /api/users/{id}/posts` first applies the profile rule (`CanViewProfile`): a private profile's posts, even its public ones, are listed only to the owner and to accepted followers.
+
+**Images.** `GET /uploads/{name}` checks whether the file belongs to a post. If it does, it applies that post's `CanViewPost`, and someone who may not see the post gets the same `404` as for a missing file. Any other stored image (an avatar) is served to every logged-in user. Post images are sent with `Cache-Control: private, no-cache`.
 
 ## Groups and events (Phase 3)
 
