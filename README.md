@@ -79,7 +79,9 @@ backend/
 frontend/
 ├── app/                       Next.js pages (App Router)
 ├── components/                Navbar, AuthProvider (current user + route guard), RealtimeProvider (one WebSocket per tab),
-│                              NotificationBell, FollowButton, EditProfile, UserList, Avatar
+│                              NotificationBell, FollowButton, EditProfile, UserList, Avatar,
+│                              PostComposer, PostCard (with comments), PostList, ImagePicker
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
+├── lib/usePagedPosts.js       newest-first post lists with "Load more" (feed, profile posts)
 └── next.config.mjs            proxies /api, /uploads, /ws to the backend
 ```

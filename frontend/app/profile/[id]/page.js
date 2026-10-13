@@ -10,6 +10,9 @@ import FollowButton from "@/components/FollowButton";
 import UserList from "@/components/UserList";
 import { FOLLOWS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
+import PostComposer from "@/components/PostComposer";
+import PostList from "@/components/PostList";
+import usePagedPosts from "@/lib/usePagedPosts";
 
 const TABS = ["Posts", "Followers", "Following"];
 
@@ -51,6 +54,8 @@ export default function ProfilePage() {
   }, [load]);
 
   const canView = profile?.can_view;
+  // The Posts tab; nothing is requested for a profile we may not see.
+  const posts = usePagedPosts(canView && tab === "Posts" ? `/api/users/${encodeURIComponent(id)}/posts` : null);
   const listKind = tab === "Followers" ? "followers" : tab === "Following" ? "following" : null;
 
   // The Followers / Following tab content. Reloads whenever the profile does
@@ -196,7 +201,13 @@ export default function ProfilePage() {
                 </button>
               ))}
             </div>
-            {tab === "Posts" && <p className="muted tab-placeholder">Posts will be listed here soon.</p>}
+            {tab === "Posts" && isMine && <PostComposer onCreated={posts.prepend} />}
+            {tab === "Posts" && (
+              <PostList
+                feed={posts}
+                empty={isMine ? "You have not posted anything yet." : `${user.first_name} has no posts you can see.`}
+              />
+            )}
             {listKind && listError && <p className="form-error tab-placeholder">{listError}</p>}
             {listKind && !list && !listError && <p className="muted tab-placeholder">Loading…</p>}
             {listKind && list && (
