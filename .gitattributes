@@ -1,0 +1,2 @@
+# gofmt rejects CRLF, so Go files stay LF even on Windows checkouts.
+*.go text eol=lf

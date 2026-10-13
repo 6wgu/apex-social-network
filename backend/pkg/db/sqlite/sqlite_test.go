@@ -2,7 +2,10 @@ package sqlite
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -68,5 +71,75 @@ func TestForeignKeysOn(t *testing.T) {
 	var on int
 	if err := db.QueryRow(`PRAGMA foreign_keys`).Scan(&on); err != nil || on != 1 {
 		t.Fatalf("foreign_keys = %d, err %v; want 1", on, err)
+	}
+}
+
+// Transactions that read and then write must not fail with "database is
+// locked" when several run at once (needs _txlock=immediate).
+func TestConcurrentReadThenWrite(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "conc.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := MigrateUp(db, testMigrations); err != nil {
+		t.Fatal(err)
+	}
+
+	const workers, perWorker = 8, 40
+	errs := make(chan error, workers*perWorker)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for i := 0; i < perWorker; i++ {
+				email := fmt.Sprintf("u%d_%d@example.com", w, i)
+				tx, err := db.Begin()
+				if err != nil {
+					errs <- err
+					continue
+				}
+				var n int
+				if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE email = ?`, email).Scan(&n); err != nil {
+					tx.Rollback()
+					errs <- err
+					continue
+				}
+				if _, err := tx.Exec(`INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth) VALUES (?, 'h', 'A', 'B', '1990-01-01')`, email); err != nil {
+					tx.Rollback()
+					errs <- err
+					continue
+				}
+				if err := tx.Commit(); err != nil {
+					errs <- err
+				}
+			}
+		}(w)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Errorf("transaction failed: %v", err)
+	}
+}
+
+// A path with URI special characters must open the file it names.
+func TestOpenEscapesPath(t *testing.T) {
+	for _, name := range []string{"plain.db", "with space.db", "hash#tag.db", "pct%41.db"} {
+		path := filepath.Join(t.TempDir(), name)
+		db, err := Open(path)
+		if err != nil {
+			t.Errorf("%q: open: %v", name, err)
+			continue
+		}
+		_, err = db.Exec(`CREATE TABLE x (a)`)
+		db.Close()
+		if err != nil {
+			t.Errorf("%q: exec: %v", name, err)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("%q: file was not created at the requested path: %v", name, err)
+		}
 	}
 }

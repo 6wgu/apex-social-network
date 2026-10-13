@@ -25,7 +25,7 @@ docker compose down -v && docker compose up --build
 
 ## Run locally (without Docker)
 
-Requires Go 1.24+ with a C compiler (CGO is needed for SQLite) and Node.js 20+.
+Requires Go 1.26+ with a C compiler (CGO is needed for SQLite) and Node.js 20+.
 
 ```sh
 # terminal 1

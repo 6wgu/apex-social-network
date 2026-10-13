@@ -1,6 +1,6 @@
 # ---- build stage ----
 # go-sqlite3 needs CGO, so build on the full Debian Go image (ships with gcc).
-FROM golang:1.24-bookworm AS build
+FROM golang:1.26-bookworm AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./

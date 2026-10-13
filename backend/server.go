@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"social-network/pkg/db/sqlite"
@@ -68,7 +71,32 @@ func main() {
 		Addr:              ":" + port,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second, // long enough for a 5 MB image upload
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
-	log.Printf("backend listening on :%s", port)
-	log.Fatal(srv.ListenAndServe())
+
+	// Stop on Ctrl+C or "docker stop": finish the requests in flight, then
+	// return so the deferred db.Close() runs.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("backend listening on :%s", port)
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		db.Close()
+		log.Fatalf("server stopped: %v", err)
+	case <-ctx.Done():
+		log.Println("shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown: %v", err)
+		}
+	}
 }
