@@ -199,7 +199,7 @@ Pushes are sent only after the database transaction has committed. A user with n
 | GET | `/api/messages/{userId}?before={messageId}` | `200 [Message]`: 50 per page, newest last; `403` if neither of you follows the other. Marks them read |
 | GET | `/api/groups/{id}/messages?before=` | `200 [GroupMessage]`: members only |
 
-## WebSocket `/ws` (hub since Phase 2 step 0; message types added in Phases 2 to 4)
+## WebSocket `/ws` (Phases 2 to 4)
 
 The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not `FRONTEND_ORIGIN`; requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
 
