@@ -4,7 +4,8 @@ services:
     image: social-network-backend
     container_name: social-network-backend
     environment:
-      FRONTEND_ORIGIN: http://localhost:3000
+      # Browser origins allowed to open /ws (comma-separated, exact matches only).
+      FRONTEND_ORIGIN: http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:3000
     ports:
       - "8080:8080"
     volumes:

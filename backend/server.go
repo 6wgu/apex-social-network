@@ -33,7 +33,7 @@ func main() {
 		dbPath     = env("DB_PATH", "data/social-network.db")
 		uploadDir  = env("UPLOAD_DIR", "uploads")
 		migrations = env("MIGRATIONS_PATH", "file://pkg/db/migrations/sqlite")
-		origin     = env("FRONTEND_ORIGIN", "http://localhost:3000")
+		origins    = ws.ParseOrigins(env("FRONTEND_ORIGIN", "http://localhost:3000,http://127.0.0.1:3000"))
 	)
 
 	db, err := sqlite.Open(dbPath)
@@ -69,11 +69,11 @@ func main() {
 		log.Fatalf("create upload dir: %v", err)
 	}
 
-	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origin)}
+	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...)}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,
 		middleware.Logger,
-		middleware.CORS(origin),
+		middleware.CORS(origins...),
 	)
 
 	srv := &http.Server{

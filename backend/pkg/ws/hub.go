@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,19 +56,37 @@ type Hub struct {
 	clients map[int64]map[*client]bool
 }
 
-// NewHub returns a hub that accepts upgrades from browsers on allowedOrigin
-// (the frontend, e.g. http://localhost:3000). The Next.js proxy forwards the
-// browser's Origin header unchanged, so this is the origin to allow. Requests
-// without an Origin header are not from a browser page (curl, tests) and are
-// allowed: the session cookie is still required.
-func NewHub(allowedOrigin string) *Hub {
+// ParseOrigins splits a comma-separated FRONTEND_ORIGIN value such as
+// "http://localhost:3000, http://127.0.0.1:3000" into its origins, dropping
+// blanks and any trailing slash.
+func ParseOrigins(list string) []string {
+	var origins []string
+	for _, o := range strings.Split(list, ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
+}
+
+// NewHub returns a hub that accepts upgrades from browsers on one of
+// allowedOrigins (the frontend, e.g. http://localhost:3000). Only exact
+// matches pass; there is no wildcard. The Next.js proxy forwards the
+// browser's Origin header unchanged, so these are the origins to allow.
+// Requests without an Origin header are not from a browser page (curl,
+// tests) and are allowed: the session cookie is still required.
+func NewHub(allowedOrigins ...string) *Hub {
+	allowed := map[string]bool{}
+	for _, o := range allowedOrigins {
+		allowed[o] = true
+	}
 	h := &Hub{clients: map[int64]map[*client]bool{}}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
-			return origin == "" || origin == allowedOrigin
+			return origin == "" || allowed[origin]
 		},
 	}
 	return h

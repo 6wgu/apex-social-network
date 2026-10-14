@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"social-network/pkg/ws"
 )
 
 func dialWS(t *testing.T, srv *httptest.Server, c *testClient, origin string) (*websocket.Conn, *http.Response, error) {
@@ -81,6 +83,36 @@ func waitFor(t *testing.T, cond func() bool) {
 		}
 	}
 	t.Fatal("condition not met within 2s")
+}
+
+// FRONTEND_ORIGIN may list several origins: each listed one may open /ws,
+// anything else is refused.
+func TestWebSocketOriginList(t *testing.T) {
+	app := newTestApp(t)
+	app.Hub = ws.NewHub(ws.ParseOrigins("http://localhost:3000, http://127.0.0.1:3000/")...)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+	alice, _ := register(t, srv.URL, "alice@example.com", "Alice")
+
+	for origin, want := range map[string]int{
+		"http://localhost:3000":  http.StatusSwitchingProtocols,
+		"http://127.0.0.1:3000":  http.StatusSwitchingProtocols,
+		"http://evil.example":    http.StatusForbidden,
+		"http://localhost:3001":  http.StatusForbidden,
+		"http://localhost:3000/": http.StatusForbidden, // exact match only
+	} {
+		conn, res, err := dialWS(t, srv, alice, origin)
+		if conn != nil {
+			conn.Close()
+		}
+		if res == nil {
+			t.Errorf("%s: no response (%v)", origin, err)
+			continue
+		}
+		if res.StatusCode != want {
+			t.Errorf("%s: status %d, want %d", origin, res.StatusCode, want)
+		}
+	}
 }
 
 // Logout closes every socket of that user: an event sent afterwards (a

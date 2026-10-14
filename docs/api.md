@@ -201,7 +201,7 @@ Pushes are sent only after the database transaction has committed. A user with n
 
 ## WebSocket `/ws` (Phases 2 to 4)
 
-The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not `FRONTEND_ORIGIN`; requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
+The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not one of the origins listed in `FRONTEND_ORIGIN` (comma-separated, exact matches; the default allows `http://localhost:3000` and `http://127.0.0.1:3000`); requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
 
 Each tab has its own connection; an event for a user goes to all of that user's tabs. The server sends a ping every 30 s and drops a connection that sends nothing (not even a pong) for 60 s. Browsers answer pings automatically. Events for a user with no open connection are not queued: the data is in the database and the page loads it.
 

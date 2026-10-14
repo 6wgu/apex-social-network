@@ -46,7 +46,7 @@ Backend environment variables (all optional):
 | `DB_PATH` | `data/social-network.db` |
 | `UPLOAD_DIR` | `uploads` |
 | `MIGRATIONS_PATH` | `file://pkg/db/migrations/sqlite` |
-| `FRONTEND_ORIGIN` | `http://localhost:3000`: the only browser origin allowed to open `/ws`, and the CORS origin when the frontend calls `:8080` directly |
+| `FRONTEND_ORIGIN` | `http://localhost:3000,http://127.0.0.1:3000`: comma-separated list of the browser origins allowed to open `/ws` (exact matches, no wildcard), also used for CORS when the frontend calls `:8080` directly |
 | `COOKIE_SECURE` | unset. Set to `1` when the site is served over HTTPS, to add the `Secure` flag to the session cookie |
 
 ## Migrations

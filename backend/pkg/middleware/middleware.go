@@ -65,13 +65,17 @@ func Recover(next http.Handler) http.Handler {
 	})
 }
 
-// CORS allows the frontend origin to call the API with cookies. With the
+// CORS allows the frontend origins to call the API with cookies. With the
 // Next.js proxy the browser sees one origin, so this only matters when the
 // frontend calls the backend port directly (e.g. local dev).
-func CORS(allowedOrigin string) func(http.Handler) http.Handler {
+func CORS(allowedOrigins ...string) func(http.Handler) http.Handler {
+	allowed := map[string]bool{}
+	for _, o := range allowedOrigins {
+		allowed[o] = true
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if origin := r.Header.Get("Origin"); origin != "" && origin == allowedOrigin {
+			if origin := r.Header.Get("Origin"); origin != "" && allowed[origin] {
 				h := w.Header()
 				h.Set("Access-Control-Allow-Origin", origin)
 				h.Set("Access-Control-Allow-Credentials", "true")
