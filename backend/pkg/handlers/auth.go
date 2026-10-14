@@ -34,6 +34,7 @@ const dummyHash = "$2a$10$ao.LYsoUHM3TPEfBMuDpQ.rXm.NuBqHqcsLoXoGzgpPRZdOxuUMna"
 
 // userColumns is the column list every query that fills a models.User selects.
 // created_at is formatted so it reads like SQLite's own datetime strings.
+// SQL constant: never built from user input; every value is a bound parameter.
 const userColumns = `id, email, first_name, last_name, date_of_birth, avatar_path,
 	nickname, about_me, is_public, strftime('%Y-%m-%d %H:%M:%S', created_at)`
 

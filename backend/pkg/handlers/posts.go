@@ -32,6 +32,8 @@ const (
 //     posts to followers only, whatever each post's own setting)
 //   - almost_private: the author's accepted followers
 //   - private: the followers the author chose, while they still follow
+//
+// SQL constant: never built from user input; every value is a bound parameter.
 const postVisibleSQL = `(
 	p.user_id = ?1
 	OR (p.privacy = 'public' AND (
@@ -62,10 +64,12 @@ type post struct {
 
 // postColumns selects a post (alias p) with its author (alias u) and its
 // number of comments.
+// SQL constant: never built from user input; every value is a bound parameter.
 const postColumns = `p.id, p.content, p.image_path, p.privacy, strftime('%Y-%m-%d %H:%M:%S', p.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)`
 
+// SQL constant: never built from user input; every value is a bound parameter.
 const postFrom = `FROM posts p JOIN users u ON u.id = p.user_id`
 
 func scanPost(row interface{ Scan(...any) error }) (post, error) {

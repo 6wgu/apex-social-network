@@ -49,9 +49,11 @@ type notification struct {
 // notificationColumns and scanNotification read one notification with its
 // actor. The actor is a LEFT JOIN as a safeguard; with ON DELETE CASCADE on
 // actor_id every listed notification has one.
+// SQL constant: never built from user input; every value is a bound parameter.
 const notificationColumns = `n.id, n.type, n.ref_id, n.is_read, strftime('%Y-%m-%d %H:%M:%S', n.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
 
+// SQL constant: never built from user input; every value is a bound parameter.
 const notificationFrom = `FROM notifications n LEFT JOIN users u ON u.id = n.actor_id`
 
 // extra receives any columns selected after notificationColumns.

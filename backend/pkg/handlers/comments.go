@@ -27,9 +27,11 @@ type comment struct {
 	CreatedAt string             `json:"created_at"`
 }
 
+// SQL constant: never built from user input; every value is a bound parameter.
 const commentColumns = `c.id, c.post_id, c.content, c.image_path, strftime('%Y-%m-%d %H:%M:%S', c.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
 
+// SQL constant: never built from user input; every value is a bound parameter.
 const commentFrom = `FROM comments c JOIN users u ON u.id = c.user_id`
 
 func scanComment(row interface{ Scan(...any) error }) (comment, error) {
