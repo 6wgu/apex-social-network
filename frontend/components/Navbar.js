@@ -48,7 +48,11 @@ export default function Navbar() {
 
       <nav className="nav-links">
         {links.map((l) => (
-          <Link key={l.href} href={l.href} className={pathname === l.href ? "active" : ""}>
+          <Link
+            key={l.href}
+            href={l.href}
+            className={pathname === l.href || (l.href !== "/" && pathname.startsWith(`${l.href}/`)) ? "active" : ""}
+          >
             {l.label}
             {l.href === "/chats" && <span className="badge badge-message" data-slot="unread-messages" hidden />}
           </Link>

@@ -15,7 +15,9 @@ export const PRIVACY = {
 // Form for POST /api/posts: text, image/GIF with preview, privacy, and, for
 // Private only, a picker of the followers who may see the post. The server
 // checks everything again (e.g. that chosen users really follow you).
-export default function PostComposer({ onCreated }) {
+// With groupId it posts to that group instead (POST /api/groups/{id}/posts):
+// a group post has no privacy choice, its group's members see it.
+export default function PostComposer({ onCreated, groupId }) {
   const { user } = useAuth();
   const [content, setContent] = useState("");
   const [image, setImage] = useState(null);
@@ -43,11 +45,13 @@ export default function PostComposer({ onCreated }) {
     setBusy(true);
     const form = new FormData();
     form.append("content", content);
-    form.append("privacy", privacy);
-    if (privacy === "private") chosen.forEach((id) => form.append("viewer_ids", id));
+    if (!groupId) {
+      form.append("privacy", privacy);
+      if (privacy === "private") chosen.forEach((id) => form.append("viewer_ids", id));
+    }
     if (image) form.append("image", image);
     try {
-      const post = await api("/api/posts", { method: "POST", body: form });
+      const post = await api(groupId ? `/api/groups/${groupId}/posts` : "/api/posts", { method: "POST", body: form });
       setContent("");
       setImage(null);
       setChosen([]);
@@ -60,7 +64,7 @@ export default function PostComposer({ onCreated }) {
   }
 
   const empty = !content.trim() && !image;
-  const needViewers = privacy === "private" && chosen.length === 0;
+  const needViewers = !groupId && privacy === "private" && chosen.length === 0;
 
   return (
     <form className="card composer" onSubmit={submit}>
@@ -69,7 +73,7 @@ export default function PostComposer({ onCreated }) {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={`What's on your mind, ${user.first_name}?`}
+          placeholder={groupId ? `Write something to the group, ${user.first_name}…` : `What's on your mind, ${user.first_name}?`}
           rows={3}
           maxLength={5000}
           aria-label="Post text"
@@ -78,42 +82,48 @@ export default function PostComposer({ onCreated }) {
 
       <ImagePicker value={image} onChange={setImage} />
 
-      <fieldset className="privacy-picker">
-        <legend>Who can see this?</legend>
-        {Object.entries(PRIVACY).map(([value, p]) => (
-          <label key={value} className={privacy === value ? "selected" : ""} title={p.hint}>
-            <input type="radio" name="privacy" value={value} checked={privacy === value} onChange={() => setPrivacy(value)} />
-            <span aria-hidden="true">{p.icon}</span> {p.label}
-          </label>
-        ))}
-      </fieldset>
-      <p className="hint">{PRIVACY[privacy].hint}.</p>
+      {groupId ? (
+        <p className="hint">👥 Only members of this group can see this post.</p>
+      ) : (
+        <>
+          <fieldset className="privacy-picker">
+            <legend>Who can see this?</legend>
+            {Object.entries(PRIVACY).map(([value, p]) => (
+              <label key={value} className={privacy === value ? "selected" : ""} title={p.hint}>
+                <input type="radio" name="privacy" value={value} checked={privacy === value} onChange={() => setPrivacy(value)} />
+                <span aria-hidden="true">{p.icon}</span> {p.label}
+              </label>
+            ))}
+          </fieldset>
+          <p className="hint">{PRIVACY[privacy].hint}.</p>
 
-      {privacy === "private" && (
-        <div className="viewer-picker">
-          {!followers && <p className="muted">Loading your followers…</p>}
-          {followers && followers.length === 0 && (
-            <p className="muted">You have no followers yet, so there is nobody to share a private post with.</p>
+          {privacy === "private" && (
+            <div className="viewer-picker">
+              {!followers && <p className="muted">Loading your followers…</p>}
+              {followers && followers.length === 0 && (
+                <p className="muted">You have no followers yet, so there is nobody to share a private post with.</p>
+              )}
+              {followers && followers.length > 0 && (
+                <>
+                  <p className="hint">
+                    Choose followers ({chosen.length} of {followers.length} selected):
+                  </p>
+                  <ul>
+                    {followers.map((f) => (
+                      <li key={f.id}>
+                        <label className={chosen.includes(f.id) ? "selected" : ""}>
+                          <input type="checkbox" checked={chosen.includes(f.id)} onChange={() => toggle(f.id)} />
+                          <Avatar user={f} size={28} />
+                          {f.first_name} {f.last_name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
           )}
-          {followers && followers.length > 0 && (
-            <>
-              <p className="hint">
-                Choose followers ({chosen.length} of {followers.length} selected):
-              </p>
-              <ul>
-                {followers.map((f) => (
-                  <li key={f.id}>
-                    <label className={chosen.includes(f.id) ? "selected" : ""}>
-                      <input type="checkbox" checked={chosen.includes(f.id)} onChange={() => toggle(f.id)} />
-                      <Avatar user={f} size={28} />
-                      {f.first_name} {f.last_name}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
+        </>
       )}
 
       {error && (

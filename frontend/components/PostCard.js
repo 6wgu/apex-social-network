@@ -125,18 +125,21 @@ function Comments({ postId, onAdded }) {
 }
 
 // One post: author, time, privacy icon, text, image, and its comments.
+// A group post has no privacy icon: its group decides who sees it.
 export default function PostCard({ post }) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(post.comment_count);
-  const privacy = PRIVACY[post.privacy];
+  const privacy = post.group_id ? null : PRIVACY[post.privacy];
 
   return (
     <article className="card post">
       <header className="post-head">
         <Author user={post.author} time={post.created_at} />
-        <span className="post-privacy" title={`${privacy.label}: ${privacy.hint}`} aria-label={privacy.label}>
-          {privacy.icon}
-        </span>
+        {privacy && (
+          <span className="post-privacy" title={`${privacy.label}: ${privacy.hint}`} aria-label={privacy.label}>
+            {privacy.icon}
+          </span>
+        )}
       </header>
       {post.content && <p className="post-text">{post.content}</p>}
       {post.image_path && (

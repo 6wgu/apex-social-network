@@ -12,3 +12,15 @@ export function timeAgo(s) {
   if (seconds < 7 * 86400) return `${Math.floor(seconds / 86400)} d ago`;
   return parseTime(s).toLocaleDateString();
 }
+
+// "Sat, 1 Nov 2026, 18:00" in the viewer's own time zone (event times).
+export function formatEventTime(s) {
+  return parseTime(s).toLocaleString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
