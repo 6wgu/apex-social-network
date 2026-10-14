@@ -57,7 +57,7 @@ Migrations live in `backend/pkg/db/migrations/sqlite` as `NNNNNN_name.up.sql` / 
 cd backend
 go run . -migrate=down    # roll back every migration and exit
 go run .                  # apply them again and start
-go test ./...             # migrations (up/down, one by one), sessions, auth, profile rules, WebSocket hub
+go test ./...             # migrations (up/down, one by one), sessions, auth, profile, post and group rules, WebSocket hub
 ```
 
 Rule: a new table or column means a new numbered migration. Never edit a migration that has already been merged.
@@ -71,7 +71,8 @@ backend/
     ├── db/
     │   ├── migrations/sqlite/ numbered .up.sql / .down.sql files
     │   └── sqlite/sqlite.go   connection (FKs, WAL, busy timeout) + migrate up/down
-    ├── handlers/              routes and one file per feature (auth, profiles, upload)
+    ├── handlers/              routes and one file per feature (auth, profiles, follows, posts, comments,
+    │                          notifications, groups, events, upload)
     ├── middleware/            logging, panic recovery, CORS, RequireAuth
     ├── models/                structs shared by DB and JSON
     ├── session/               sessions table + session_id cookie
@@ -80,8 +81,9 @@ frontend/
 ├── app/                       Next.js pages (App Router)
 ├── components/                Navbar, AuthProvider (current user + route guard), RealtimeProvider (one WebSocket per tab),
 │                              NotificationBell, FollowButton, EditProfile, UserList, Avatar,
-│                              PostComposer, PostCard (with comments), PostList, ImagePicker
+│                              PostComposer, PostCard (with comments), PostList, ImagePicker,
+│                              GroupJoinButton, GroupEvents, InviteDialog, JoinRequests, Modal
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
-├── lib/usePagedPosts.js       newest-first post lists with "Load more" (feed, profile posts)
+├── lib/usePagedPosts.js       newest-first post lists with "Load more" (feed, profile and group posts)
 └── next.config.mjs            proxies /api, /uploads, /ws to the backend
 ```

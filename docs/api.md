@@ -23,7 +23,8 @@ only by pull request, and tell both sides.
 {
   "id": 10, "author": UserSummary,
   "content": "Hello 👋", "image_path": "",   // either may be empty, never both
-  "privacy": "public",            // public | almost_private | private
+  "privacy": "public",            // public | almost_private | private (always "public" for a group post, and ignored)
+  "group_id": null,               // the group of a group post, null for a profile post
   "comment_count": 2, "created_at": "2026-10-13 12:00:00"
 }
 
@@ -103,13 +104,14 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 |---|---|---|---|
 | POST | `/api/posts` | multipart: `content` (up to 5000 characters), `privacy`, `viewer_ids` (only for `private`: repeat the field once per id, or send `1,2,3`), optional `image` (JPEG/PNG/GIF, 5 MB) | `201 Post`. `400` when: both `content` and `image` are empty; `privacy` is not one of the three; a `private` post has no viewers; a non-private post has `viewer_ids`; a viewer is not one of your **accepted** followers (the message names the id); or the image is invalid |
 | GET | `/api/posts/{id}` | none | `200 Post`. `404` if it does not exist **or you may not see it** (the two look the same) |
-| GET | `/api/users/{id}/posts?before={postId}` | none | `200 [Post]`: that user's posts that you may see, newest first, 20 per page. `403 "this profile is private"` for a private profile you neither own nor follow, `404` unknown user, `400` bad `before` |
-| GET | `/api/feed?before={postId}` | none | `200 [Post]`: every post you may see, your own included, newest first, 20 per page. The privacy rule is part of the SQL query, so hidden posts are never loaded. `400` bad `before` |
+| GET | `/api/users/{id}/posts?before={postId}` | none | `200 [Post]`: that user's profile posts that you may see, newest first, 20 per page (group posts are not listed). `403 "this profile is private"` for a private profile you neither own nor follow, `404` unknown user, `400` bad `before` |
+| GET | `/api/feed?before={postId}` | none | `200 [Post]`: every profile post you may see, your own included, newest first, 20 per page. Group posts stay in their group. The privacy rule is part of the SQL query, so hidden posts are never loaded. `400` bad `before` |
 | GET | `/api/posts/{id}/comments?after={commentId}` | none | `200 [Comment]`: oldest first, 50 per page (pass the last `id` as `after`). `404` if the post does not exist **or you may not see it**. `400` bad `after` |
 | POST | `/api/posts/{id}/comments` | multipart: `content` (up to 2000 characters), optional `image` (JPEG/PNG/GIF, 5 MB) | `201 Comment`. `404` if you may not see the post (visibility is checked again in the `INSERT` itself). `400` if both are empty, the text is too long, or the image is invalid |
 
 Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVisibleSQL` in `pkg/handlers/posts.go`, and every endpoint that returns posts uses it:
-- The author always sees their own post.
+- A **group post** (`group_id` set) is visible to the group's members only, whatever its `privacy` says. None of the rules below apply to it. Its comments and images follow it, so they are members-only too.
+- The author always sees their own (profile) post.
 - `public`: every logged-in user when the author's profile is public. When the profile is **private**, only the author's accepted followers can see it: a private profile shows its posts to followers only, whatever each post's own setting.
 - `almost_private`: the author's accepted followers.
 - `private`: the followers chosen in `post_viewers`, **while they still follow** the author. Unfollowing takes the access away; following again gives it back.
@@ -122,35 +124,45 @@ Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVis
 
 ## Groups and events (Phase 3)
 
+Every logged-in user can browse groups and see a group's title, description, creator and member count. Everything inside a group (members, posts, comments, images, events) is for members only, checked in the backend on every endpoint. There are two ways in: an **invitation** from any member, which only the invitee can answer, or a **join request**, which only the group's creator can answer. Invitations and requests exist only while pending; answering deletes them. Joining either way also deletes the other one. Members are never removed (there is no leave or kick).
+
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/groups` | `{"title","description"}` | `201 Group` (the creator becomes a member) |
-| GET | `/api/groups` | none | `200 [Group]` (all groups, for browsing) |
-| GET | `/api/groups/{id}` | none | `200 Group`, plus `members: [UserSummary]` if you are a member |
-| POST | `/api/groups/{id}/invite` | `{"user_id": 7}` | `201` (members only; `409` if already a member or already invited) |
-| POST | `/api/group-invites/{inviteId}/accept` | none | `204` (invitee only) |
-| POST | `/api/group-invites/{inviteId}/decline` | none | `204` |
-| POST | `/api/groups/{id}/request` | none | `201` (non-members; `409` if already requested) |
-| GET | `/api/groups/{id}/requests` | none | `200 [{ "id", "user": UserSummary, "created_at" }]` (creator only) |
-| POST | `/api/group-requests/{requestId}/accept` | none | `204` (creator only) |
-| POST | `/api/group-requests/{requestId}/decline` | none | `204` (creator only) |
-| GET | `/api/groups/{id}/posts?before=` | none | `200 [Post]` (members only, otherwise `403`) |
-| POST | `/api/groups/{id}/posts` | multipart: `content`, optional `image` | `201 Post` (members only) |
-| GET | `/api/groups/{id}/events` | none | `200 [Event]` (members only) |
-| POST | `/api/groups/{id}/events` | `{"title","description","event_time":"2026-11-01T18:00"}` | `201 Event`; every other member gets a notification |
-| POST | `/api/events/{id}/respond` | `{"response":"going"}` or `"not_going"` | `200 Event` (members only; can be changed) |
+| POST | `/api/groups` | `{"title","description"}` | `201 Group`; the creator becomes the first member. `400` if either is empty, title over 100 or description over 2000 characters |
+| GET | `/api/groups` | none | `200 [Group]`: every group, newest first, each with your `my_status` |
+| GET | `/api/groups/{id}` | none | `200 Group`. Members also get `members` and `invited_users`. `404` unknown group |
+| POST | `/api/groups/{id}/invite` | `{"user_id": 7}` | `201 {"id","group_id","user_id"}`; the invitee gets `group_invite`. `403` if you are not a member, `404` unknown user, `400` no `user_id`, `409 "this user is already a member of the group"` or `409 "this user is already invited to the group"` |
+| POST | `/api/group-invites/{inviteId}/accept` | none | `204`: you are a member (your own pending join request to that group is removed too). `404` if the invitation does not exist **or is not addressed to you** |
+| POST | `/api/group-invites/{inviteId}/decline` | none | `204`: the invitation is deleted; a member may invite you again. `404` as for accept |
+| POST | `/api/groups/{id}/request` | none | `201 {"id","group_id"}`; the creator gets `group_join_request`. `409` if you are already a member, already invited (accept the invitation instead), or already asked |
+| DELETE | `/api/groups/{id}/request` | none | `204`: cancels your pending request (it leaves the creator's bell). `404` if you have none |
+| GET | `/api/groups/{id}/requests` | none | `200 [{ "id", "user": UserSummary, "created_at" }]`, oldest first. `403` for anyone but the creator |
+| POST | `/api/group-requests/{requestId}/accept` | none | `204`: the requester is a member and gets `group_request_accepted`. `403` for anyone but the group's creator, `404` unknown or already answered |
+| POST | `/api/group-requests/{requestId}/decline` | none | `204`: the request is deleted; the user may ask again. `403` / `404` as for accept |
+| GET | `/api/groups/{id}/posts?before={postId}` | none | `200 [Post]`, newest first, 20 per page. `403` for non-members |
+| POST | `/api/groups/{id}/posts` | multipart: `content` (up to 5000 characters), optional `image` | `201 Post` with `group_id` set. No privacy field: the group decides. `403` for non-members, `400` as for `/api/posts` |
+| GET | `/api/groups/{id}/events` | none | `200 [Event]`, by date, soonest first. `403` for non-members |
+| POST | `/api/groups/{id}/events` | `{"title","description","event_time"}` | `201 Event`; every other member gets `group_event`. `event_time` is RFC 3339 (`"2026-11-01T17:00:00Z"`, or with an offset); without a zone (`"2026-11-01T17:00"`) it is taken as UTC. `400` if a field is empty or too long, the time is not a date, or it is not in the future. `403` for non-members |
+| POST | `/api/events/{id}/respond` | `{"response":"going"}` or `"not_going"` | `200 Event` with fresh counts. Answering again changes your answer. `400` any other value, `404` if the event does not exist **or is in a group you are not in** |
 
 ```jsonc
 // Group
 { "id", "title", "description", "creator": UserSummary, "member_count",
-  "my_status": "none" | "member" | "invited" | "requested", "invite_id": null, "created_at" }
+  "my_status": "none" | "member" | "invited" | "requested",
+  "invite_id": null,          // your pending invitation's id when my_status is "invited" (answer it with /api/group-invites/{id}/...)
+  "created_at",
+  "members": [UserSummary],          // members only, in joining order
+  "invited_users": [UserSummary] }   // members only: pending invitations
 
 // Event
-{ "id", "group_id", "title", "description", "event_time", "creator": UserSummary,
-  "going_count", "not_going_count", "my_response": null | "going" | "not_going" }
+{ "id", "group_id", "title", "description", "event_time": "2026-11-01 17:00:00", // UTC
+  "creator": UserSummary, "going_count", "not_going_count",
+  "my_response": null | "going" | "not_going", "created_at" }
 ```
 
-Comments on group posts use the normal `/api/posts/{id}/comments` endpoints. Access is checked by group membership.
+Comments on group posts use the normal `/api/posts/{id}/comments` endpoints, and group post images the normal `/uploads/` path: both follow the post, so a non-member gets `404`, exactly as for a missing post.
+
+`IsGroupMember(user, group)` in `pkg/handlers/groups.go` is the membership check; group chat (Phase 4) uses it too.
 
 ## Notifications (Phase 2 to 4)
 
@@ -166,19 +178,22 @@ Every query is limited to the logged-in user's own rows: someone else's notifica
 ```jsonc
 // Notification
 { "id": 12, "type": "follow_request", "actor": UserSummary, "ref_id": null,
+  "group": null,   // { "id", "title" } for the group types
+  "event": null,   // { "id", "title", "event_time" } for group_event
   "is_read": false, "created_at": "2026-10-13 21:35:45" }
 ```
 
-`actor` is the user who caused the notification. It is always set: when a user is deleted, the notifications they caused are deleted with them (`actor_id` is `ON DELETE CASCADE`). Phase 3 will add `group` and `event` objects for the group types.
+`actor` is the user who caused the notification. It is always set: when a user is deleted, the notifications they caused are deleted with them (`actor_id` is `ON DELETE CASCADE`). For the group types the API adds the `group` (and for `group_event` the `event`) that `ref_id` points at, so the bell can name them without another request.
 
 | type | Sent to | actor | ref_id | Lifetime |
 |---|---|---|---|---|
 | `follow_request` | private user who got a request | requester | null | **Removed** when the request is accepted, declined or cancelled, or when the user goes public. Answer it with `POST /api/follow-requests/{actor.id}/accept` or `/decline` |
 | `new_follower` (extra) | public user who got a follower | follower | null | stays |
 | `follow_accepted` (extra) | requester whose request was accepted (by hand, or by the user going public) | the user who accepted | null | stays |
-| `group_invite` (Phase 3) | invitee | inviter | group id | |
-| `group_join_request` (Phase 3) | group creator | requester | group id | |
-| `group_event` (Phase 3) | every group member except the creator | event creator | event id | |
+| `group_invite` | invitee | the member who invited | group id | **Removed** when the invitation is accepted or declined. Answer it with `GET /api/groups/{group.id}` (its `invite_id`), then `POST /api/group-invites/{invite_id}/accept` or `/decline` |
+| `group_join_request` | the group's creator only | requester | group id | **Removed** when the creator accepts or declines, the requester cancels, or the requester joins through an invitation. Answer it from `GET /api/groups/{group.id}/requests` |
+| `group_request_accepted` (extra) | requester whose join request was accepted | the creator | group id | stays |
+| `group_event` | every member of the group except the event's creator | event creator | event id | stays |
 
 ### Live updates
 
