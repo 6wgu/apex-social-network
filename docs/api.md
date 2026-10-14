@@ -45,7 +45,7 @@ only by pull request, and tell both sides.
 |---|---|---|---|
 | POST | `/api/register` | multipart: `email`, `password`, `first_name`, `last_name`, `date_of_birth` (YYYY-MM-DD), optional `nickname`, `about_me`, `avatar` (file) | `201 User` and sets the cookie |
 | POST | `/api/login` | `{"email","password"}` | `200 User` and sets the cookie |
-| POST | `/api/logout` | none | `204`, always. Public route: deletes the session row if the cookie names one, and always clears the cookie, even when it is expired or unknown |
+| POST | `/api/logout` | none | `204`, always. Public route: deletes the session row if the cookie names one, and always clears the cookie, even when it is expired or unknown. For a valid session it also closes every open `/ws` connection of that user |
 | GET | `/api/me` | none | `200 User` |
 
 `User` is the full profile without the password:

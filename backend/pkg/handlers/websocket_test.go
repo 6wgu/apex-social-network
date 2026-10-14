@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -80,4 +81,41 @@ func waitFor(t *testing.T, cond func() bool) {
 		}
 	}
 	t.Fatal("condition not met within 2s")
+}
+
+// Logout closes every socket of that user: an event sent afterwards (a
+// follow request) never reaches the old tab, which sees a close instead.
+func TestLogoutClosesTheUsersSockets(t *testing.T) {
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+	alice, aliceID := register(t, srv.URL, "alice@example.com", "Alice")
+	bob, _ := register(t, srv.URL, "bob@example.com", "Bob")
+	if status, _ := alice.json("PATCH", "/api/me/privacy", `{"is_public": false}`); status != http.StatusOK {
+		t.Fatalf("alice goes private = %d", status)
+	}
+
+	tab, _, err := dialWS(t, srv, alice, "http://localhost:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tab.Close()
+	waitFor(t, func() bool { return app.Hub.Connections(aliceID) == 1 })
+
+	if status, _ := alice.do("POST", "/api/logout", "", nil); status != http.StatusNoContent {
+		t.Fatalf("logout = %d, want 204", status)
+	}
+	waitFor(t, func() bool { return app.Hub.Connections(aliceID) == 0 })
+	if status, _ := bob.do("POST", fmt.Sprintf("/api/users/%d/follow", aliceID), "", nil); status != http.StatusOK {
+		t.Fatalf("bob follows alice = %d", status)
+	}
+
+	tab.SetReadDeadline(time.Now().Add(2 * time.Second))
+	msgType, data, err := tab.ReadMessage()
+	if err == nil {
+		t.Fatalf("socket still open after logout: got frame type %d %s", msgType, data)
+	}
+	if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived, websocket.CloseNormalClosure) {
+		t.Errorf("want the server to close the socket, got %v", err)
+	}
 }

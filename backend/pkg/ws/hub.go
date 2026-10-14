@@ -110,6 +110,18 @@ func (h *Hub) SendToUser(userID int64, eventType string, payload any) {
 	}
 }
 
+// CloseUser closes every open connection of userID, e.g. on logout, so a tab
+// that is still open stops receiving that user's events. Each writeLoop sends
+// a close frame and closes its socket. A tab whose session is still valid
+// (another browser) simply reconnects.
+func (h *Hub) CloseUser(userID int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for c := range h.clients[userID] {
+		h.removeLocked(c)
+	}
+}
+
 // Connections returns how many connections userID has open (used by tests).
 func (h *Hub) Connections(userID int64) int {
 	h.mu.Lock()

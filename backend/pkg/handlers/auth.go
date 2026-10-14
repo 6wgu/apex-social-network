@@ -264,13 +264,22 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 // logout handles POST /api/logout. It is a public route on purpose: with an
 // expired or unknown cookie it still answers 204 and clears the cookie, so the
 // browser never keeps a dead one. A valid session row is deleted, so the
-// cookie is useless even if someone kept a copy of it.
+// cookie is useless even if someone kept a copy of it, and the user's open
+// WebSockets are closed so no tab keeps receiving their events.
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	session.ClearCookie(w)
 	if c, err := r.Cookie(session.CookieName); err == nil {
+		userID, err := session.Get(a.DB, c.Value)
+		if err != nil && !errors.Is(err, session.ErrNotFound) {
+			serverError(w, err)
+			return
+		}
 		if err := session.Delete(a.DB, c.Value); err != nil {
 			serverError(w, err)
 			return
+		}
+		if userID != 0 {
+			a.Hub.CloseUser(userID)
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
