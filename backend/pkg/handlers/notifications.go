@@ -11,9 +11,9 @@ import (
 )
 
 // Notification types. The database does not restrict type (see migration
-// 000004); this list is the source of truth. Phase 3 adds group_invite,
-// group_join_request and group_event, with ref_id pointing at the group or
-// event.
+// 000004); this list is the source of truth. The follow types have no
+// ref_id; the group types point ref_id at a group or an event, and the
+// API adds that group / event to the notification.
 const (
 	// notifFollowRequest: actor asked to follow user (a private profile).
 	// Removed again when the request is accepted, declined or cancelled.
@@ -22,6 +22,19 @@ const (
 	notifNewFollower = "new_follower"
 	// notifFollowAccepted: user's request to follow actor was accepted.
 	notifFollowAccepted = "follow_accepted"
+	// notifGroupInvite: actor invited user to a group (ref_id: group).
+	// Removed when the invitation is accepted or declined.
+	notifGroupInvite = "group_invite"
+	// notifGroupJoinRequest: actor asked to join a group user created
+	// (ref_id: group). Removed when the creator answers it, the requester
+	// cancels it, or the requester joins through an invitation instead.
+	notifGroupJoinRequest = "group_join_request"
+	// notifGroupRequestAccepted: the creator (actor) accepted user's request
+	// to join a group (ref_id: group).
+	notifGroupRequestAccepted = "group_request_accepted"
+	// notifGroupEvent: actor created an event in a group user is a member
+	// of (ref_id: event).
+	notifGroupEvent = "group_event"
 )
 
 // WebSocket event types for the bell.
@@ -42,27 +55,61 @@ type notification struct {
 	// (actor_id is ON DELETE CASCADE, migration 000004).
 	Actor     *models.UserSummary `json:"actor"`
 	RefID     *int64              `json:"ref_id"`
+	Group     *groupRef           `json:"group"` // set for the group types
+	Event     *eventRef           `json:"event"` // set for group_event
 	IsRead    bool                `json:"is_read"`
 	CreatedAt string              `json:"created_at"`
 }
 
+// groupRef and eventRef name what a group notification is about, so the
+// bell can say "invited you to Hiking club" without another request.
+type groupRef struct {
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+}
+
+type eventRef struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	EventTime string `json:"event_time"`
+}
+
 // notificationColumns and scanNotification read one notification with its
-// actor. The actor is a LEFT JOIN as a safeguard; with ON DELETE CASCADE on
-// actor_id every listed notification has one.
+// actor, and for the group types the group (and event) it is about. The
+// actor is a LEFT JOIN as a safeguard; with ON DELETE CASCADE on actor_id
+// every listed notification has one.
 // SQL constant: never built from user input; every value is a bound parameter.
 const notificationColumns = `n.id, n.type, n.ref_id, n.is_read, strftime('%Y-%m-%d %H:%M:%S', n.created_at),
-	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
+	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+	g.id, g.title, e.id, e.title, strftime('%Y-%m-%d %H:%M:%S', e.event_time)`
 
+// What ref_id points at depends on the type: an event for group_event (its
+// group comes through the event), a group for the other group types.
 // SQL constant: never built from user input; every value is a bound parameter.
-const notificationFrom = `FROM notifications n LEFT JOIN users u ON u.id = n.actor_id`
+const notificationFrom = `FROM notifications n
+	LEFT JOIN users u ON u.id = n.actor_id
+	LEFT JOIN events e ON n.type = 'group_event' AND e.id = n.ref_id
+	LEFT JOIN groups g ON g.id = CASE
+		WHEN n.type = 'group_event' THEN e.group_id
+		WHEN n.type IN ('group_invite', 'group_join_request', 'group_request_accepted') THEN n.ref_id
+	END`
 
 // extra receives any columns selected after notificationColumns.
 func scanNotification(row interface{ Scan(...any) error }, extra ...any) (notification, error) {
 	var n notification
 	var refID, actorID sql.NullInt64
 	var first, last, nick, avatar sql.NullString
-	dest := append([]any{&n.ID, &n.Type, &refID, &n.IsRead, &n.CreatedAt, &actorID, &first, &last, &nick, &avatar}, extra...)
+	var groupID, eventID sql.NullInt64
+	var groupTitle, eventTitle, eventTime sql.NullString
+	dest := append([]any{&n.ID, &n.Type, &refID, &n.IsRead, &n.CreatedAt, &actorID, &first, &last, &nick, &avatar,
+		&groupID, &groupTitle, &eventID, &eventTitle, &eventTime}, extra...)
 	err := row.Scan(dest...)
+	if groupID.Valid {
+		n.Group = &groupRef{ID: groupID.Int64, Title: groupTitle.String}
+	}
+	if eventID.Valid {
+		n.Event = &eventRef{ID: eventID.Int64, Title: eventTitle.String, EventTime: eventTime.String}
+	}
 	if refID.Valid {
 		n.RefID = &refID.Int64
 	}
@@ -106,8 +153,21 @@ func (n *notifier) add(tx *sql.Tx, userID, actorID int64, typ string, refID *int
 // remove deletes userID's notifications of type typ caused by actorID
 // inside tx, e.g. the follow_request from a requester once it is answered.
 func (n *notifier) remove(tx *sql.Tx, userID, actorID int64, typ string) error {
-	rows, err := tx.Query(`DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = ? RETURNING id`,
+	return n.removeRows(tx, userID, `DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = ? RETURNING id`,
 		userID, actorID, typ)
+}
+
+// removeRef is remove for the group types, which also match on ref_id: the
+// same inviter can invite the same user to several groups.
+func (n *notifier) removeRef(tx *sql.Tx, userID, actorID int64, typ string, refID int64) error {
+	return n.removeRows(tx, userID, `DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = ? AND ref_id = ? RETURNING id`,
+		userID, actorID, typ, refID)
+}
+
+// removeRows runs a DELETE … RETURNING id on userID's notifications and
+// remembers the ids, so push can tell userID's open tabs.
+func (n *notifier) removeRows(tx *sql.Tx, userID int64, query string, args ...any) error {
+	rows, err := tx.Query(query, args...)
 	if err != nil {
 		return err
 	}
