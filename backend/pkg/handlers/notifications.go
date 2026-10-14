@@ -35,17 +35,20 @@ const maxNotificationsPage = 50
 
 // notification is the JSON shape of one notification.
 type notification struct {
-	ID        int64               `json:"id"`
-	Type      string              `json:"type"`
-	Actor     *models.UserSummary `json:"actor"` // null if the actor has no account any more
+	ID   int64  `json:"id"`
+	Type string `json:"type"`
+	// Actor is a pointer because the query uses a LEFT JOIN, but in practice
+	// it is never null: deleting a user deletes their notifications too
+	// (actor_id is ON DELETE CASCADE, migration 000004).
+	Actor     *models.UserSummary `json:"actor"`
 	RefID     *int64              `json:"ref_id"`
 	IsRead    bool                `json:"is_read"`
 	CreatedAt string              `json:"created_at"`
 }
 
 // notificationColumns and scanNotification read one notification with its
-// actor. The actor is a LEFT JOIN so a notification never disappears from a
-// list because of a missing user.
+// actor. The actor is a LEFT JOIN as a safeguard; with ON DELETE CASCADE on
+// actor_id every listed notification has one.
 const notificationColumns = `n.id, n.type, n.ref_id, n.is_read, strftime('%Y-%m-%d %H:%M:%S', n.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
 

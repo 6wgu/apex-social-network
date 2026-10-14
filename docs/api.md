@@ -165,11 +165,11 @@ Every query is limited to the logged-in user's own rows: someone else's notifica
 
 ```jsonc
 // Notification
-{ "id": 12, "type": "follow_request", "actor": UserSummary | null, "ref_id": null,
+{ "id": 12, "type": "follow_request", "actor": UserSummary, "ref_id": null,
   "is_read": false, "created_at": "2026-10-13 21:35:45" }
 ```
 
-`actor` is the user who caused the notification. It is `null` only if that account no longer exists. Phase 3 will add `group` and `event` objects for the group types.
+`actor` is the user who caused the notification. It is always set: when a user is deleted, the notifications they caused are deleted with them (`actor_id` is `ON DELETE CASCADE`). Phase 3 will add `group` and `event` objects for the group types.
 
 | type | Sent to | actor | ref_id | Lifetime |
 |---|---|---|---|---|

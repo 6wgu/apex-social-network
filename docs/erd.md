@@ -123,7 +123,7 @@ erDiagram
     notifications {
         INTEGER id PK
         INTEGER user_id FK "recipient"
-        INTEGER actor_id FK "who caused it, nullable"
+        INTEGER actor_id FK "who caused it; rows are deleted with that user (CASCADE)"
         TEXT type "checked in Go, no CHECK, so Phase 3 can add types"
         INTEGER ref_id "NULL for follow types; group / event id in Phase 3"
         INTEGER is_read
