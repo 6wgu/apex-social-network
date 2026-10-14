@@ -14,16 +14,19 @@ ENV BACKEND_URL=$BACKEND_URL \
 RUN npm run build
 
 # ---- runtime stage ----
+# output: "standalone" puts a self-contained server.js (with the rewrites and
+# only the node_modules it uses) in .next/standalone. Static assets and
+# public/ are not part of it and are copied next to it.
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
-COPY --from=build /app/next.config.mjs ./
 
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

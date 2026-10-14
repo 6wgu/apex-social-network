@@ -5,6 +5,9 @@ const backend = process.env.BACKEND_URL || "http://localhost:8080";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Builds .next/standalone: a minimal server.js plus only the node_modules it
+  // needs, so the Docker runtime image does not carry the full dependency tree.
+  output: "standalone",
   experimental: {
     // The proxy cuts request bodies off at 10 MB by default, which turns a
     // too-big upload into a broken request. Let it through (the backend's own
