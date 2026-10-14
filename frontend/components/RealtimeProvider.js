@@ -1,20 +1,24 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
 const RealtimeContext = createContext({ connected: false, subscribe: () => () => {} });
 
 // Opens one WebSocket to /ws per tab while a user is logged in, and
-// reconnects with a growing delay (1 s, 2 s, 4 s … up to 30 s) when it drops.
+// reconnects with a growing delay (1 s, 2 s, 4 s … up to 30 s) when it drops,
+// unless the session is gone, in which case it logs out.
 // The Next.js server proxies /ws to the backend, so the session cookie and
 // the page's Origin go with the upgrade request.
 //
 // Components listen with useRealtime(handler); every event is
 // { type, payload } as described in docs/api.md.
 export default function RealtimeProvider({ children }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const userId = user?.id;
+  const logoutRef = useRef(logout);
+  logoutRef.current = logout;
   const listeners = useRef(new Set());
   const [connected, setConnected] = useState(false);
 
@@ -44,7 +48,23 @@ export default function RealtimeProvider({ children }) {
       socket.onclose = () => {
         setConnected(false);
         if (stopped) return;
-        retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
+        // The socket also closes when the session ends (logout in another
+        // tab, or expiry): ask the API before retrying. A 401 means there is
+        // nothing to reconnect to, so log out instead of retrying forever.
+        api("/api/me", { redirectOn401: false })
+          .then(() => {
+            if (!stopped) retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
+          })
+          .catch((err) => {
+            if (stopped) return;
+            if (err.status === 401) {
+              stopped = true;
+              logoutRef.current();
+              return;
+            }
+            // Backend unreachable: keep retrying with the growing delay.
+            retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
+          });
       };
     }
 
