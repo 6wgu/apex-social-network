@@ -495,9 +495,12 @@ button {
   display: flex;
   gap: 4px;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto; /* scrolls sideways on phones instead of overflowing the card */
 }
 
 .tabs button {
+  flex: none;
+  white-space: nowrap;
   padding: 8px 14px;
   border: none;
   border-bottom: 3px solid transparent;
@@ -1036,5 +1039,386 @@ button {
 
   .home-side {
     position: static;
+  }
+}
+
+/* ---- modal ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 16px 16px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.card .modal-head h2 {
+  margin: 0;
+}
+
+.modal-close {
+  flex: none;
+  font-size: 14px;
+}
+
+/* ---- groups list ---- */
+.groups-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.groups-head h1,
+.groups-head p {
+  margin: 0;
+}
+
+.groups-head .search {
+  flex-basis: 100%;
+}
+
+.group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.group-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.group-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #e7f0fd;
+  color: var(--primary);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.group-icon-large {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+  font-size: 40px;
+}
+
+.group-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-title {
+  font-weight: 700;
+}
+
+.group-title:hover {
+  text-decoration: underline;
+}
+
+.group-desc {
+  margin: 2px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.group-meta {
+  margin: 0;
+  font-size: 13px;
+}
+
+.group-join {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.group-join-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- group page ---- */
+.group-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.group-heading {
+  flex: 1;
+  min-width: 200px;
+}
+
+.group-heading h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.group-heading > p {
+  margin: 4px 0 0;
+}
+
+.group-about {
+  margin-top: 10px !important;
+}
+
+.tab-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.list-heading {
+  margin: 20px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.card .composer {
+  margin-top: 16px;
+  padding: 0;
+  border: none;
+}
+
+/* ---- events ---- */
+.event-form {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.event-past {
+  opacity: 0.75;
+}
+
+.event-date {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 60px;
+  border-radius: var(--radius);
+  background: #fdecef;
+  color: var(--danger);
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.event-date strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.event-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-body h3 {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.event-when,
+.event-by {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.event-desc {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rsvp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rsvp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.rsvp-btn:hover {
+  background: var(--bg);
+}
+
+.rsvp-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.rsvp-going {
+  border-color: var(--success);
+  background: #e3f4e7;
+  color: #1e7b34;
+}
+
+.rsvp-not-going {
+  border-color: var(--danger);
+  background: #fdecef;
+  color: #a3142d;
+}
+
+.rsvp-going .rsvp-count,
+.rsvp-not-going .rsvp-count {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- invite dialog and join requests ---- */
+.invite-hint {
+  margin: 8px 0;
+}
+
+.invite-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.request-list {
+  max-height: none;
+  margin-top: 12px;
+}
+
+.invite-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.invite-list li:first-child {
+  border-top: none;
+}
+
+.invite-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.invite-list button {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bell-detail {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .group-row {
+    flex-wrap: wrap;
+  }
+
+  .group-row .group-join,
+  .group-row > .btn-secondary {
+    margin-left: 60px;
+    align-items: flex-start;
+  }
+
+  .group-icon-large {
+    width: 64px;
+    height: 64px;
+    font-size: 30px;
+  }
+
+  .request-list li {
+    flex-wrap: wrap;
+  }
+
+  .request-actions {
+    width: 100%;
+    padding-left: 50px;
   }
 }
