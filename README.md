@@ -62,6 +62,8 @@ go test ./...             # migrations (up/down, one by one), sessions, auth, pr
 
 Rule: a new table or column means a new numbered migration. Never edit a migration that has already been merged.
 
+Rolling back `000014_add_group_id_to_posts` deletes every group post (the `group_id` column they depend on is dropped; their comments go with them). Their image files are **not** deleted: they stay in `uploads/` with nothing pointing to them. `/uploads/` treats a file that belongs to no post or comment like an avatar, so any logged-in user who knows its URL can still fetch it. Delete those files by hand after such a rollback.
+
 ## Project structure
 
 ```
