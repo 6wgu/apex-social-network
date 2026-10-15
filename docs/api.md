@@ -271,7 +271,17 @@ Every frame, in both directions, is a JSON envelope:
 | `private_message` | `{ "recipient_id": 7, "content": "hi 😀" }` | Checks the content, then stores it only if the follow rule holds (one `INSERT … SELECT … WHERE <rule>`). After the store it sends `private_message` to every tab of the recipient and of the sender; the sending tab's copy carries the `request_id`. On any problem it sends `error` to the sending tab only, and nothing is stored |
 | `group_message` | `{ "group_id": 3, "content": "hi all" }` | Checks the content, then stores it only if the sender is a member (inside the `INSERT`). After the store it sends `group_message` to every tab of every member; the sending tab's copy carries the `request_id`. A non-member gets `error` and nothing is stored |
 
-Frames are handled in order, one at a time per connection. Anything else gets an `error` and the connection stays open: a frame that is not JSON, a missing `type`, an unknown `type`, a payload of the wrong shape (unknown fields are rejected).
+Frames are handled in order, one at a time per connection. Anything else gets an `error` and the connection stays open: a frame that is not JSON (including text with invalid UTF-8 and binary frames), a missing `type`, an unknown `type`, or a payload of the wrong shape (unknown fields are rejected). When the frame could not be parsed, the `error` has no `request_id`.
+
+Limits per connection:
+- **Size:** a frame over **16 KB** closes the connection with WebSocket close code **1009** ("message too big"); the page reconnects. The largest valid frame, a 2000-character message, is far below that.
+- **Rate:** at most **10 frames per second**, with bursts of up to 10. Frames over the limit get `error` `too many messages: slow down` and are dropped (not stored); the connection stays open.
+
+A tab that disappears (closed, crashed, network cut) is dropped by the hub; other tabs and users are not affected. A connection whose outgoing buffer is full (a client that stopped reading) is closed instead of slowing anyone else down.
+
+**Reconnecting (frontend):** the page reconnects with a growing delay (1 s, 2 s, 4 s … up to 30 s), unless `/api/me` answers 401, in which case it logs out. Events sent while a tab was disconnected are not replayed, so after every (re)connect the page reloads what it shows: the unread message count, the notification bell, and the open conversation.
+
+**Unread counts:** unread private messages (`GET /api/messages/unread-count`, the blue square badge on Chats) and unread notifications (`GET /api/notifications/unread-count`, the red round badge on the bell) are separate counts. Group chat messages have no unread count.
 
 **Server → browser**
 
@@ -296,6 +306,7 @@ Frames are handled in order, one at a time per connection. Anything else gets an
 | `a message must be 2000 characters or fewer` | too long |
 | `payload must be {"recipient_id": <user id>, "content": "<text>"}` | missing or wrongly shaped payload |
 | `unknown event type "…"` | an unsupported `type` |
+| `too many messages: slow down` | more than 10 frames per second on this connection (the frame is dropped) |
 
 `error` messages for `group_message`: `only members can send messages to this group` (not a member, including invited or requested but not yet joined), `group not found`, `payload must be {"group_id": <group id>, "content": "<text>"}`, and the same content errors as above.
 

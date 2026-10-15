@@ -31,7 +31,10 @@ func newTestApp(t *testing.T) *App {
 	if err := os.MkdirAll(uploads, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return &App{DB: db, UploadDir: uploads, Hub: ws.NewHub("http://localhost:3000")}
+	hub := ws.NewHub("http://localhost:3000")
+	// Tests send many frames back to back; the real limit has its own test.
+	hub.SetRateLimit(10000, 10000)
+	return &App{DB: db, UploadDir: uploads, Hub: hub}
 }
 
 func TestWrongMethodIs405(t *testing.T) {

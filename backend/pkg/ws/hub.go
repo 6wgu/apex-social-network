@@ -27,8 +27,17 @@ const (
 	pongWait = 60 * time.Second
 	// pingPeriod must be shorter than pongWait so a healthy browser always answers in time.
 	pingPeriod = 30 * time.Second
-	// maxMessageSize caps a frame sent by the browser.
-	maxMessageSize = 64 << 10
+	// MaxFrameSize caps a frame sent by the browser. The largest valid frame
+	// is a 2000-character message (at most 8000 bytes of UTF-8) plus its
+	// envelope. A bigger frame closes the connection with code 1009
+	// ("message too big"); the page reconnects.
+	MaxFrameSize = 16 << 10
+	// DefaultRateLimit is how many frames per second one connection may
+	// send, with bursts of up to DefaultRateBurst. Frames over the limit
+	// are answered with an error event and dropped; the connection stays
+	// open. SetRateLimit changes it.
+	DefaultRateLimit = 10
+	DefaultRateBurst = 10
 	// sendBuffer is how many events may queue up for one slow connection.
 	sendBuffer = 32
 )
@@ -74,13 +83,40 @@ type Client struct {
 	userID int64
 	conn   *websocket.Conn
 	send   chan []byte
+
+	// Rate limiting (token bucket), only touched by readLoop.
+	tokens   float64
+	lastSeen time.Time
+}
+
+// allow reports whether one more frame fits in the rate limit at now:
+// the hub's rate of tokens per second is added, up to its burst, and every
+// frame takes one.
+func (c *Client) allow(now time.Time) bool {
+	rate, burst := c.hub.rateLimit, c.hub.rateBurst
+	if c.lastSeen.IsZero() {
+		c.tokens = burst
+	} else {
+		c.tokens += now.Sub(c.lastSeen).Seconds() * rate
+		if c.tokens > burst {
+			c.tokens = burst
+		}
+	}
+	c.lastSeen = now
+	if c.tokens < 1 {
+		return false
+	}
+	c.tokens--
+	return true
 }
 
 // Hub tracks every open connection, grouped by user, so one user with
 // several tabs gets each event in every tab.
 type Hub struct {
-	upgrader websocket.Upgrader
-	handler  Handler
+	upgrader  websocket.Upgrader
+	handler   Handler
+	rateLimit float64 // frames per second per connection
+	rateBurst float64
 
 	mu      sync.Mutex
 	clients map[int64]map[*Client]bool
@@ -110,7 +146,7 @@ func NewHub(allowedOrigins ...string) *Hub {
 	for _, o := range allowedOrigins {
 		allowed[o] = true
 	}
-	h := &Hub{clients: map[int64]map[*Client]bool{}}
+	h := &Hub{clients: map[int64]map[*Client]bool{}, rateLimit: DefaultRateLimit, rateBurst: DefaultRateBurst}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -136,6 +172,12 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, userID int64) {
 	h.register(c)
 	go c.writeLoop()
 	c.readLoop() // returns when the connection is gone
+}
+
+// SetRateLimit sets how many frames per second each connection may send,
+// and the burst allowed. Call it before connections are served.
+func (h *Hub) SetRateLimit(perSecond, burst float64) {
+	h.rateLimit, h.rateBurst = perSecond, burst
 }
 
 // SetHandler sets the function that processes frames sent by browsers.
@@ -263,13 +305,17 @@ func (h *Hub) removeLocked(c *Client) {
 
 // readLoop reads until the browser disconnects or stops answering pings,
 // and hands every frame to the hub's handler. A frame that is not a JSON
-// envelope is answered with an error event; the connection stays open.
+// envelope, or that goes over the rate limit, is answered with an error
+// event; the connection stays open. A frame over MaxFrameSize makes
+// gorilla/websocket close the connection with code 1009. Whatever happens,
+// the deferred unregister removes the client, so a vanished tab never
+// blocks or crashes the hub.
 func (c *Client) readLoop() {
 	defer func() {
 		c.hub.unregister(c)
 		c.conn.Close()
 	}()
-	c.conn.SetReadLimit(maxMessageSize)
+	c.conn.SetReadLimit(MaxFrameSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
 		return c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -279,10 +325,16 @@ func (c *Client) readLoop() {
 		if err != nil {
 			return
 		}
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		now := time.Now()
+		c.conn.SetReadDeadline(now.Add(pongWait))
 
 		var in Incoming
-		if err := json.Unmarshal(data, &in); err != nil || in.Type == "" {
+		parseErr := json.Unmarshal(data, &in)
+		if !c.allow(now) {
+			c.hub.ReplyError(c, in, "too many messages: slow down")
+			continue
+		}
+		if parseErr != nil || in.Type == "" {
 			c.hub.ReplyError(c, in, `a frame must be JSON like {"type": "...", "payload": {...}}`)
 			continue
 		}
