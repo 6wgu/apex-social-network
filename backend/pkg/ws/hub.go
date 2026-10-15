@@ -1,6 +1,6 @@
-// Package ws keeps the live WebSocket connections of logged-in users and lets
-// the rest of the backend push JSON events to them (notifications now, chat
-// messages in Phase 4).
+// Package ws keeps the live WebSocket connections of logged-in users, lets
+// the rest of the backend push JSON events to them, and hands the frames
+// browsers send (chat messages) to a handler set with SetHandler.
 //
 // Every connection gets two goroutines: readLoop owns reading (and notices
 // when the browser goes away) and writeLoop owns writing, because a
@@ -33,14 +33,43 @@ const (
 	sendBuffer = 32
 )
 
-// Event is the envelope of every frame: {"type": "...", "payload": {...}}.
+// Event is the envelope of every frame the server sends:
+// {"type": "...", "payload": {...}}, plus "request_id" when it answers a
+// frame the browser sent with one (so the page knows which send it was).
 type Event struct {
-	Type    string `json:"type"`
-	Payload any    `json:"payload"`
+	Type      string `json:"type"`
+	RequestID string `json:"request_id,omitempty"`
+	Payload   any    `json:"payload"`
 }
 
-// client is one open connection (one browser tab) of one user.
-type client struct {
+// Incoming is a frame a browser sent: {"type", "request_id", "payload"}.
+// request_id is optional and chosen by the browser; it is echoed back in the
+// answer (the stored message, or an error).
+type Incoming struct {
+	Type      string          `json:"type"`
+	RequestID string          `json:"request_id"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+// Handler processes one incoming frame from c. It runs on c's reader
+// goroutine, so frames from one tab are handled in order, one at a time.
+type Handler func(c *Client, in Incoming)
+
+// EventError is the type of the event sent back when a frame is rejected;
+// its payload is ErrorPayload.
+const EventError = "error"
+
+// ErrorPayload says why a frame was rejected. For is the type of the
+// rejected frame, when it could be read.
+type ErrorPayload struct {
+	Message string `json:"message"`
+	For     string `json:"for,omitempty"`
+}
+
+// Client is one open connection (one browser tab) of one user. Handlers get
+// it with each incoming frame, to answer that tab (Hub.Reply) or skip it
+// (Hub.SendToUserExcept).
+type Client struct {
 	hub    *Hub
 	userID int64
 	conn   *websocket.Conn
@@ -51,9 +80,10 @@ type client struct {
 // several tabs gets each event in every tab.
 type Hub struct {
 	upgrader websocket.Upgrader
+	handler  Handler
 
 	mu      sync.Mutex
-	clients map[int64]map[*client]bool
+	clients map[int64]map[*Client]bool
 }
 
 // ParseOrigins splits a comma-separated FRONTEND_ORIGIN value such as
@@ -80,7 +110,7 @@ func NewHub(allowedOrigins ...string) *Hub {
 	for _, o := range allowedOrigins {
 		allowed[o] = true
 	}
-	h := &Hub{clients: map[int64]map[*client]bool{}}
+	h := &Hub{clients: map[int64]map[*Client]bool{}}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -102,10 +132,22 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, userID int64) {
 		log.Printf("ws upgrade for user %d: %v", userID, err)
 		return
 	}
-	c := &client{hub: h, userID: userID, conn: conn, send: make(chan []byte, sendBuffer)}
+	c := &Client{hub: h, userID: userID, conn: conn, send: make(chan []byte, sendBuffer)}
 	h.register(c)
 	go c.writeLoop()
 	c.readLoop() // returns when the connection is gone
+}
+
+// SetHandler sets the function that processes frames sent by browsers.
+// Call it once, before connections are served.
+func (h *Hub) SetHandler(fn Handler) {
+	h.handler = fn
+}
+
+// UserID is the user this connection belongs to (from the session that
+// opened it).
+func (c *Client) UserID() int64 {
+	return c.userID
 }
 
 // SendToUser delivers an event to every open connection of userID. It never
@@ -113,19 +155,60 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, userID int64) {
 // a user with no connection simply misses the push (the data is in the
 // database, so the page reloads it).
 func (h *Hub) SendToUser(userID int64, eventType string, payload any) {
-	data, err := json.Marshal(Event{Type: eventType, Payload: payload})
-	if err != nil {
-		log.Printf("ws marshal %q: %v", eventType, err)
+	h.SendToUserExcept(userID, nil, eventType, payload)
+}
+
+// SendToUserExcept is SendToUser without the connection except (the tab
+// that sent the frame being answered, which gets Reply instead).
+func (h *Hub) SendToUserExcept(userID int64, except *Client, eventType string, payload any) {
+	data, ok := marshal(Event{Type: eventType, Payload: payload})
+	if !ok {
 		return
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for c := range h.clients[userID] {
-		select {
-		case c.send <- data:
-		default:
-			h.removeLocked(c)
+		if c != except {
+			h.enqueueLocked(c, data)
 		}
+	}
+}
+
+// Reply sends an event to the single connection c, echoing requestID.
+func (h *Hub) Reply(c *Client, eventType, requestID string, payload any) {
+	data, ok := marshal(Event{Type: eventType, RequestID: requestID, Payload: payload})
+	if !ok {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.clients[c.userID][c] { // a connection already gone gets nothing
+		h.enqueueLocked(c, data)
+	}
+}
+
+// ReplyError rejects a frame from c with an error event.
+func (h *Hub) ReplyError(c *Client, in Incoming, message string) {
+	h.Reply(c, EventError, in.RequestID, ErrorPayload{Message: message, For: in.Type})
+}
+
+func marshal(ev Event) ([]byte, bool) {
+	data, err := json.Marshal(ev)
+	if err != nil {
+		log.Printf("ws marshal %q: %v", ev.Type, err)
+		return nil, false
+	}
+	return data, true
+}
+
+// enqueueLocked queues data for c without blocking; a connection whose
+// buffer is full is too slow and gets closed. h.mu must be held, which
+// guarantees c.send is still open.
+func (h *Hub) enqueueLocked(c *Client, data []byte) {
+	select {
+	case c.send <- data:
+	default:
+		h.removeLocked(c)
 	}
 }
 
@@ -148,16 +231,16 @@ func (h *Hub) Connections(userID int64) int {
 	return len(h.clients[userID])
 }
 
-func (h *Hub) register(c *client) {
+func (h *Hub) register(c *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.clients[c.userID] == nil {
-		h.clients[c.userID] = map[*client]bool{}
+		h.clients[c.userID] = map[*Client]bool{}
 	}
 	h.clients[c.userID][c] = true
 }
 
-func (h *Hub) unregister(c *client) {
+func (h *Hub) unregister(c *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.removeLocked(c)
@@ -166,7 +249,7 @@ func (h *Hub) unregister(c *client) {
 // removeLocked drops c from the hub and closes its send channel, which tells
 // writeLoop to close the connection. h.mu must be held. It is safe to call
 // twice for the same client.
-func (h *Hub) removeLocked(c *client) {
+func (h *Hub) removeLocked(c *Client) {
 	conns, ok := h.clients[c.userID]
 	if !ok || !conns[c] {
 		return
@@ -178,10 +261,10 @@ func (h *Hub) removeLocked(c *client) {
 	close(c.send)
 }
 
-// readLoop reads until the browser disconnects or stops answering pings.
-// No incoming message types exist yet (chat comes in Phase 4), so frames are
-// read and ignored; reading is still needed to process pongs and closes.
-func (c *client) readLoop() {
+// readLoop reads until the browser disconnects or stops answering pings,
+// and hands every frame to the hub's handler. A frame that is not a JSON
+// envelope is answered with an error event; the connection stays open.
+func (c *Client) readLoop() {
 	defer func() {
 		c.hub.unregister(c)
 		c.conn.Close()
@@ -192,16 +275,28 @@ func (c *client) readLoop() {
 		return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	})
 	for {
-		if _, _, err := c.conn.ReadMessage(); err != nil {
+		_, data, err := c.conn.ReadMessage()
+		if err != nil {
 			return
 		}
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+
+		var in Incoming
+		if err := json.Unmarshal(data, &in); err != nil || in.Type == "" {
+			c.hub.ReplyError(c, in, `a frame must be JSON like {"type": "...", "payload": {...}}`)
+			continue
+		}
+		if c.hub.handler == nil {
+			c.hub.ReplyError(c, in, "unknown event type")
+			continue
+		}
+		c.hub.handler(c, in)
 	}
 }
 
 // writeLoop sends queued events and a ping every pingPeriod. It closes the
 // connection when the hub closes the send channel or a write fails.
-func (c *client) writeLoop() {
+func (c *Client) writeLoop() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
