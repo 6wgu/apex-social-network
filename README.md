@@ -85,7 +85,8 @@ frontend/
 ├── components/                Navbar, AuthProvider (current user + route guard), RealtimeProvider (one WebSocket per tab),
 │                              NotificationBell, FollowButton, EditProfile, UserList, Avatar,
 │                              PostComposer, PostCard (with comments), PostList, ImagePicker,
-│                              GroupJoinButton, GroupEvents, InviteDialog, JoinRequests, Modal
+│                              GroupJoinButton, GroupEvents, InviteDialog, JoinRequests, Modal,
+│                              ChatWindow (private and group chat), EmojiPicker, MessageButton, UnreadMessages
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
 ├── lib/usePagedPosts.js       newest-first post lists with "Load more" (feed, profile and group posts)
 └── next.config.mjs            proxies /api, /uploads, /ws to the backend

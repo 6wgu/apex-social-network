@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import usePagedPosts from "@/lib/usePagedPosts";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
+import ChatWindow from "@/components/ChatWindow";
 import GroupEvents from "@/components/GroupEvents";
 import GroupJoinButton from "@/components/GroupJoinButton";
 import InviteDialog from "@/components/InviteDialog";
@@ -14,7 +15,7 @@ import JoinRequests from "@/components/JoinRequests";
 import { GROUPS_CHANGED } from "@/components/NotificationBell";
 import PostComposer from "@/components/PostComposer";
 import PostList from "@/components/PostList";
-import { useRealtime } from "@/components/RealtimeProvider";
+import { useRealtime, useRealtimeSend } from "@/components/RealtimeProvider";
 import UserList from "@/components/UserList";
 
 // /groups/{id}, optionally ?tab=Events (links from the bell open a tab).
@@ -24,6 +25,7 @@ export default function GroupPage() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const { user: me } = useAuth();
+  const send = useRealtimeSend();
   const [group, setGroup] = useState(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("Posts");
@@ -84,7 +86,7 @@ export default function GroupPage() {
   }
   if (!group) return <p className="muted center">Loading…</p>;
 
-  const tabs = ["Posts", "Events", "Members", ...(isCreator ? ["Requests"] : [])];
+  const tabs = ["Posts", "Chat", "Events", "Members", ...(isCreator ? ["Requests"] : [])];
   const shownTab = tabs.includes(tab) ? tab : "Posts";
 
   return (
@@ -149,6 +151,14 @@ export default function GroupPage() {
               <PostComposer groupId={group.id} onCreated={posts.prepend} />
               <PostList feed={posts} empty="No posts in this group yet. Start the conversation!" />
             </>
+          )}
+          {shownTab === "Chat" && (
+            <ChatWindow
+              historyUrl={`/api/groups/${group.id}/messages`}
+              matches={(e) => e.type === "group_message" && e.payload.group_id === group.id}
+              send={(content) => send("group_message", { group_id: group.id, content })}
+              showNames
+            />
           )}
           {shownTab === "Events" && <GroupEvents groupId={group.id} reloadKey={reloadKey} />}
           {shownTab === "Members" && (
