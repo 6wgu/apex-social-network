@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import EditProfile from "@/components/EditProfile";
 import FollowButton from "@/components/FollowButton";
+import MessageButton from "@/components/MessageButton";
 import UserList from "@/components/UserList";
 import { FOLLOWS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
@@ -158,6 +159,7 @@ export default function ProfilePage() {
         ) : (
           <div className="profile-actions">
             <FollowButton userId={user.id} status={profile.follow_status} onChange={load} />
+            <MessageButton user={user} reloadKey={profile} />
           </div>
         )}
       </section>

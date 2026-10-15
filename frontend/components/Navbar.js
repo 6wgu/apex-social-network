@@ -10,7 +10,7 @@ import { useUnreadMessages } from "@/components/UnreadMessages";
 const links = [
   { href: "/", label: "Home" },
   { href: "/groups", label: "Groups" },
-  { href: "/chats", label: "Chats" },
+  { href: "/chats", label: "Chats", icon: "💬" },
 ];
 
 // Shown on every page. Logged out, it only offers Log in / Register.
@@ -56,6 +56,11 @@ export default function Navbar() {
             href={l.href}
             className={pathname === l.href || (l.href !== "/" && pathname.startsWith(`${l.href}/`)) ? "active" : ""}
           >
+            {l.icon && (
+              <span className="nav-icon" aria-hidden="true">
+                {l.icon}{" "}
+              </span>
+            )}
             {l.label}
             {l.href === "/chats" && (
               <span className="badge badge-message" hidden={!unread} aria-label={`${unread} unread messages`}>
