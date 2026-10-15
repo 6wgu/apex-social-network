@@ -23,6 +23,8 @@ type App struct {
 // New features add their routes here, following docs/api.md.
 func (a *App) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
+	// Frames browsers send over /ws (chat messages) are handled here too.
+	a.Hub.SetHandler(a.handleSocketEvent)
 	auth := middleware.RequireAuth(a.DB)
 	protected := func(h http.HandlerFunc) http.Handler { return auth(h) }
 
@@ -53,6 +55,11 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/posts/{id}/comments", protected(a.listComments))
 	mux.Handle("POST /api/posts/{id}/comments", protected(a.createComment))
 	mux.Handle("GET /api/feed", protected(a.feed))
+	mux.Handle("GET /api/conversations", protected(a.listConversations))
+	mux.Handle("GET /api/chat-contacts", protected(a.chatContacts))
+	mux.Handle("GET /api/messages/unread-count", protected(a.unreadMessages))
+	mux.Handle("GET /api/messages/{userId}", protected(a.messageHistory))
+	mux.Handle("POST /api/messages/{userId}/read", protected(a.markConversationRead))
 	mux.Handle("GET /api/notifications", protected(a.listNotifications))
 	mux.Handle("GET /api/notifications/unread-count", protected(a.unreadNotifications))
 	mux.Handle("POST /api/notifications/{id}/read", protected(a.readNotification))

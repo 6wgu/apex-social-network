@@ -207,45 +207,86 @@ Over the WebSocket (`/ws`), the recipient's open tabs get:
 
 Pushes are sent only after the database transaction has committed. A user with no open tab gets nothing pushed; `GET /api/notifications` shows everything on the next page load.
 
-## Chat (Phase 4)
+## Private messages (Phase 4)
+
+Two users may write to each other while **at least one of them follows the other with an accepted follow**. A pending request is not enough. The rule is checked inside the `INSERT` of every message, so an unfollow blocks the very next message. Messages already exchanged stay readable by both. Messages are sent over the WebSocket (`private_message`, see below) and read over REST.
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/api/chats` | `200 { "users": [UserSummary + "unread_count"], "groups": [{ "id", "title" }] }`: people you can message (follow either way) and your groups |
-| GET | `/api/messages/{userId}?before={messageId}` | `200 [Message]`: 50 per page, newest last; `403` if neither of you follows the other. Marks them read |
-| GET | `/api/groups/{id}/messages?before=` | `200 [GroupMessage]`: members only |
+| GET | `/api/conversations` | `200 [Conversation]`: everyone I have exchanged messages with, most recent conversation first |
+| GET | `/api/chat-contacts` | `200 [UserSummary]`: everyone I may message right now (I follow them or they follow me, accepted), sorted by name |
+| GET | `/api/messages/{userId}?before={messageId}` | `200 [Message]`: my conversation with `{userId}`, **newest first**, 50 per page (pass the last `id` as `before` for older ones). Readable while the follow rule allows chatting, and afterwards if messages were already exchanged. `403` otherwise (a third user can never read a conversation they are not in: the query only selects messages between the caller and `{userId}`). `400` for yourself or a bad `before`, `404` unknown user |
+| POST | `/api/messages/{userId}/read` | `204`: every message `{userId}` sent me is marked read (`read_at` set). My other tabs get `messages_read` |
+| GET | `/api/messages/unread-count` | `200 {"unread": 3}`: my unread private messages in total. Separate from the notification count |
 
-## WebSocket `/ws` (Phases 2 to 4)
+```jsonc
+// Message
+{ "id": 41, "sender": UserSummary, "recipient_id": 7, "content": "hi 👋",
+  "created_at": "2026-10-16 09:30:00", "read_at": null }   // read_at: when the recipient opened the conversation
+
+// Conversation
+{ "user": UserSummary,            // the other person
+  "last_message": Message,
+  "unread_count": 2,              // messages from them I have not read
+  "can_message": true }           // the follow rule right now (false: history only)
+```
+
+Content: trimmed, then 1 to 2000 **characters** (counted as Unicode code points, not bytes, so emojis fit), valid UTF-8. Emojis, including multi-code-point ones such as 👨‍👩‍👧 and flags, are stored and returned unchanged.
+
+Offline recipients: every message is stored. Someone who was offline sees the conversation, the unread counts and the history on their next login. Nothing is queued in memory.
+
+## WebSocket `/ws`
 
 The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not one of the origins listed in `FRONTEND_ORIGIN` (comma-separated, exact matches; the default allows `http://localhost:3000` and `http://127.0.0.1:3000`); requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
 
 Each tab has its own connection; an event for a user goes to all of that user's tabs. The server sends a ping every 30 s and drops a connection that sends nothing (not even a pong) for 60 s. Browsers answer pings automatically. Events for a user with no open connection are not queued: the data is in the database and the page loads it.
 
-Right now the server only sends events (`notification`, `notification_removed` and `group_changed`, see Notifications) and ignores frames from the browser. Every frame is a JSON envelope:
+Every frame, in both directions, is a JSON envelope:
 
 ```jsonc
-{ "type": "...", "payload": { ... } }
+{ "type": "...", "request_id": "r-17", "payload": { ... } }
 ```
 
-| Direction | type | payload |
+`request_id` is optional and chosen by the page. The server copies it into its answer to that frame (the stored message, or an `error`), so the page knows which send succeeded or failed. Server events that do not answer a frame have no `request_id`.
+
+**Browser → server**
+
+| type | payload | what the server does |
 |---|---|---|
-| client → server | `private_message` | `{ "receiver_id": 7, "content": "hi 😀" }` |
-| client → server | `group_message` | `{ "group_id": 2, "content": "hey all" }` |
-| server → client | `private_message` | `Message`: sent to the receiver's tabs and echoed to the sender's tabs |
-| server → client | `group_message` | `GroupMessage`: sent to every online member |
-| server → client | `notification` | `Notification` |
-| server → client | `notification_removed` | `{ "id": 12 }` |
-| server → client | `group_changed` | `{ "group_id": 3 }` |
-| server → client | `error` | `{ "message": "you can't message this user" }` |
+| `private_message` | `{ "recipient_id": 7, "content": "hi 😀" }` | Checks the content, then stores it only if the follow rule holds (one `INSERT … SELECT … WHERE <rule>`). After the store it sends `private_message` to every tab of the recipient and of the sender; the sending tab's copy carries the `request_id`. On any problem it sends `error` to the sending tab only, and nothing is stored |
+
+Frames are handled in order, one at a time per connection. Anything else gets an `error` and the connection stays open: a frame that is not JSON, a missing `type`, an unknown `type`, a payload of the wrong shape (unknown fields are rejected).
+
+**Server → browser**
+
+| type | payload | when |
+|---|---|---|
+| `private_message` | `Message` | a message to or from me was stored (all my tabs; the sending tab gets it with its `request_id`) |
+| `messages_read` | `{ "user_id": 7 }` | I marked my conversation with user 7 read in another tab |
+| `notification` | `Notification` | a notification was created for me |
+| `notification_removed` | `{ "id": 12 }` | one of my notifications was resolved |
+| `group_changed` | `{ "group_id": 3 }` | someone joined a group I am in |
+| `error` | `{ "message": "...", "for": "private_message" }` | a frame I sent was rejected; `for` is its type when it could be read |
+
+`error` messages for `private_message`:
+
+| message | when |
+|---|---|
+| `you can only message people you follow or who follow you` | the follow rule does not hold (no follow, a pending one, or an unfollow since the last message) |
+| `you can't message yourself` | `recipient_id` is the sender |
+| `user not found` | no such user |
+| `a message can't be empty` | only whitespace |
+| `a message must be 2000 characters or fewer` | too long |
+| `payload must be {"recipient_id": <user id>, "content": "<text>"}` | missing or wrongly shaped payload |
+| `unknown event type "…"` | an unsupported `type` |
+
+Example, a successful send:
 
 ```jsonc
-// Message
-{ "id", "sender": UserSummary, "receiver_id", "content", "created_at" }
-// GroupMessage
-{ "id", "group_id", "sender": UserSummary, "content", "created_at" }
+// browser
+{ "type": "private_message", "request_id": "r-17", "payload": { "recipient_id": 7, "content": "hi 👋" } }
+// sending tab
+{ "type": "private_message", "request_id": "r-17", "payload": { "id": 41, "sender": {…}, "recipient_id": 7, "content": "hi 👋", "created_at": "…", "read_at": null } }
+// the sender's other tabs and every tab of user 7
+{ "type": "private_message", "payload": { …the same message… } }
 ```
-
-Rules checked by the server on every send:
-- Private message: at least one of the two users follows the other. The message is always stored. It is pushed live to the receiver when the receiver follows the sender or has a public profile.
-- Group message: the sender must be a member.
-- Content is 1–2000 characters of UTF-8. Emojis are stored as-is.
