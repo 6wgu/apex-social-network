@@ -74,7 +74,7 @@ backend/
     │   ├── migrations/sqlite/ numbered .up.sql / .down.sql files
     │   └── sqlite/sqlite.go   connection (FKs, WAL, busy timeout) + migrate up/down
     ├── handlers/              routes and one file per feature (auth, profiles, follows, posts, comments,
-    │                          notifications, groups, events, messages, upload)
+    │                          notifications, groups, events, messages, group_messages, upload)
     ├── middleware/            logging, panic recovery, CORS, RequireAuth
     ├── models/                structs shared by DB and JSON
     ├── session/               sessions table + session_id cookie

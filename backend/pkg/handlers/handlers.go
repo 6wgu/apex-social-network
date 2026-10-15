@@ -55,6 +55,7 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/posts/{id}/comments", protected(a.listComments))
 	mux.Handle("POST /api/posts/{id}/comments", protected(a.createComment))
 	mux.Handle("GET /api/feed", protected(a.feed))
+	mux.Handle("GET /api/groups/{id}/messages", protected(a.groupMessageHistory))
 	mux.Handle("GET /api/conversations", protected(a.listConversations))
 	mux.Handle("GET /api/chat-contacts", protected(a.chatContacts))
 	mux.Handle("GET /api/messages/unread-count", protected(a.unreadMessages))

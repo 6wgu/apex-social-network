@@ -235,6 +235,21 @@ Content: trimmed, then 1 to 2000 **characters** (counted as Unicode code points,
 
 Offline recipients: every message is stored. Someone who was offline sees the conversation, the unread counts and the history on their next login. Nothing is queued in memory.
 
+## Group chat (Phase 4)
+
+Every group has one chat room. **Only members can send or read**, and membership is checked inside the `INSERT` of every message. The recipients of a message are read from `group_members` right after it is stored: the table is the only source of truth, there are no chat rooms kept in memory. A member sees the **whole history**, including messages from before they joined (the same as group posts). Messages are sent over the WebSocket (`group_message`) and read over REST.
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/api/groups/{id}/messages?before={messageId}` | `200 [GroupMessage]`: newest first, 50 per page. `403` for non-members (an invited user who has not accepted yet, or a pending join request, is not a member), `404` unknown group, `400` bad `before` |
+
+```jsonc
+// GroupMessage
+{ "id": 9, "group_id": 3, "sender": UserSummary, "content": "meet at 6 🕕", "created_at": "2026-10-16 18:00:00" }
+```
+
+Content follows the same rules as private messages: trimmed, 1 to 2000 characters, emojis unchanged.
+
 ## WebSocket `/ws`
 
 The connection is authenticated by the session cookie during the upgrade (`401` if invalid). The upgrade is also refused with `403` when the browser's `Origin` header is not one of the origins listed in `FRONTEND_ORIGIN` (comma-separated, exact matches; the default allows `http://localhost:3000` and `http://127.0.0.1:3000`); requests without an `Origin` header (non-browser clients) are allowed, the cookie is still required. The Next.js proxy forwards both the cookie and the `Origin` header, so the page connects to `ws://<frontend host>/ws`.
@@ -254,6 +269,7 @@ Every frame, in both directions, is a JSON envelope:
 | type | payload | what the server does |
 |---|---|---|
 | `private_message` | `{ "recipient_id": 7, "content": "hi 😀" }` | Checks the content, then stores it only if the follow rule holds (one `INSERT … SELECT … WHERE <rule>`). After the store it sends `private_message` to every tab of the recipient and of the sender; the sending tab's copy carries the `request_id`. On any problem it sends `error` to the sending tab only, and nothing is stored |
+| `group_message` | `{ "group_id": 3, "content": "hi all" }` | Checks the content, then stores it only if the sender is a member (inside the `INSERT`). After the store it sends `group_message` to every tab of every member; the sending tab's copy carries the `request_id`. A non-member gets `error` and nothing is stored |
 
 Frames are handled in order, one at a time per connection. Anything else gets an `error` and the connection stays open: a frame that is not JSON, a missing `type`, an unknown `type`, a payload of the wrong shape (unknown fields are rejected).
 
@@ -262,11 +278,12 @@ Frames are handled in order, one at a time per connection. Anything else gets an
 | type | payload | when |
 |---|---|---|
 | `private_message` | `Message` | a message to or from me was stored (all my tabs; the sending tab gets it with its `request_id`) |
+| `group_message` | `GroupMessage` | a message was stored in a group I am a member of (all my tabs; the sending tab gets it with its `request_id`) |
 | `messages_read` | `{ "user_id": 7 }` | I marked my conversation with user 7 read in another tab |
 | `notification` | `Notification` | a notification was created for me |
 | `notification_removed` | `{ "id": 12 }` | one of my notifications was resolved |
 | `group_changed` | `{ "group_id": 3 }` | someone joined a group I am in |
-| `error` | `{ "message": "...", "for": "private_message" }` | a frame I sent was rejected; `for` is its type when it could be read |
+| `error` | `{ "message": "...", "for": "private_message" }` | a frame I sent was rejected; `for` is its type (`private_message`, `group_message`) when it could be read |
 
 `error` messages for `private_message`:
 
@@ -279,6 +296,8 @@ Frames are handled in order, one at a time per connection. Anything else gets an
 | `a message must be 2000 characters or fewer` | too long |
 | `payload must be {"recipient_id": <user id>, "content": "<text>"}` | missing or wrongly shaped payload |
 | `unknown event type "…"` | an unsupported `type` |
+
+`error` messages for `group_message`: `only members can send messages to this group` (not a member, including invited or requested but not yet joined), `group not found`, `payload must be {"group_id": <group id>, "content": "<text>"}`, and the same content errors as above.
 
 Example, a successful send:
 

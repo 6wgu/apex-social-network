@@ -102,6 +102,8 @@ func (a *App) handleSocketEvent(c *ws.Client, in ws.Incoming) {
 	switch in.Type {
 	case eventPrivateMessage:
 		a.sendPrivateMessage(c, in)
+	case eventGroupMessage:
+		a.sendGroupMessage(c, in)
 	default:
 		a.Hub.ReplyError(c, in, fmt.Sprintf("unknown event type %q", in.Type))
 	}

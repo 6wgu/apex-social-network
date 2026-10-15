@@ -66,7 +66,7 @@ func next(conn *websocket.Conn, wait time.Duration, types ...string) (wsEvent, b
 // error), skipping every other frame.
 func reply(conn *websocket.Conn, requestID string) (wsEvent, bool) {
 	for {
-		ev, ok := next(conn, 2*time.Second, "private_message", "error")
+		ev, ok := next(conn, 2*time.Second, "private_message", "group_message", "error")
 		if !ok || ev.RequestID == requestID {
 			return ev, ok
 		}
