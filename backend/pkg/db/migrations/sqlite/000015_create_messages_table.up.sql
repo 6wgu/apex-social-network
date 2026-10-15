@@ -1,0 +1,19 @@
+-- Private messages between two users. A message can only be stored while at
+-- least one of the two follows the other (accepted follow); the rule is part
+-- of the INSERT in pkg/handlers/messages.go. read_at is set when the
+-- recipient opens the conversation; NULL means unread.
+CREATE TABLE IF NOT EXISTS messages (
+    id           INTEGER  PRIMARY KEY AUTOINCREMENT,
+    sender_id    INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content      TEXT     NOT NULL CHECK (content <> ''),
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at      DATETIME,
+    CHECK (sender_id <> recipient_id)
+);
+
+-- One conversation, newest first: both directions are read with these two.
+CREATE INDEX IF NOT EXISTS idx_messages_sender_recipient ON messages(sender_id, recipient_id, id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient_sender ON messages(recipient_id, sender_id, id);
+-- Unread counts: only unread rows are indexed.
+CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(recipient_id, sender_id) WHERE read_at IS NULL;

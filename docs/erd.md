@@ -1,8 +1,8 @@
 # Database ERD
 
 Every table is created by a numbered migration in
-`backend/pkg/db/migrations/sqlite`. Every table of Phases 0 to 3 exists; `messages` and
-`group_messages` are added by Phase 4.
+`backend/pkg/db/migrations/sqlite`. Every table of Phases 0 to 3 exists, and so does `messages`
+(private chat); `group_messages` is still to come.
 
 | Table | Migration added in |
 |---|---|
@@ -13,7 +13,8 @@ Every table is created by a numbered migration in
 | notifications | Phase 2 (migration 000004) |
 | groups, group_members, group_invites, group_requests, events, event_responses | Phase 3 (migrations 000008 to 000013) |
 | posts.group_id | Phase 3 (migration 000014: `ALTER TABLE posts ADD COLUMN`, so no merged migration is edited) |
-| messages, group_messages | Phase 4 |
+| messages | Phase 4 (migration 000015) |
+| group_messages | Phase 4 |
 
 **Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
 week-2 spec. There is no separate `follow_requests` table. Accepting a request
@@ -120,10 +121,10 @@ erDiagram
     messages {
         INTEGER id PK
         INTEGER sender_id FK
-        INTEGER receiver_id FK
-        TEXT content
-        INTEGER is_read
+        INTEGER recipient_id FK
+        TEXT content "1-2000 characters, UTF-8"
         DATETIME created_at
+        DATETIME read_at "NULL until the recipient reads it"
     }
     group_messages {
         INTEGER id PK
@@ -160,6 +161,7 @@ erDiagram
     events ||--o{ event_responses : has
     users ||--o{ event_responses : answers
     users ||--o{ messages : sends
+    users ||--o{ messages : receives
     groups ||--o{ group_messages : has
     users ||--o{ notifications : receives
 ```
