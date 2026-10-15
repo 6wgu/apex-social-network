@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import NotificationBell from "@/components/NotificationBell";
+import { useUnreadMessages } from "@/components/UnreadMessages";
 
 const links = [
   { href: "/", label: "Home" },
@@ -13,11 +14,13 @@ const links = [
 ];
 
 // Shown on every page. Logged out, it only offers Log in / Register.
-// The notification bell (red, round badge) is live; the chat badge (blue,
-// square) is a slot filled in Phase 4, so the two never look alike.
+// Notifications and messages never look alike: the notification bell has a
+// red, round badge; unread private messages show as a blue, square badge on
+// the Chats link, with their own count.
 export default function Navbar() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
+  const { unread } = useUnreadMessages();
 
   if (!user) {
     return (
@@ -54,7 +57,11 @@ export default function Navbar() {
             className={pathname === l.href || (l.href !== "/" && pathname.startsWith(`${l.href}/`)) ? "active" : ""}
           >
             {l.label}
-            {l.href === "/chats" && <span className="badge badge-message" data-slot="unread-messages" hidden />}
+            {l.href === "/chats" && (
+              <span className="badge badge-message" hidden={!unread} aria-label={`${unread} unread messages`}>
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
