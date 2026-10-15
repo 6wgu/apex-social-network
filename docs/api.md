@@ -203,6 +203,7 @@ Over the WebSocket (`/ws`), the recipient's open tabs get:
 |---|---|---|
 | `notification` | `Notification` | a notification was created for you |
 | `notification_removed` | `{"id": 12}` | one of your notifications was resolved and deleted (e.g. a follow request was cancelled) |
+| `group_changed` | `{"group_id": 3}` | someone joined a group you are a member of (sent to every member, the new one included). Nothing is stored: it only tells an open group page to reload its member list |
 
 Pushes are sent only after the database transaction has committed. A user with no open tab gets nothing pushed; `GET /api/notifications` shows everything on the next page load.
 
@@ -220,7 +221,7 @@ The connection is authenticated by the session cookie during the upgrade (`401` 
 
 Each tab has its own connection; an event for a user goes to all of that user's tabs. The server sends a ping every 30 s and drops a connection that sends nothing (not even a pong) for 60 s. Browsers answer pings automatically. Events for a user with no open connection are not queued: the data is in the database and the page loads it.
 
-Right now the server only sends events (`notification` and `notification_removed`, see Notifications) and ignores frames from the browser. Every frame is a JSON envelope:
+Right now the server only sends events (`notification`, `notification_removed` and `group_changed`, see Notifications) and ignores frames from the browser. Every frame is a JSON envelope:
 
 ```jsonc
 { "type": "...", "payload": { ... } }
@@ -234,6 +235,7 @@ Right now the server only sends events (`notification` and `notification_removed
 | server → client | `group_message` | `GroupMessage`: sent to every online member |
 | server → client | `notification` | `Notification` |
 | server → client | `notification_removed` | `{ "id": 12 }` |
+| server → client | `group_changed` | `{ "group_id": 3 }` |
 | server → client | `error` | `{ "message": "you can't message this user" }` |
 
 ```jsonc

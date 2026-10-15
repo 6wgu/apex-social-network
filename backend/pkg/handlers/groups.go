@@ -392,13 +392,18 @@ func (a *App) answerGroupInvite(accept bool) http.HandlerFunc {
 
 // join makes userID a member of groupID inside tx and clears whatever else
 // was pending between them: a join request (and the creator's notification
-// about it) and an invitation (and userID's notification about it).
+// about it) and an invitation (and userID's notification about it). The
+// group's members are told live (group_changed) once tx commits.
 func join(tx *sql.Tx, n *notifier, groupID, userID int64) error {
-	if _, err := tx.Exec(`INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)`, groupID, userID); err != nil {
+	res, err := tx.Exec(`INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)`, groupID, userID)
+	if err != nil {
 		return err
 	}
+	if added, _ := res.RowsAffected(); added > 0 {
+		n.groupChanged(groupID)
+	}
 	var creatorID int64
-	err := tx.QueryRow(`SELECT g.creator_id FROM group_requests r JOIN groups g ON g.id = r.group_id
+	err = tx.QueryRow(`SELECT g.creator_id FROM group_requests r JOIN groups g ON g.id = r.group_id
 		WHERE r.group_id = ? AND r.user_id = ?`, groupID, userID).Scan(&creatorID)
 	switch {
 	case err == nil:

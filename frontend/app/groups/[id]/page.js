@@ -60,6 +60,11 @@ export default function GroupPage() {
     return () => window.removeEventListener(GROUPS_CHANGED, load);
   }, [load]);
   useRealtime((event) => {
+    // Someone joined: reload the group (member list and count).
+    if (event.type === "group_changed") {
+      if (String(event.payload.group_id) === String(id)) load();
+      return;
+    }
     if (event.type !== "notification" || String(event.payload.group?.id) !== String(id)) return;
     load();
     setReloadKey((k) => k + 1);

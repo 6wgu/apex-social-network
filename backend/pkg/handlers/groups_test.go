@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // createGroup sends POST /api/groups and returns the new group's id.
@@ -533,5 +535,86 @@ func TestCannotRespondToAPastEvent(t *testing.T) {
 	var response string
 	if err := app.DB.QueryRow(`SELECT response FROM event_responses WHERE user_id = ?`, annID).Scan(&response); err != nil || response != "going" {
 		t.Errorf("ann's stored answer = %q (%v), want going", response, err)
+	}
+}
+
+// When someone joins (by invitation or by an accepted request), the group's
+// members get a live group_changed event so open group pages reload the
+// member list. Non-members get nothing, and nothing is stored.
+func TestJoiningPushesGroupChanged(t *testing.T) {
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+	creator, creatorID := register(t, srv.URL, "creator@example.com", "Creator")
+	ann, annID := register(t, srv.URL, "ann@example.com", "Ann")
+	ben, _ := register(t, srv.URL, "ben@example.com", "Ben")
+	outsider, outsiderID := register(t, srv.URL, "outsider@example.com", "Outsider")
+	gid := createGroup(t, creator, "Chess")
+
+	sockets := map[string]*websocket.Conn{}
+	for name, c := range map[string]*testClient{"creator": creator, "outsider": outsider} {
+		conn, _, err := dialWS(t, srv, c, "http://localhost:3000")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		sockets[name] = conn
+	}
+	waitFor(t, func() bool { return app.Hub.Connections(creatorID) == 1 && app.Hub.Connections(outsiderID) == 1 })
+
+	// nextGroupChanged skips other events (e.g. notifications) and returns
+	// the group id of the first group_changed, or 0 if none comes in time.
+	nextGroupChanged := func(conn *websocket.Conn, wait time.Duration) int64 {
+		deadline := time.Now().Add(wait)
+		for {
+			conn.SetReadDeadline(deadline)
+			var ev struct {
+				Type    string         `json:"type"`
+				Payload map[string]any `json:"payload"`
+			}
+			if err := conn.ReadJSON(&ev); err != nil {
+				return 0
+			}
+			if ev.Type == "group_changed" {
+				return int64(ev.Payload["group_id"].(float64))
+			}
+		}
+	}
+
+	// Ann joins by invitation.
+	joinByInvite(t, creator, ann, gid, annID)
+	if got := nextGroupChanged(sockets["creator"], 2*time.Second); got != gid {
+		t.Errorf("creator after ann joined: group_changed for %d, want %d", got, gid)
+	}
+
+	// Ann is online now too; Ben joins by a request the creator accepts.
+	annConn, _, err := dialWS(t, srv, ann, "http://localhost:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer annConn.Close()
+	waitFor(t, func() bool { return app.Hub.Connections(annID) == 1 })
+	if status, body := ben.do("POST", fmt.Sprintf("/api/groups/%d/request", gid), "", nil); status != http.StatusCreated {
+		t.Fatalf("ben asks to join = %d %v", status, body)
+	}
+	_, reqs := creator.list(fmt.Sprintf("/api/groups/%d/requests", gid))
+	if status, _ := creator.do("POST", fmt.Sprintf("/api/group-requests/%d/accept", int64(reqs[0]["id"].(float64))), "", nil); status != http.StatusNoContent {
+		t.Fatalf("accept ben = %d", status)
+	}
+	for name, conn := range map[string]*websocket.Conn{"creator": sockets["creator"], "ann": annConn} {
+		if got := nextGroupChanged(conn, 2*time.Second); got != gid {
+			t.Errorf("%s after ben joined: group_changed for %d, want %d", name, got, gid)
+		}
+	}
+
+	// The outsider was never told anything about the group.
+	if got := nextGroupChanged(sockets["outsider"], 300*time.Millisecond); got != 0 {
+		t.Errorf("outsider got group_changed for %d", got)
+	}
+	// It is a live hint only: no notification rows were stored for it.
+	var n int
+	app.DB.QueryRow(`SELECT COUNT(*) FROM notifications WHERE type = 'group_changed'`).Scan(&n)
+	if n != 0 {
+		t.Errorf("%d group_changed rows stored, want 0", n)
 	}
 }

@@ -41,6 +41,10 @@ const (
 const (
 	eventNotification        = "notification"         // payload: Notification
 	eventNotificationRemoved = "notification_removed" // payload: {"id": 12}
+	// eventGroupChanged tells a group's members that its member list changed
+	// (someone joined), so an open group page reloads. Nothing is stored for
+	// it: it is a live hint, not a notification.
+	eventGroupChanged = "group_changed" // payload: {"group_id": 3}
 )
 
 // maxNotificationsPage caps one page of GET /api/notifications.
@@ -124,8 +128,14 @@ func scanNotification(row interface{ Scan(...any) error }, extra ...any) (notifi
 // its transaction, and pushes them over the WebSocket once the transaction
 // has committed (never before: a rolled-back notification must not show up).
 type notifier struct {
-	created []int64
-	removed []removedNotification
+	created       []int64
+	removed       []removedNotification
+	changedGroups []int64 // groups whose members get a group_changed event
+}
+
+// groupChanged asks push to send group_changed to groupID's members.
+func (n *notifier) groupChanged(groupID int64) {
+	n.changedGroups = append(n.changedGroups, groupID)
 }
 
 type removedNotification struct {
@@ -200,6 +210,24 @@ func (a *App) push(n *notifier) {
 	}
 	for _, r := range n.removed {
 		a.Hub.SendToUser(r.userID, eventNotificationRemoved, map[string]int64{"id": r.id})
+	}
+	for _, groupID := range n.changedGroups {
+		rows, err := a.DB.Query(`SELECT user_id FROM group_members WHERE group_id = ?`, groupID)
+		if err != nil {
+			log.Printf("push group_changed %d: %v", groupID, err)
+			continue
+		}
+		var members []int64
+		for rows.Next() {
+			var id int64
+			if rows.Scan(&id) == nil {
+				members = append(members, id)
+			}
+		}
+		rows.Close()
+		for _, id := range members {
+			a.Hub.SendToUser(id, eventGroupChanged, map[string]int64{"group_id": groupID})
+		}
 	}
 }
 
