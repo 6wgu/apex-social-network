@@ -214,8 +214,9 @@ func (a *App) listEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 // respondToEvent handles POST /api/events/{id}/respond {"response":"going"}
-// or "not_going". Answering again replaces the earlier answer. An event of
-// a group I am not in is a 404, the same as one that does not exist.
+// or "not_going". Answering again replaces the earlier answer. An event that
+// has already happened can no longer be answered (400). An event of a group
+// I am not in is a 404, the same as one that does not exist.
 func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 	eventID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || eventID <= 0 {
@@ -232,12 +233,16 @@ func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "response must be going or not_going")
 		return
 	}
-	// The membership check is part of the INSERT, so the answer is only
-	// stored for a member of the event's group.
+	// The membership check and the "still in the future" check are part of
+	// the INSERT, so an answer is only stored for a member of the event's
+	// group, and only before the event happens. event_time and
+	// CURRENT_TIMESTAMP are both UTC "YYYY-MM-DD HH:MM:SS", so they compare
+	// correctly as text.
 	me := currentUserID(r)
 	res, err := a.DB.Exec(`INSERT INTO event_responses (event_id, user_id, response)
 		SELECT e.id, ?2, ?3 FROM events e
-		WHERE e.id = ?1 AND EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = e.group_id AND m.user_id = ?2)
+		WHERE e.id = ?1 AND e.event_time > CURRENT_TIMESTAMP
+		  AND EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = e.group_id AND m.user_id = ?2)
 		ON CONFLICT (event_id, user_id) DO UPDATE SET response = excluded.response, responded_at = CURRENT_TIMESTAMP`,
 		eventID, me, body.Response)
 	if err != nil {
@@ -245,7 +250,20 @@ func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		writeError(w, http.StatusNotFound, "event not found")
+		// Nothing stored: tell a member that the event is over; anyone else
+		// gets the same 404 as for an unknown event.
+		var past bool
+		err := a.DB.QueryRow(`SELECT e.event_time <= CURRENT_TIMESTAMP FROM events e
+			WHERE e.id = ?1 AND EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = e.group_id AND m.user_id = ?2)`,
+			eventID, me).Scan(&past)
+		switch {
+		case err == nil && past:
+			writeError(w, http.StatusBadRequest, "this event has already happened")
+		case err == nil || errors.Is(err, sql.ErrNoRows):
+			writeError(w, http.StatusNotFound, "event not found")
+		default:
+			serverError(w, err)
+		}
 		return
 	}
 	e, err := a.eventByID(me, eventID)

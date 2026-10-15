@@ -143,7 +143,7 @@ Every logged-in user can browse groups and see a group's title, description, cre
 | POST | `/api/groups/{id}/posts` | multipart: `content` (up to 5000 characters), optional `image` | `201 Post` with `group_id` set. No privacy field: the group decides. `403` for non-members, `400` as for `/api/posts` |
 | GET | `/api/groups/{id}/events` | none | `200 [Event]`, by date, soonest first. `403` for non-members |
 | POST | `/api/groups/{id}/events` | `{"title","description","event_time"}` | `201 Event`; every other member gets `group_event`. `event_time` is RFC 3339 (`"2026-11-01T17:00:00Z"`, or with an offset); without a zone (`"2026-11-01T17:00"`) it is taken as UTC. `400` if a field is empty or too long, the time is not a date, or it is not in the future. `403` for non-members |
-| POST | `/api/events/{id}/respond` | `{"response":"going"}` or `"not_going"` | `200 Event` with fresh counts. Answering again changes your answer. `400` any other value, `404` if the event does not exist **or is in a group you are not in** |
+| POST | `/api/events/{id}/respond` | `{"response":"going"}` or `"not_going"` | `200 Event` with fresh counts. Answering again changes your answer, until the event starts. `400` any other value, `400 "this event has already happened"` once its time has passed (earlier answers are kept), `404` if the event does not exist **or is in a group you are not in** |
 
 ```jsonc
 // Group

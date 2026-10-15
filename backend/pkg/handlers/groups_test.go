@@ -487,3 +487,51 @@ func TestEventsAndResponses(t *testing.T) {
 		t.Errorf("creator lists events = %v", list)
 	}
 }
+
+// An event that has already happened can no longer be answered: members get
+// a 400, everyone else still gets the 404 they get for any event of a group
+// they are not in. Answers given before the event stay as they were.
+func TestCannotRespondToAPastEvent(t *testing.T) {
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+	creator, _ := register(t, srv.URL, "creator@example.com", "Creator")
+	ann, annID := register(t, srv.URL, "ann@example.com", "Ann")
+	outsider, _ := register(t, srv.URL, "outsider@example.com", "Outsider")
+	gid := createGroup(t, creator, "Book club")
+	joinByInvite(t, creator, ann, gid, annID)
+
+	future := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
+	status, ev := creator.json("POST", fmt.Sprintf("/api/groups/%d/events", gid),
+		fmt.Sprintf(`{"title":"Chapter 1","description":"Read it first","event_time":%q}`, future))
+	if status != http.StatusCreated {
+		t.Fatalf("create event = %d %v", status, ev)
+	}
+	respond := fmt.Sprintf("/api/events/%d/respond", int64(ev["id"].(float64)))
+
+	// While it is in the future, answering works.
+	if status, body := ann.json("POST", respond, `{"response":"going"}`); status != http.StatusOK || body["going_count"] != float64(1) {
+		t.Fatalf("respond to a future event = %d %v, want 200 with 1 going", status, body)
+	}
+
+	// The event's time passes (the API refuses to create past events, so the
+	// clock is moved in the database).
+	if _, err := app.DB.Exec(`UPDATE events SET event_time = datetime('now', '-1 hour') WHERE id = ?`, ev["id"]); err != nil {
+		t.Fatal(err)
+	}
+	for name, c := range map[string]*testClient{"creator": creator, "ann": ann} {
+		status, body := c.json("POST", respond, `{"response":"not_going"}`)
+		if status != http.StatusBadRequest || body["error"] != "this event has already happened" {
+			t.Errorf("%s responds to a past event = %d %v, want 400 \"this event has already happened\"", name, status, body)
+		}
+	}
+	if status, _ := outsider.json("POST", respond, `{"response":"going"}`); status != http.StatusNotFound {
+		t.Errorf("outsider responds to a past event = %d, want 404", status)
+	}
+
+	// Ann's earlier answer was not changed by the refused one.
+	var response string
+	if err := app.DB.QueryRow(`SELECT response FROM event_responses WHERE user_id = ?`, annID).Scan(&response); err != nil || response != "going" {
+		t.Errorf("ann's stored answer = %q (%v), want going", response, err)
+	}
+}
