@@ -118,9 +118,12 @@ func TestUpdateMeAndSearch(t *testing.T) {
 	alice, _ := register(t, srv.URL, "alice@example.com", "Alice")
 	register(t, srv.URL, "bob@example.com", "Bob")
 
-	status, user := alice.form("PATCH", "/api/me", map[string]string{"nickname": "al_100%", "about_me": "hello"}, tinyPNG(t))
-	if status != http.StatusOK || user["nickname"] != "al_100%" || user["about_me"] != "hello" || user["avatar_path"] == "" {
+	status, user := alice.form("PATCH", "/api/me", map[string]string{"nickname": "al_100-x", "about_me": "hello"}, tinyPNG(t))
+	if status != http.StatusOK || user["nickname"] != "al_100-x" || user["about_me"] != "hello" || user["avatar_path"] == "" {
 		t.Fatalf("PATCH /api/me = %d %v", status, user)
+	}
+	if status, body := alice.form("PATCH", "/api/me", map[string]string{"nickname": "2alice"}, nil); status != http.StatusBadRequest || body["error"] == nil {
+		t.Errorf("PATCH /api/me with invalid nickname = %d %v, want 400 with an error", status, body)
 	}
 	if status, body := alice.form("PATCH", "/api/me", map[string]string{}, nil); status != http.StatusBadRequest {
 		t.Errorf("empty PATCH /api/me = %d %v, want 400", status, body)
@@ -145,12 +148,15 @@ func TestUpdateMeAndSearch(t *testing.T) {
 	if got := search("bob"); len(got) != 1 {
 		t.Errorf("search bob returned %d users, want 1", len(got))
 	}
-	if got := search("al_100%25"); len(got) != 1 {
+	if got := search("al_100-x"); len(got) != 1 {
 		t.Errorf("search by nickname returned %d users, want 1", len(got))
 	}
 	// % and _ are literal, not wildcards.
-	if got := search("%25"); len(got) != 1 {
-		t.Errorf("search %% returned %d users, want only the nickname containing %%", len(got))
+	if got := search("%25"); len(got) != 0 {
+		t.Errorf("search %% returned %d users, want 0", len(got))
+	}
+	if got := search("_"); len(got) != 1 {
+		t.Errorf("search _ returned %d users, want only the nickname containing _", len(got))
 	}
 	if got := search("nobody"); len(got) != 0 {
 		t.Errorf("search nobody returned %d users, want 0", len(got))

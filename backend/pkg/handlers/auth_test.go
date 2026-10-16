@@ -114,11 +114,13 @@ func TestRegisterLoginLogout(t *testing.T) {
 		t.Fatalf("GET /api/me before login = %d, want 401", status)
 	}
 
-	status, user := c.form("POST", "/api/register", validUser("Ada@Example.com"), nil)
+	registration := validUser("Ada@Example.com")
+	registration["nickname"] = "Ada_1-L"
+	status, user := c.form("POST", "/api/register", registration, nil)
 	if status != http.StatusCreated {
 		t.Fatalf("register = %d %v, want 201", status, user)
 	}
-	if user["email"] != "ada@example.com" || user["is_public"] != true {
+	if user["email"] != "ada@example.com" || user["is_public"] != true || user["nickname"] != "Ada_1-L" {
 		t.Errorf("unexpected user: %v", user)
 	}
 	if _, leaked := user["password_hash"]; leaked {
@@ -171,16 +173,22 @@ func TestRegisterValidation(t *testing.T) {
 	c := newClient(t, srv.URL)
 
 	cases := map[string]func(map[string]string){
-		"missing email":      func(f map[string]string) { delete(f, "email") },
-		"bad email":          func(f map[string]string) { f["email"] = "not-an-email" },
-		"email without tld":  func(f map[string]string) { f["email"] = "ada@localhost" },
-		"short password":     func(f map[string]string) { f["password"] = "1234567" },
-		"blank first name":   func(f map[string]string) { f["first_name"] = "   " },
-		"missing last name":  func(f map[string]string) { delete(f, "last_name") },
-		"missing birth date": func(f map[string]string) { delete(f, "date_of_birth") },
-		"garbage birth date": func(f map[string]string) { f["date_of_birth"] = "31/12/1990" },
-		"impossible date":    func(f map[string]string) { f["date_of_birth"] = "1990-02-30" },
-		"future birth date":  func(f map[string]string) { f["date_of_birth"] = "2999-01-01" },
+		"missing email":                       func(f map[string]string) { delete(f, "email") },
+		"bad email":                           func(f map[string]string) { f["email"] = "not-an-email" },
+		"email without tld":                   func(f map[string]string) { f["email"] = "ada@localhost" },
+		"short password":                      func(f map[string]string) { f["password"] = "1234567" },
+		"blank first name":                    func(f map[string]string) { f["first_name"] = "   " },
+		"missing last name":                   func(f map[string]string) { delete(f, "last_name") },
+		"missing birth date":                  func(f map[string]string) { delete(f, "date_of_birth") },
+		"garbage birth date":                  func(f map[string]string) { f["date_of_birth"] = "31/12/1990" },
+		"impossible date":                     func(f map[string]string) { f["date_of_birth"] = "1990-02-30" },
+		"future birth date":                   func(f map[string]string) { f["date_of_birth"] = "2999-01-01" },
+		"nickname starts with number":         func(f map[string]string) { f["nickname"] = "1ada" },
+		"nickname starts with underscore":     func(f map[string]string) { f["nickname"] = "_ada" },
+		"nickname starts with hyphen":         func(f map[string]string) { f["nickname"] = "-ada" },
+		"nickname contains invalid character": func(f map[string]string) { f["nickname"] = "ad.a" },
+		"nickname contains non-ASCII letter":  func(f map[string]string) { f["nickname"] = "äda" },
+		"nickname too long":                   func(f map[string]string) { f["nickname"] = strings.Repeat("a", 31) },
 	}
 	for name, breakIt := range cases {
 		fields := validUser("ok@example.com")

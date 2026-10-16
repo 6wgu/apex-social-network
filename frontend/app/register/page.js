@@ -27,6 +27,15 @@ export default function RegisterPage() {
   async function submit(e) {
     e.preventDefault();
     setError("");
+    const nickname = String(new FormData(e.currentTarget).get("nickname") || "").trim();
+    if (nickname.length > 30) {
+      setError("nickname must be 30 characters or fewer");
+      return;
+    }
+    if (nickname && !/^[A-Za-z][A-Za-z0-9_-]*$/.test(nickname)) {
+      setError("nickname must start with a letter and contain only letters, numbers, underscores, or hyphens");
+      return;
+    }
     setBusy(true);
     const form = new FormData(e.target);
     if (!avatar) form.delete("avatar"); // an empty file input still sends a part
@@ -86,6 +95,7 @@ export default function RegisterPage() {
           <label>
             Nickname
             <input name="nickname" maxLength={30} />
+            <span className="hint">Start with a letter; use only letters, numbers, _ or - (up to 30 characters).</span>
           </label>
           <label>
             About me

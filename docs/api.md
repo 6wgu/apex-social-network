@@ -52,7 +52,7 @@ only by pull request, and tell both sides.
 `User` is the full profile without the password:
 `{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "created_at" }`
 
-Validation (all on the server): valid email format, password 8 to 72 characters, a real birth date in the past, and first and last name required (max 50 characters). `nickname` is at most 30 characters and `about_me` at most 500. A duplicate email returns `409 {"error":"email already registered"}`; emails are compared without case and stored in lower case. A bad avatar returns `400` with `avatar: image must be a JPEG, PNG or GIF` or `avatar: image must be 5 MB or smaller`.
+Validation (all on the server): valid email format, password 8 to 72 characters, a real birth date in the past, and first and last name required (max 50 characters). `nickname` is optional; when provided, it must be at most 30 ASCII characters, start with a letter, and contain only letters, numbers, `_` or `-`. The same rule applies when updating a nickname. `about_me` is at most 500 characters. A duplicate email returns `409 {"error":"email already registered"}`; emails are compared without case and stored in lower case. A bad avatar returns `400` with `avatar: image must be a JPEG, PNG or GIF` or `avatar: image must be 5 MB or smaller`.
 
 Login with an unknown email or a wrong password returns the same `401 {"error":"wrong email or password"}`.
 

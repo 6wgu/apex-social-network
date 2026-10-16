@@ -73,7 +73,23 @@ func validateNickname(s string) string {
 	if utf8.RuneCountInString(s) > maxNicknameLen {
 		return "nickname must be 30 characters or fewer"
 	}
+	if s == "" {
+		return ""
+	}
+	if !isNicknameLetter(s[0]) {
+		return "nickname must start with a letter and contain only letters, numbers, underscores, or hyphens"
+	}
+	for i := 1; i < len(s); i++ {
+		c := s[i]
+		if !isNicknameLetter(c) && (c < '0' || c > '9') && c != '_' && c != '-' {
+			return "nickname must start with a letter and contain only letters, numbers, underscores, or hyphens"
+		}
+	}
 	return ""
+}
+
+func isNicknameLetter(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 }
 
 func validateAbout(s string) string {
