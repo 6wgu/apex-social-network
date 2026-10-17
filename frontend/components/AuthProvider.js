@@ -46,14 +46,15 @@ export function AuthGate({ children }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const isPublicPage = PUBLIC_PAGES.includes(pathname);
-  const allowed = !loading && (isPublicPage ? !user : Boolean(user));
+  const isLandingPage = pathname === "/";
+  const isPublicPage = PUBLIC_PAGES.includes(pathname) && !isLandingPage;
+  const allowed = !loading && (isLandingPage || (isPublicPage ? !user : Boolean(user)));
 
   useEffect(() => {
     if (loading) return;
-    if (!user && !isPublicPage) router.replace("/login");
+    if (!user && !isPublicPage && !isLandingPage) router.replace("/login");
     if (user && isPublicPage) router.replace("/");
-  }, [loading, user, isPublicPage, router]);
+  }, [loading, user, isPublicPage, isLandingPage, router]);
 
   if (!allowed) return <p className="muted center">Loading…</p>;
   return children;
