@@ -71,10 +71,10 @@ Validation: the Docker frontend was rebuilt and a browser test selected `README.
 - [x] Start Docker Desktop and repeat `docker compose up --build -d`.
 - [x] Check `/api/health` through the frontend and backend ports.
 - [x] Run the clean-volume migration startup check.
-- [ ] Re-run the Phase 4 browser and WebSocket checklist in Docker.
+- [x] Re-run the available Phase 4 WebSocket/message/group-chat checks and Chromium Docker smoke checks.
 - [x] Run the available Chromium browser smoke checks in Docker.
 - [ ] Test Firefox and Safari, if available.
-- [ ] Exercise the WebSocket idle-drop behavior for the configured 60-second no-pong timeout.
+- [x] Exercise the WebSocket idle-drop behavior for the configured 60-second no-pong timeout with a regression test.
 - [x] Decide whether group-chat unread counts are required; the current decision is to keep unread counts for private messages only, as documented in `docs/api.md`.
 - [x] Review the npm audit findings without applying a forced upgrade blindly.
 - [x] Run the available clean-clone audit: backend tests/vet, frontend install/build, Compose configuration, and Docker image build.
@@ -82,4 +82,4 @@ Validation: the Docker frontend was rebuilt and a browser test selected `README.
 
 ## Current conclusion
 
-Phase 4 backend and frontend source verification passes locally. The Docker build, startup, health, fresh-volume migration, Chromium smoke checks, and available clean-clone audit also pass. Phase 5 implementation and verification are complete for the available environment; Firefox/Safari coverage and the deliberate no-pong WebSocket idle-drop test remain unavailable in this environment.
+Phase 4 backend and frontend source verification passes locally. The Docker build, startup, health, fresh-volume migration, WebSocket/message/group-chat checks, Chromium smoke checks, no-pong idle-drop regression test, and available clean-clone audit also pass. Phase 5 implementation and verification are complete for the available environment; only Firefox/Safari coverage remains unavailable here.

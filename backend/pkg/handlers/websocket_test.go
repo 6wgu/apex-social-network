@@ -151,3 +151,26 @@ func TestLogoutClosesTheUsersSockets(t *testing.T) {
 		t.Errorf("want the server to close the socket, got %v", err)
 	}
 }
+
+// A client that does not read cannot answer the hub's ping with a pong, so it
+// is dropped after the configured 60-second pong timeout.
+func TestWebSocketDropsClientThatDoesNotPong(t *testing.T) {
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+	alice, aliceID := register(t, srv.URL, "alice-idle@example.com", "Alice")
+	conn, _, err := dialWS(t, srv, alice, "http://localhost:3000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	waitFor(t, func() bool { return app.Hub.Connections(aliceID) == 1 })
+
+	deadline := time.Now().Add(70 * time.Second)
+	for time.Now().Before(deadline) && app.Hub.Connections(aliceID) != 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if app.Hub.Connections(aliceID) != 0 {
+		t.Fatal("idle client was not dropped after missing pong")
+	}
+}
