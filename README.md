@@ -23,6 +23,12 @@ The SQLite file and uploaded images are stored in the named volumes `db-data` an
 docker compose down -v && docker compose up --build
 ```
 
+## Verification status
+
+The Phase 4 and Phase 5 verification run on 17 October 2026 passed the backend tests, race detector, vet, frontend production build, Docker image build, container startup, health checks, and fresh-volume migration startup check. The browser smoke check also confirmed the login and registration routes, unauthenticated protection for private routes, a responsive 390px registration layout, and rejection of non-image avatar selections.
+
+The WebSocket server uses a two-minute idle timeout. The frontend production dependency audit currently reports one moderate and one high advisory through Next.js/PostCSS; resolving them requires the breaking `npm audit fix --force` upgrade to Next.js 16 and was intentionally left for a dependency upgrade review.
+
 ## Run locally (without Docker)
 
 Requires Go 1.26+ with a C compiler (CGO is needed for SQLite) and Node.js 20+.
