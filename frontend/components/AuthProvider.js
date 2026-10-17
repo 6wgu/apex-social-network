@@ -19,12 +19,23 @@ export default function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const updateUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    if (typeof window !== "undefined" && nextUser?.id) {
+      window.dispatchEvent(
+        new CustomEvent("user-avatar-changed", {
+          detail: { id: nextUser.id, avatarPath: nextUser.avatar_path || "" },
+        })
+      );
+    }
+  }, []);
+
   useEffect(() => {
     api("/api/me", { redirectOn401: false })
-      .then(setUser)
+      .then(updateUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [updateUser]);
 
   const logout = useCallback(async () => {
     try {
@@ -32,11 +43,11 @@ export default function AuthProvider({ children }) {
     } catch {
       // Already logged out on the server: nothing left to undo.
     }
-    setUser(null);
+    updateUser(null);
     router.replace("/login");
-  }, [router]);
+  }, [router, updateUser]);
 
-  return <AuthContext.Provider value={{ user, loading, setUser, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, setUser: updateUser, logout }}>{children}</AuthContext.Provider>;
 }
 
 // Wraps the page content: logged-out visitors are sent to /login, and
