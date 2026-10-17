@@ -29,6 +29,7 @@ On 17 October 2026, the backend checks and frontend build were run again success
 - Frontend home page returned HTTP 200.
 - A separate fresh-volume Compose run applied all migrations before the backend began listening and returned the same successful health response.
 - The original Compose stack was restored afterward and its existing volumes were preserved.
+- A clean local clone passed `go test ./...`, `go vet ./...`, `npm.cmd ci`, `npm.cmd run build`, `docker compose config --quiet`, and `docker compose build`.
 
 ### Browser smoke checks
 
@@ -73,12 +74,12 @@ Validation: the Docker frontend was rebuilt and a browser test selected `README.
 - [ ] Re-run the Phase 4 browser and WebSocket checklist in Docker.
 - [x] Run the available Chromium browser smoke checks in Docker.
 - [ ] Test Firefox and Safari, if available.
-- [ ] Exercise the WebSocket idle-drop behavior for the configured two-minute timeout.
-- [ ] Decide whether group-chat unread counts are required; adding them needs a migration.
+- [ ] Exercise the WebSocket idle-drop behavior for the configured 60-second no-pong timeout.
+- [x] Decide whether group-chat unread counts are required; the current decision is to keep unread counts for private messages only, as documented in `docs/api.md`.
 - [x] Review the npm audit findings without applying a forced upgrade blindly.
-- [ ] Run the full final audit checklist on a clean clone.
+- [x] Run the available clean-clone audit: backend tests/vet, frontend install/build, Compose configuration, and Docker image build.
 - [x] Update the README with the final Phase 5 run and deployment results.
 
 ## Current conclusion
 
-Phase 4 backend and frontend source verification passes locally. The Docker build, startup, health, fresh-volume migration, and Chromium smoke checks also pass. Phase 5 implementation and verification are complete for the available environment; Firefox/Safari coverage, the long idle-timeout test, group-chat unread-count decision, and a clean-clone full audit remain explicitly tracked as follow-up items.
+Phase 4 backend and frontend source verification passes locally. The Docker build, startup, health, fresh-volume migration, Chromium smoke checks, and available clean-clone audit also pass. Phase 5 implementation and verification are complete for the available environment; Firefox/Safari coverage and the deliberate no-pong WebSocket idle-drop test remain unavailable in this environment.
