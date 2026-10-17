@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import Avatar from "@/components/Avatar";
 
+const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,.jpg,.jpeg,.png,.gif";
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif"]);
+
+function isAllowedAvatar(file) {
+  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif)$/i.test(file.name);
+}
+
 // Form for PATCH /api/me on your own profile: nickname, about me, and the
 // avatar (replace it with a new picture, or remove it). The server validates
 // everything; its error message is shown as is.
@@ -28,7 +35,15 @@ export default function EditProfile({ user, onSaved, onCancel }) {
   }, [file]);
 
   function chooseFile(e) {
-    setFile(e.target.files[0] || null);
+    const selected = e.target.files[0] || null;
+    if (selected && !isAllowedAvatar(selected)) {
+      e.target.value = "";
+      setFile(null);
+      setError("Avatar must be a JPEG, PNG or GIF file.");
+      return;
+    }
+    setError("");
+    setFile(selected);
     setRemoveAvatar(false);
   }
 
@@ -68,7 +83,7 @@ export default function EditProfile({ user, onSaved, onCancel }) {
           <Avatar user={shown} src={preview} size={64} />
           <label>
             Avatar
-            <input id="edit-avatar" type="file" accept="image/jpeg,image/png,image/gif" onChange={chooseFile} />
+            <input id="edit-avatar" type="file" accept={AVATAR_ACCEPT} onChange={chooseFile} />
             <span className="hint">JPEG, PNG or GIF, up to 5 MB.</span>
           </label>
         </div>

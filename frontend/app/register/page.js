@@ -6,6 +6,13 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 
+const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,.jpg,.jpeg,.png,.gif";
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif"]);
+
+function isAllowedAvatar(file) {
+  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif)$/i.test(file.name);
+}
+
 export default function RegisterPage() {
   const { setUser } = useAuth();
   const [avatar, setAvatar] = useState(null);
@@ -49,6 +56,18 @@ export default function RegisterPage() {
     }
   }
 
+  function chooseAvatar(e) {
+    const file = e.target.files[0] || null;
+    if (file && !isAllowedAvatar(file)) {
+      e.target.value = "";
+      setAvatar(null);
+      setError("Avatar must be a JPEG, PNG or GIF file.");
+      return;
+    }
+    setError("");
+    setAvatar(file);
+  }
+
   return (
     <section className="card auth-card">
       <h1>Create an account</h1>
@@ -86,8 +105,8 @@ export default function RegisterPage() {
               <input
                 name="avatar"
                 type="file"
-                accept="image/jpeg,image/png,image/gif"
-                onChange={(e) => setAvatar(e.target.files[0] || null)}
+                accept={AVATAR_ACCEPT}
+                onChange={chooseAvatar}
               />
               <span className="hint">JPEG, PNG or GIF, up to 5 MB.</span>
             </label>
