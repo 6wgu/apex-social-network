@@ -40,6 +40,16 @@ Stop the stack without deleting data with:
 docker compose down
 ```
 
+## Local test account
+
+This account exists in the current development database only. Do not use it in production:
+
+| Login email | Password |
+|---|---|
+| `demo@social-network.local` | `DemoPass123!` |
+
+The application uses email as the login identifier. Reset the database with `docker compose down -v` and this account will be removed.
+
 ## Verification
 
 Run the backend checks from `backend/`:
