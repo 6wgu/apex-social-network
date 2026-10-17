@@ -69,9 +69,26 @@ export default function RegisterPage() {
   }
 
   return (
-    <section className="card auth-card">
-      <h1>Create an account</h1>
-      <form onSubmit={submit} className="form" noValidate>
+    <div className="auth-layout">
+      <aside className="auth-aside">
+        <div>
+          <p className="eyebrow">Make room for what matters</p>
+          <h2>A social space with more signal.</h2>
+          <p>Build your circle at your own pace, with privacy controls that stay out of the way until you need them.</p>
+          <ul className="auth-aside-list">
+            <li>Choose who sees your posts</li>
+            <li>Find groups that feel like yours</li>
+            <li>Chat without losing the thread</li>
+          </ul>
+        </div>
+        <div className="auth-aside-mark" aria-hidden="true">✳</div>
+      </aside>
+      <section className="card auth-card">
+        <div className="auth-heading">
+          <h1>Create an account</h1>
+          <p>Your corner of the network starts here.</p>
+        </div>
+        <form onSubmit={submit} className="form auth-form" noValidate>
         <div className="form-row">
           <label>
             First name
@@ -89,7 +106,7 @@ export default function RegisterPage() {
         <label>
           Password
           <input name="password" type="password" autoComplete="new-password" required />
-          <span className="hint">At least 8 characters.</span>
+          <span className="password-note">Use at least 8 characters.</span>
         </label>
         <label>
           Date of birth
@@ -130,10 +147,11 @@ export default function RegisterPage() {
         <button className="btn-primary" disabled={busy}>
           {busy ? "Creating account…" : "Register"}
         </button>
-      </form>
-      <p className="muted">
+        </form>
+        <p className="muted auth-footer">
         Already have an account? <Link href="/login">Log in</Link>
-      </p>
-    </section>
+        </p>
+      </section>
+    </div>
   );
 }
