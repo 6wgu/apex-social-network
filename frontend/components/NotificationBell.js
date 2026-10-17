@@ -79,10 +79,14 @@ export default function NotificationBell() {
   const [busy, setBusy] = useState(null); // id of the notification being answered
   const connected = useRealtimeConnected();
   const wrapper = useRef(null);
+  const countRequest = useRef(0);
 
   const refreshCount = useCallback(() => {
+    const request = ++countRequest.current;
     api("/api/notifications/unread-count")
-      .then((c) => setUnread(c.unread))
+      .then((c) => {
+        if (request === countRequest.current) setUnread(c.unread);
+      })
       .catch(() => {});
   }, []);
 

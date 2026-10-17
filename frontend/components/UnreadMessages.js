@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
@@ -17,17 +17,23 @@ export default function UnreadMessagesProvider({ children }) {
   const { user } = useAuth();
   const connected = useRealtimeConnected();
   const [unread, setUnread] = useState(0);
+  const countRequest = useRef(0);
 
   const refresh = useCallback(() => {
-    if (!user) return;
+    const request = ++countRequest.current;
+    if (!user) {
+      setUnread(0);
+      return;
+    }
     api("/api/messages/unread-count", { redirectOn401: false })
-      .then((c) => setUnread(c.unread))
+      .then((c) => {
+        if (request === countRequest.current) setUnread(c.unread);
+      })
       .catch(() => {});
   }, [user]);
 
   useEffect(() => {
-    if (!user) setUnread(0);
-    else refresh();
+    refresh();
   }, [user, refresh]);
 
   // A reconnect may have missed messages: count again.
