@@ -245,3 +245,20 @@ func TestRegisterAvatar(t *testing.T) {
 		t.Errorf("%d files in the upload dir after rejected avatars, want 1", len(files))
 	}
 }
+
+func TestRegisterWebPAvatar(t *testing.T) {
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Routes())
+	defer srv.Close()
+
+	c := newClient(t, srv.URL)
+	webp := []byte("RIFF\x18\x00\x00\x00WEBPVP8 ")
+	status, user := c.form("POST", "/api/register", validUser("webp@example.com"), webp)
+	if status != http.StatusCreated {
+		t.Fatalf("register with WebP avatar = %d %v", status, user)
+	}
+	path, _ := user["avatar_path"].(string)
+	if !strings.HasSuffix(path, ".webp") {
+		t.Fatalf("avatar_path = %q, want .webp", path)
+	}
+}

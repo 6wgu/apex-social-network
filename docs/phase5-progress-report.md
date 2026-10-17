@@ -62,7 +62,7 @@ Updated:
 - `frontend/app/register/page.js`
 - `frontend/components/EditProfile.js`
 
-Registration and profile editing now advertise JPEG, PNG, and GIF MIME types plus extensions to the file picker. If the operating system still permits an "All files" selection, the browser immediately clears the file and shows an error before submission. The backend continues to validate the file bytes independently.
+Registration and profile editing now advertise JPEG, PNG, GIF, and WebP MIME types plus extensions to the file picker. If the operating system still permits an "All files" selection, the browser immediately clears the file and shows an error before submission. The backend continues to validate the file bytes independently.
 
 Validation: the Docker frontend was rebuilt and a browser test selected `README.md`; the file input was cleared and displayed `Avatar must be a JPEG, PNG or GIF file.`
 

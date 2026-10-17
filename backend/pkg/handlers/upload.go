@@ -28,6 +28,7 @@ var imageExtensions = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/png":  ".png",
 	"image/gif":  ".gif",
+	"image/webp": ".webp",
 }
 
 // uploadError is a problem with the uploaded file that the client can fix.
@@ -38,7 +39,7 @@ func (e uploadError) Error() string { return string(e) }
 
 const (
 	errImageTooLarge = uploadError("image must be 5 MB or smaller")
-	errImageType     = uploadError("image must be a JPEG, PNG or GIF")
+	errImageType     = uploadError("image must be a JPEG, PNG, GIF or WebP")
 )
 
 // parseForm reads a multipart (or URL-encoded) form with the body capped at
@@ -73,7 +74,7 @@ func removeFormFiles(r *http.Request) {
 // saveImage stores the file uploaded in the given form field and returns the
 // path it is served from, e.g. "/uploads/3f2a….png". It returns "" when the
 // field has no file, and an uploadError when the file is too big or is not a
-// JPEG, PNG or GIF. Call parseForm first.
+// JPEG, PNG, GIF or WebP. Call parseForm first.
 func (a *App) saveImage(r *http.Request, field string) (string, error) {
 	file, header, err := r.FormFile(field)
 	if errors.Is(err, http.ErrMissingFile) || errors.Is(err, http.ErrNotMultipart) {

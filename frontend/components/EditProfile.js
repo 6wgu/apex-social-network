@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import Avatar from "@/components/Avatar";
 
-const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,.jpg,.jpeg,.png,.gif";
-const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif"]);
+const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
 function isAllowedAvatar(file) {
-  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif)$/i.test(file.name);
+  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif|webp)$/i.test(file.name);
 }
 
 // Form for PATCH /api/me on your own profile: nickname, about me, and the
@@ -39,7 +39,7 @@ export default function EditProfile({ user, onSaved, onCancel }) {
     if (selected && !isAllowedAvatar(selected)) {
       e.target.value = "";
       setFile(null);
-      setError("Avatar must be a JPEG, PNG or GIF file.");
+      setError("Avatar must be a JPEG, PNG, GIF or WebP file.");
       return;
     }
     setError("");
@@ -84,7 +84,7 @@ export default function EditProfile({ user, onSaved, onCancel }) {
           <label>
             Avatar
             <input id="edit-avatar" type="file" accept={AVATAR_ACCEPT} onChange={chooseFile} />
-            <span className="hint">JPEG, PNG or GIF, up to 5 MB.</span>
+            <span className="hint">JPEG, PNG, GIF or WebP, up to 5 MB.</span>
           </label>
         </div>
         {user.avatar_path && (

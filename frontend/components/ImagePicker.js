@@ -24,7 +24,7 @@ export default function ImagePicker({ value, onChange, label = "Photo / GIF", co
       <input
         ref={input}
         type="file"
-        accept="image/jpeg,image/png,image/gif"
+        accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
         hidden
         onChange={(e) => onChange(e.target.files[0] || null)}
       />

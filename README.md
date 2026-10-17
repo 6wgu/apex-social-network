@@ -10,7 +10,7 @@ A full-stack social network with profiles, follow requests, privacy-aware posts,
 
 - Session-based authentication with HTTP-only cookies and bcrypt password hashes
 - Public and private profiles with follow requests and access-controlled content
-- Posts and comments with JPEG, PNG, and GIF uploads and three privacy levels
+- Posts and comments with JPEG, PNG, GIF, and WebP uploads and three privacy levels
 - Groups, invitations, join requests, events, RSVPs, and group-only content
 - Private chat and group chat over authenticated WebSockets, with emoji support
 - Live notifications with separate notification and unread-message badges

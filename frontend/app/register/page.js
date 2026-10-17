@@ -6,11 +6,11 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 
-const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,.jpg,.jpeg,.png,.gif";
-const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif"]);
+const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
 function isAllowedAvatar(file) {
-  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif)$/i.test(file.name);
+  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif|webp)$/i.test(file.name);
 }
 
 export default function RegisterPage() {
@@ -61,7 +61,7 @@ export default function RegisterPage() {
     if (file && !isAllowedAvatar(file)) {
       e.target.value = "";
       setAvatar(null);
-      setError("Avatar must be a JPEG, PNG or GIF file.");
+      setError("Avatar must be a JPEG, PNG, GIF or WebP file.");
       return;
     }
     setError("");
@@ -125,7 +125,7 @@ export default function RegisterPage() {
                 accept={AVATAR_ACCEPT}
                 onChange={chooseAvatar}
               />
-              <span className="hint">JPEG, PNG or GIF, up to 5 MB.</span>
+              <span className="hint">JPEG, PNG, GIF or WebP, up to 5 MB.</span>
             </label>
           </div>
           <label>
