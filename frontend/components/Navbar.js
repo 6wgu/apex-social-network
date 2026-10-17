@@ -25,7 +25,7 @@ export default function Navbar() {
   if (!user) {
     return (
       <header className="navbar">
-        <Link href="/login" className="brand">
+        <Link href="/" className="brand">
           social<span>network</span>
         </Link>
         <span className="nav-links" />
