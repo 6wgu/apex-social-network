@@ -36,13 +36,13 @@ const dummyHash = "$2a$10$ao.LYsoUHM3TPEfBMuDpQ.rXm.NuBqHqcsLoXoGzgpPRZdOxuUMna"
 // created_at is formatted so it reads like SQLite's own datetime strings.
 // SQL constant: never built from user input; every value is a bound parameter.
 const userColumns = `id, email, first_name, last_name, date_of_birth, avatar_path,
-	nickname, about_me, is_public, strftime('%Y-%m-%d %H:%M:%S', created_at)`
+	nickname, about_me, is_public, is_verified, strftime('%Y-%m-%d %H:%M:%S', created_at)`
 
 // scanUser reads one row selected with userColumns.
 func scanUser(row interface{ Scan(...any) error }) (models.User, error) {
 	var u models.User
 	err := row.Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.DateOfBirth, &u.AvatarPath,
-		&u.Nickname, &u.AboutMe, &u.IsPublic, &u.CreatedAt)
+		&u.Nickname, &u.AboutMe, &u.IsPublic, &u.IsVerified, &u.CreatedAt)
 	return u, err
 }
 

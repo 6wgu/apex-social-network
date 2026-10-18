@@ -14,6 +14,7 @@ import (
 	"social-network/pkg/handlers"
 	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
+	"social-network/pkg/otp"
 	"social-network/pkg/session"
 	"social-network/pkg/ws"
 )
@@ -71,14 +72,16 @@ func main() {
 		log.Fatalf("create upload dir: %v", err)
 	}
 
-	mailer := mail.New(mail.FromEnv())
+	mailCfg := mail.FromEnv()
+	mailer := mail.New(mailCfg)
 	if mailer.Enabled() {
 		log.Printf("email: sending through %s as %s", mailer.Config().Host, mailer.Config().User)
 	} else {
 		log.Println("email: console mode (SMTP_USER and SMTP_PASS are empty), emails are printed here")
 	}
 
-	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer}
+	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer,
+		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg))}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,
 		middleware.Logger,

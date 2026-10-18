@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"social-network/pkg/db/sqlite"
+	"social-network/pkg/mail"
+	"social-network/pkg/otp"
 	"social-network/pkg/ws"
 )
 
@@ -34,7 +36,10 @@ func newTestApp(t *testing.T) *App {
 	hub := ws.NewHub("http://localhost:3000")
 	// Tests send many frames back to back; the real limit has its own test.
 	hub.SetRateLimit(10000, 10000)
-	return &App{DB: db, UploadDir: uploads, Hub: hub}
+	mailer := mail.New(mail.Config{FromName: "Social Network"})
+	mailer.Log = func(string, ...any) {}
+	return &App{DB: db, UploadDir: uploads, Hub: hub, Mailer: mailer,
+		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.Options{})}
 }
 
 func TestWrongMethodIs405(t *testing.T) {

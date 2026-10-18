@@ -10,6 +10,7 @@ import (
 
 	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
+	"social-network/pkg/otp"
 	"social-network/pkg/ws"
 )
 
@@ -19,6 +20,7 @@ type App struct {
 	UploadDir string
 	Hub       *ws.Hub
 	Mailer    *mail.Mailer
+	OTP       *otp.Service
 }
 
 // Routes registers every endpoint on a standard library ServeMux.
@@ -42,6 +44,8 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/me", protected(a.me))
 	mux.Handle("PATCH /api/me", protected(a.updateMe))
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
+	mux.Handle("POST /api/otp/send", protected(a.sendOTP))
+	mux.Handle("POST /api/otp/verify", protected(a.verifyOTP))
 	mux.Handle("GET /api/users", protected(a.searchUsers))
 	mux.Handle("GET /api/users/{id}", protected(a.getProfile))
 	mux.Handle("GET /api/users/{id}/posts", protected(a.userPosts))

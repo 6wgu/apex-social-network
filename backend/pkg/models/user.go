@@ -13,6 +13,7 @@ type User struct {
 	Nickname     string `json:"nickname"`
 	AboutMe      string `json:"about_me"`
 	IsPublic     bool   `json:"is_public"`
+	IsVerified   bool   `json:"is_verified"`
 	CreatedAt    string `json:"created_at"`
 }
 
