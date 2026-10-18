@@ -15,6 +15,7 @@ chat) and `group_messages` (group chat).
 | posts.group_id | Phase 3 (migration 000014: `ALTER TABLE posts ADD COLUMN`, so no merged migration is edited) |
 | messages | Phase 4 (migration 000015) |
 | group_messages | Phase 4 (migration 000016) |
+| otp_codes, users.is_verified | Email verification (migration 000017) |
 
 **Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
 week-2 spec. There is no separate `follow_requests` table. Accepting a request
@@ -43,7 +44,16 @@ erDiagram
         TEXT nickname
         TEXT about_me
         INTEGER is_public "1 public, 0 private"
+        INTEGER is_verified "1 after the email code was confirmed"
         DATETIME created_at
+    }
+    otp_codes {
+        TEXT subject PK "user:{id}"
+        TEXT code_hash "sha256(salt + code), never the code"
+        TEXT salt
+        DATETIME expires_at
+        INTEGER attempts
+        DATETIME last_sent_at
     }
     sessions {
         TEXT id PK "uuid"

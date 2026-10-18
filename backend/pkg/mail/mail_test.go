@@ -87,6 +87,22 @@ func TestFromEnvDefaultsAndPassword(t *testing.T) {
 	}
 }
 
+func TestLoadDotEnvWindowsFile(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".env.txt"), []byte("\ufeffEK_W1=me@gmail.com\r\nexport EK_W2=abcd efgh\r\n"), 0o600)
+	for _, k := range []string{"EK_W1", "EK_W2"} {
+		os.Unsetenv(k)
+		t.Cleanup(func() { os.Unsetenv(k) })
+	}
+	LoadDotEnv(dir)
+	if got := os.Getenv("EK_W1"); got != "me@gmail.com" {
+		t.Errorf("EK_W1 = %q", got)
+	}
+	if got := os.Getenv("EK_W2"); got != "abcd efgh" {
+		t.Errorf("EK_W2 = %q", got)
+	}
+}
+
 func TestLoadDotEnvComments(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".env"), []byte("# top\nEK_A=   # empty with comment\nEK_B=587   # port\nEK_C=\"My # App\"\nEK_D='x y'\nEK_E=plain\n"), 0o600)

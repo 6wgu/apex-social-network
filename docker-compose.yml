@@ -3,6 +3,11 @@ services:
     build: ./backend
     image: social-network-backend
     container_name: social-network-backend
+    env_file:
+      - path: ./.env
+        required: false
+      - path: ./backend/.env
+        required: false
     environment:
       # Browser origins allowed to open /ws (comma-separated, exact matches only).
       FRONTEND_ORIGIN: http://localhost:3000,http://127.0.0.1:3000

@@ -27,7 +27,7 @@ func env(key, fallback string) string {
 }
 
 func main() {
-	mail.LoadDotEnv(".")
+	envFile := mail.LoadDotEnv(".")
 	migrateFlag := flag.String("migrate", "up", `"up" runs pending migrations then starts the server; "down" rolls back all migrations and exits`)
 	flag.Parse()
 
@@ -74,8 +74,20 @@ func main() {
 
 	mailCfg := mail.FromEnv()
 	mailer := mail.New(mailCfg)
+	if envFile != "" {
+		log.Printf("email: settings loaded from %s", envFile)
+	} else {
+		log.Println("email: no .env file found in this folder or its parents")
+	}
 	if mailer.Enabled() {
-		log.Printf("email: sending through %s as %s", mailer.Config().Host, mailer.Config().User)
+		log.Printf("email: sending through %s:%d as %s", mailCfg.Host, mailCfg.Port, mailCfg.User)
+		go func() {
+			if err := mailer.Check(); err != nil {
+				log.Printf("email: Gmail login FAILED: %v", err)
+				return
+			}
+			log.Println("email: Gmail login OK")
+		}()
 	} else {
 		log.Println("email: console mode (SMTP_USER and SMTP_PASS are empty), emails are printed here")
 	}

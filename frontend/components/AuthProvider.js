@@ -64,8 +64,8 @@ export function AuthGate({ children }) {
   useEffect(() => {
     if (loading) return;
     if (!user && !isPublicPage && !isLandingPage) router.replace("/login");
-    if (user && isPublicPage) router.replace("/");
-  }, [loading, user, isPublicPage, isLandingPage, router]);
+    if (user && isPublicPage) router.replace(pathname === "/register" && !user.is_verified ? "/verify" : "/");
+  }, [loading, user, isPublicPage, isLandingPage, pathname, router]);
 
   if (!allowed) return <p className="muted center">Loading…</p>;
   return children;

@@ -81,7 +81,6 @@ export default function RegisterPage() {
             <li>Chat without losing the thread</li>
           </ul>
         </div>
-        <div className="auth-aside-mark" aria-hidden="true">✳</div>
       </aside>
       <section className="card auth-card">
         <div className="auth-heading">

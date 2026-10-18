@@ -50,11 +50,20 @@ only by pull request, and tell both sides.
 | GET | `/api/me` | none | `200 User` |
 
 `User` is the full profile without the password:
-`{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "created_at" }`
+`{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "is_verified", "created_at" }`
 
 Validation (all on the server): valid email format, password 8 to 72 characters, a real birth date in the past, and first and last name required (max 50 characters). `nickname` is optional; when provided, it must be at most 30 ASCII characters, start with a letter, and contain only letters, numbers, `_` or `-`. The same rule applies when updating a nickname. `about_me` is at most 500 characters. A duplicate email returns `409 {"error":"email already registered"}`; emails are compared without case and stored in lower case. A bad avatar returns `400` with `avatar: image must be a JPEG, PNG or GIF` or `avatar: image must be 5 MB or smaller`.
 
 Login with an unknown email or a wrong password returns the same `401 {"error":"wrong email or password"}`.
+
+## Email verification
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/api/otp/send` | none (or `{}`) | `200 {"status":"sent","email"}`: emails a 6-digit code to the logged-in user, replacing any earlier code. `429 {"error","retry_after"}` (and a `Retry-After` header) when a code was sent less than 60 s ago. `409` if the email is already verified |
+| POST | `/api/otp/verify` | `{"code":"123456"}` | `200 User` with `is_verified: true`. `400 {"error","reason"}` where `reason` is `wrong` (with `attempts_left`), `expired`, `too_many` or `missing`; `400` for an empty code. `409` if already verified |
+
+Both routes need a session, and the code always belongs to the logged-in user: there is no way to name another user or email. A code is valid for 10 minutes and works once. Only a salted SHA-256 hash of it is stored (`otp_codes`). After 5 wrong tries it is deleted and a new one must be requested. Registration also sends a welcome email. Settings come from `backend/.env` (see the README).
 
 ## Profiles and users (Phase 1)
 

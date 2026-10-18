@@ -1923,3 +1923,68 @@ button {
     text-align: left;
   }
 }
+
+.verify-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #e5c7a9;
+  border-radius: var(--radius);
+  background: #fbf1e6;
+  color: #6b4a2b;
+  font-size: 14px;
+}
+
+.verify-banner .btn-primary { padding: 7px 14px; font-size: 13px; }
+
+.verify-card { margin: 44px auto; text-align: center; }
+.verify-card .auth-form { text-align: left; }
+.verify-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: #dce9e3;
+  color: var(--primary);
+  font-size: 26px;
+}
+.verify-mark-done { background: var(--success); color: #fff; }
+.verify-home { display: inline-block; padding: 12px 22px; text-decoration: none; }
+
+.otp-input {
+  text-align: center;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 12px;
+  padding: 12px 10px;
+}
+
+.form-info {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #b9d6c8;
+  border-radius: var(--radius);
+  background: #e8f3ed;
+  color: #2f5e49;
+  font-size: 14px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:disabled { color: var(--muted); text-decoration: none; cursor: default; }

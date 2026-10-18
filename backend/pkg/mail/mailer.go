@@ -85,7 +85,7 @@ func (m *Mailer) Send(msg Message) error {
 			rcpt = append(rcpt, addr.Address)
 		}
 	}
-	return m.withClient(func(c *smtp.Client) error {
+	err = m.withClient(func(c *smtp.Client) error {
 		if err := c.Mail(m.cfg.User); err != nil {
 			return err
 		}
@@ -103,6 +103,11 @@ func (m *Mailer) Send(msg Message) error {
 		}
 		return w.Close()
 	})
+	if err != nil {
+		return fmt.Errorf("send email to %s: %w", strings.Join(msg.To, ", "), err)
+	}
+	m.Log("email sent to %s: %q", strings.Join(msg.To, ", "), msg.Subject)
+	return nil
 }
 
 func (m *Mailer) Check() error {

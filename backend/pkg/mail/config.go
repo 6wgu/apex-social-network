@@ -25,11 +25,22 @@ type Config struct {
 func LoadDotEnv(dir string) string {
 	for d := dir; ; d = filepath.Dir(d) {
 		path := filepath.Join(d, ".env")
+		if _, err := os.Stat(path); err != nil {
+			if _, err := os.Stat(path + ".txt"); err == nil {
+				path += ".txt"
+			}
+		}
 		if f, err := os.Open(path); err == nil {
 			defer f.Close()
 			sc := bufio.NewScanner(f)
+			first := true
 			for sc.Scan() {
-				line := strings.TrimSpace(sc.Text())
+				line := sc.Text()
+				if first {
+					line = strings.TrimPrefix(line, "\ufeff")
+					first = false
+				}
+				line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export "))
 				if line == "" || strings.HasPrefix(line, "#") {
 					continue
 				}
@@ -59,12 +70,12 @@ func LoadDotEnv(dir string) string {
 
 func FromEnv() Config {
 	num := func(name string, fallback int) int {
-		if n, err := strconv.Atoi(os.Getenv(name)); err == nil && n > 0 {
+		if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name))); err == nil && n > 0 {
 			return n
 		}
 		return fallback
 	}
-	host := os.Getenv("SMTP_HOST")
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
 	if host == "" {
 		host = "smtp.gmail.com"
 	}
@@ -75,8 +86,8 @@ func FromEnv() Config {
 	return Config{
 		Host:     host,
 		Port:     num("SMTP_PORT", 587),
-		Secure:   os.Getenv("SMTP_SECURE") == "true",
-		User:     os.Getenv("SMTP_USER"),
+		Secure:   strings.EqualFold(strings.TrimSpace(os.Getenv("SMTP_SECURE")), "true"),
+		User:     strings.TrimSpace(os.Getenv("SMTP_USER")),
 		Pass:     strings.Join(strings.Fields(os.Getenv("SMTP_PASS")), ""),
 		FromName: from,
 
