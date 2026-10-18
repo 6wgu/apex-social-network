@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
 	"social-network/pkg/ws"
 )
@@ -17,6 +18,7 @@ type App struct {
 	DB        *sql.DB
 	UploadDir string
 	Hub       *ws.Hub
+	Mailer    *mail.Mailer
 }
 
 // Routes registers every endpoint on a standard library ServeMux.

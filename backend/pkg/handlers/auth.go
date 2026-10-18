@@ -224,6 +224,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+	a.sendWelcome(user)
 	writeJSON(w, http.StatusCreated, user)
 }
 

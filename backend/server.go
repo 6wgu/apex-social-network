@@ -12,6 +12,7 @@ import (
 
 	"social-network/pkg/db/sqlite"
 	"social-network/pkg/handlers"
+	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
 	"social-network/pkg/session"
 	"social-network/pkg/ws"
@@ -25,6 +26,7 @@ func env(key, fallback string) string {
 }
 
 func main() {
+	mail.LoadDotEnv(".")
 	migrateFlag := flag.String("migrate", "up", `"up" runs pending migrations then starts the server; "down" rolls back all migrations and exits`)
 	flag.Parse()
 
@@ -69,7 +71,14 @@ func main() {
 		log.Fatalf("create upload dir: %v", err)
 	}
 
-	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...)}
+	mailer := mail.New(mail.FromEnv())
+	if mailer.Enabled() {
+		log.Printf("email: sending through %s as %s", mailer.Config().Host, mailer.Config().User)
+	} else {
+		log.Println("email: console mode (SMTP_USER and SMTP_PASS are empty), emails are printed here")
+	}
+
+	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,
 		middleware.Logger,
