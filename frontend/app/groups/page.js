@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import GroupJoinButton from "@/components/GroupJoinButton";
 import Modal from "@/components/Modal";
+import { Loading } from "@/components/RacingLights";
 import { GROUPS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
 
@@ -165,7 +166,7 @@ export default function GroupsPage() {
       </section>
 
       {error && <p className="form-error">{error}</p>}
-      {!groups && !error && <p className="muted center">Loading groups…</p>}
+      {!groups && !error && <Loading>Loading groups…</Loading>}
       {groups && (
         <>
           {invited.length > 0 && <Section title="Invitations" groups={invited} onChange={load} />}

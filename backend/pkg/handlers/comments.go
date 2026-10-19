@@ -162,4 +162,5 @@ func (a *App) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
+	a.pushToViewers(postID, eventCommentCreated, c)
 }

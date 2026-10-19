@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { parseTime, timeAgo } from "@/lib/time";
 import Avatar from "@/components/Avatar";
+import Icon from "@/components/Icon";
 import ImagePicker from "@/components/ImagePicker";
+import { notify } from "@/components/Toaster";
 import { PRIVACY } from "@/components/PostComposer";
+import { useRealtime } from "@/components/RealtimeProvider";
 
 const COMMENTS_PAGE = 50; // the backend's page size for comments
 
-function Author({ user, time }) {
+function Author({ user, time, privacy }) {
   return (
     <div className="post-author">
       <Link href={`/profile/${user.id}`}>
@@ -20,9 +23,18 @@ function Author({ user, time }) {
         <Link href={`/profile/${user.id}`} className="post-name">
           {user.first_name} {user.last_name}
         </Link>
-        <time className="muted post-time" dateTime={parseTime(time).toISOString()} title={parseTime(time).toLocaleString()}>
-          {timeAgo(time)}
-        </time>
+        <span className="post-meta">
+          <time className="post-time" dateTime={parseTime(time).toISOString()} title={parseTime(time).toLocaleString()}>
+            {timeAgo(time)}
+          </time>
+          {privacy && (
+            <span className="post-privacy" title={`${privacy.label}: ${privacy.hint}`}>
+              <span aria-hidden="true">·</span>
+              <Icon name={privacy.icon} size={13} />
+              {privacy.label}
+            </span>
+          )}
+        </span>
       </div>
     </div>
   );
@@ -56,6 +68,12 @@ function Comments({ postId, onAdded }) {
     load();
   }, [load]);
 
+  // Adds a comment once, whether it came from our own form or live.
+  const append = (c) => setComments((old) => (old && old.some((x) => x.id === c.id) ? old : [...(old || []), c]));
+  useRealtime((event) => {
+    if (event.type === "comment_created" && event.payload.post_id === postId) append(event.payload);
+  });
+
   async function submit(e) {
     e.preventDefault();
     setError("");
@@ -65,10 +83,10 @@ function Comments({ postId, onAdded }) {
     if (image) form.append("image", image);
     try {
       const c = await api(`/api/posts/${postId}/comments`, { method: "POST", body: form });
-      setComments((old) => [...(old || []), c]);
+      append(c);
       setContent("");
       setImage(null);
-      onAdded();
+      onAdded(c);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -124,22 +142,72 @@ function Comments({ postId, onAdded }) {
   );
 }
 
-// One post: author, time, privacy icon, text, image, and its comments.
+// The ♥ button: updates at once, then settles on the server's answer
+// (or goes back if the request fails).
+function LikeButton({ post }) {
+  const [liked, setLiked] = useState(Boolean(post.liked_by_me));
+  const [count, setCount] = useState(post.like_count || 0);
+  const [busy, setBusy] = useState(false);
+
+  // Someone else liked or unliked: take the new count (our own click
+  // settles on the server's answer instead).
+  useRealtime((event) => {
+    if (event.type === "post_likes" && event.payload.post_id === post.id && !busy) setCount(event.payload.like_count);
+  });
+
+  async function toggle() {
+    if (busy) return;
+    const next = !liked;
+    setBusy(true);
+    setLiked(next);
+    setCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    try {
+      const s = await api(`/api/posts/${post.id}/like`, { method: next ? "POST" : "DELETE" });
+      setLiked(s.liked_by_me);
+      setCount(s.like_count);
+    } catch (err) {
+      setLiked(!next);
+      setCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      notify({ tone: "error", title: "Couldn't update your like", message: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      className={`post-action post-like${liked ? " is-liked" : ""}`}
+      onClick={toggle}
+      aria-pressed={liked}
+      aria-label={`${liked ? "Unlike" : "Like"}, ${count} ${count === 1 ? "like" : "likes"}`}
+    >
+      <Icon name="heart" size={20} />
+      <span>{count}</span>
+    </button>
+  );
+}
+
+// One post: author, time, privacy icon, text, image, likes and comments.
 // A group post has no privacy icon: its group decides who sees it.
 export default function PostCard({ post }) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(post.comment_count);
+  // Each new comment counts once, from the form or from the live push.
+  const seen = useRef(new Set());
+  const counted = (c) => {
+    if (seen.current.has(c.id)) return;
+    seen.current.add(c.id);
+    setCount((n) => n + 1);
+  };
+  useRealtime((event) => {
+    if (event.type === "comment_created" && event.payload.post_id === post.id) counted(event.payload);
+  });
   const privacy = post.group_id ? null : PRIVACY[post.privacy];
 
   return (
     <article className="card post">
       <header className="post-head">
-        <Author user={post.author} time={post.created_at} />
-        {privacy && (
-          <span className="post-privacy" title={`${privacy.label}: ${privacy.hint}`} aria-label={privacy.label}>
-            {privacy.icon}
-          </span>
-        )}
+        <Author user={post.author} time={post.created_at} privacy={privacy} />
       </header>
       {post.content && <p className="post-text">{post.content}</p>}
       {post.image_path && (
@@ -147,11 +215,13 @@ export default function PostCard({ post }) {
         <img className="post-image" src={post.image_path} alt="Post image" loading="lazy" />
       )}
       <footer className="post-foot">
-        <button className="link-btn" onClick={() => setOpen(!open)} aria-expanded={open}>
-          💬 {count} {count === 1 ? "comment" : "comments"}
+        <LikeButton post={post} />
+        <button className="post-action" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`${count} ${count === 1 ? "comment" : "comments"}`}>
+          <Icon name="comment" size={20} />
+          <span>{count}</span>
         </button>
       </footer>
-      {open && <Comments postId={post.id} onAdded={() => setCount((c) => c + 1)} />}
+      {open && <Comments postId={post.id} onAdded={counted} />}
     </article>
   );
 }

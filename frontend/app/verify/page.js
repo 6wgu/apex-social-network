@@ -74,20 +74,33 @@ export default function VerifyPage() {
 
   if (user?.is_verified) {
     return (
-      <section className="card auth-card verify-card">
-        <div className="verify-mark verify-mark-done" aria-hidden="true">✓</div>
-        <div className="auth-heading">
-          <h1>Email verified</h1>
-          <p>{user.email} is confirmed. You are all set.</p>
-        </div>
-        <Link href="/" className="btn-primary verify-home">
-          Go to your feed
-        </Link>
-      </section>
+      <div className="auth-screen">
+        <section className="card auth-card verify-card verify-card-done">
+          {/* the circle draws itself, then the tick, then a ring pulses out */}
+          <div className="verify-success" aria-hidden="true">
+            <span className="verify-ring" />
+            {Array.from({ length: 8 }, (_, i) => (
+              <span key={i} className="verify-spark" style={{ "--i": i }} />
+            ))}
+            <svg className="verify-check" viewBox="0 0 64 64">
+              <circle className="verify-check-circle" cx="32" cy="32" r="29" />
+              <path className="verify-check-tick" d="M19 33.5 28 42.5 45.5 23" />
+            </svg>
+          </div>
+          <div className="auth-heading verify-done-text">
+            <h1>Email verified</h1>
+            <p>{user.email} is confirmed. You are all set.</p>
+          </div>
+          <Link href="/" className="btn-primary verify-home verify-done-text">
+            Go to your feed
+          </Link>
+        </section>
+      </div>
     );
   }
 
   return (
+    <div className="auth-screen">
     <section className="card auth-card verify-card">
       <div className="verify-mark" aria-hidden="true">✉</div>
       <div className="auth-heading">
@@ -129,5 +142,6 @@ export default function VerifyPage() {
         </button>
       </p>
     </section>
+    </div>
   );
 }

@@ -93,7 +93,9 @@ func main() {
 	}
 
 	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer,
-		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg))}
+		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg)),
+		// Nothing but /api/me, the email code and logout until the email is verified.
+		RequireVerified: true}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,
 		middleware.Logger,
@@ -104,8 +106,8 @@ func main() {
 		Addr:              ":" + port,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second, // long enough for a 5 MB image upload
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       120 * time.Second, // long enough for a 50 MB image upload
+		WriteTimeout:      120 * time.Second, // and to send a 50 MB GIF to a slow viewer
 		IdleTimeout:       2 * time.Minute,
 	}
 

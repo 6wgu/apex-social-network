@@ -65,15 +65,20 @@ type post struct {
 	Privacy      string             `json:"privacy"`
 	GroupID      *int64             `json:"group_id"` // null for a profile post
 	CommentCount int                `json:"comment_count"`
+	LikeCount    int                `json:"like_count"`
+	LikedByMe    bool               `json:"liked_by_me"` // whether the viewer (?1) likes it
 	CreatedAt    string             `json:"created_at"`
 }
 
-// postColumns selects a post (alias p) with its author (alias u) and its
-// number of comments.
+// postColumns selects a post (alias p) with its author (alias u), its
+// number of comments and likes, and whether the viewer (bound as ?1, as in
+// postVisibleSQL) likes it.
 // SQL constant: never built from user input; every value is a bound parameter.
 const postColumns = `p.id, p.content, p.image_path, p.privacy, p.group_id, strftime('%Y-%m-%d %H:%M:%S', p.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
-	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)`
+	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id),
+	(SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id),
+	EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?1)`
 
 // SQL constant: never built from user input; every value is a bound parameter.
 const postFrom = `FROM posts p JOIN users u ON u.id = p.user_id`
@@ -83,7 +88,7 @@ func scanPost(row interface{ Scan(...any) error }) (post, error) {
 	var groupID sql.NullInt64
 	a := &p.Author
 	err := row.Scan(&p.ID, &p.Content, &p.ImagePath, &p.Privacy, &groupID, &p.CreatedAt,
-		&a.ID, &a.FirstName, &a.LastName, &a.Nickname, &a.AvatarPath, &p.CommentCount)
+		&a.ID, &a.FirstName, &a.LastName, &a.Nickname, &a.AvatarPath, &p.CommentCount, &p.LikeCount, &p.LikedByMe)
 	if groupID.Valid {
 		p.GroupID = &groupID.Int64
 	}
@@ -220,6 +225,7 @@ func (a *App) savePost(w http.ResponseWriter, r *http.Request, np newPost) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
+	a.pushToViewers(p.ID, eventPostCreated, postCreated{PostID: p.ID, AuthorID: p.Author.ID, GroupID: p.GroupID})
 }
 
 // postContent reads and checks the content field of a post form. It writes

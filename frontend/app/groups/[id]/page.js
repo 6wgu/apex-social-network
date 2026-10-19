@@ -15,6 +15,7 @@ import JoinRequests from "@/components/JoinRequests";
 import { GROUPS_CHANGED } from "@/components/NotificationBell";
 import PostComposer from "@/components/PostComposer";
 import PostList from "@/components/PostList";
+import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeSend } from "@/components/RealtimeProvider";
 import UserList from "@/components/UserList";
 
@@ -75,6 +76,10 @@ export default function GroupPage() {
   const isMember = group?.my_status === "member";
   const isCreator = group && group.creator.id === me.id;
   const posts = usePagedPosts(isMember && tab === "Posts" ? `/api/groups/${encodeURIComponent(id)}/posts` : null);
+  // A new post in this group shows up at once.
+  useRealtime((event) => {
+    if (event.type === "post_created" && String(event.payload.group_id) === String(id)) posts.refreshTop();
+  });
 
   if (error && !group) {
     return (
@@ -84,7 +89,7 @@ export default function GroupPage() {
       </section>
     );
   }
-  if (!group) return <p className="muted center">Loading…</p>;
+  if (!group) return <Loading />;
 
   const tabs = ["Posts", "Chat", "Events", "Members", ...(isCreator ? ["Requests"] : [])];
   const shownTab = tabs.includes(tab) ? tab : "Posts";

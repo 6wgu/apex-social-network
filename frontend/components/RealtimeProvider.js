@@ -24,7 +24,7 @@ const SEND_TIMEOUT = 10000; // ms to wait for the server's answer to a frame
 // frame (matched by request_id) or rejects with its error.
 export default function RealtimeProvider({ children }) {
   const { user, logout } = useAuth();
-  const userId = user?.id;
+  const userId = user?.is_verified ? user.id : null; // the socket is for verified users only
   const logoutRef = useRef(logout);
   logoutRef.current = logout;
   const listeners = useRef(new Set());
@@ -89,7 +89,7 @@ export default function RealtimeProvider({ children }) {
             if (stopped) return;
             if (err.status === 401) {
               stopped = true;
-              logoutRef.current();
+              logoutRef.current({ quiet: true });
               return;
             }
             // Backend unreachable: keep retrying with the growing delay.

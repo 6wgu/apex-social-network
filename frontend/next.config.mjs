@@ -11,8 +11,12 @@ const nextConfig = {
   experimental: {
     // The proxy cuts request bodies off at 10 MB by default, which turns a
     // too-big upload into a broken request. Let it through (the backend's own
-    // cap is 32 MB) so the backend can answer with its "5 MB or smaller" error.
-    middlewareClientMaxBodySize: "33mb",
+    // cap is 64 MB) so the backend can answer with its "50 MB or smaller" error.
+    middlewareClientMaxBodySize: "65mb",
+    // The proxy drops a connection that is idle this long (default 30 s). The
+    // backend pings the WebSocket every 30 s, so at the default the two race
+    // and the live connection kept dropping. Two minutes leaves plenty of room.
+    proxyTimeout: 120_000,
   },
   async rewrites() {
     return [

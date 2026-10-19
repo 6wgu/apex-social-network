@@ -1,6 +1,7 @@
 package mail
 
 import (
+	_ "embed"
 	"fmt"
 	"html/template"
 	"strings"
@@ -18,23 +19,43 @@ type Content struct {
 	LogoCID    string
 }
 
+// The APEX look: carbon black, racing red, white text. Email clients ignore
+// web fonts and most CSS, so everything is inline and the logo is a PNG
+// sent inside the message (cid:), not a link.
+const (
+	logoCID = "apex-logo"
+	fonts   = `'Space Grotesk','DM Sans','Segoe UI',Helvetica,sans-serif`
+)
+
+//go:embed apex-logo.png
+var logoPNG []byte
+
+// withLogo attaches the logo the template points at.
+func withLogo(m Message) Message {
+	m.Attachments = append(m.Attachments, Attachment{Filename: "apex-logo.png", Content: logoPNG, ContentType: "image/png", CID: logoCID})
+	return m
+}
+
 var cardTmpl = template.Must(template.New("card").Parse(`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#edf2ef;font-family:Georgia,'Times New Roman',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#edf2ef;padding:40px 0;"><tr><td align="center">
-    <table width="480" cellpadding="0" cellspacing="0" style="background:#fbfcfa;border:1px solid #d5dfda;border-radius:12px;overflow:hidden;">
-      <tr><td style="background:#293b38;padding:28px 40px;text-align:center;">{{if .LogoCID}}<img src="cid:{{.LogoCID}}" alt="" height="40" style="display:block;margin:0 auto 12px;">{{end}}
-        <h1 style="margin:0;color:#f4f0e8;font-size:20px;font-weight:400;letter-spacing:.5px;">{{.Title}}</h1>
+<html><head><meta charset="UTF-8"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"></head>
+<body style="margin:0;padding:0;background:#090C12;font-family:` + fonts + `;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#090C12;padding:40px 12px;"><tr><td align="center">
+    <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#121722;border:1px solid #303847;border-radius:16px;overflow:hidden;">
+      <tr><td style="height:4px;background:#FF3045;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="background:#0B0E14;padding:28px 40px 24px;text-align:center;border-bottom:1px solid #303847;">
+        {{if .LogoCID}}<img src="cid:{{.LogoCID}}" alt="APEX" width="168" height="37" style="display:block;margin:0 auto 14px;border:0;">{{end}}
+        <h1 style="margin:0;color:#F5F7FA;font-size:20px;font-weight:700;letter-spacing:.3px;">{{.Title}}</h1>
       </td></tr>
-      <tr><td style="padding:32px 40px;color:#263632;font-size:15px;line-height:1.6;">
-        {{if .Code}}<p style="margin:0 0 24px;text-align:center;color:#6b7973;">{{if .Name}}Hi <strong style="color:#263632;">{{.Name}}</strong>, use{{else}}Use{{end}} the code below to verify your email.</p>
-        <div style="text-align:center;margin:0 0 24px;"><span style="display:inline-block;background:#edf2ef;border:2px solid #3f756d;border-radius:10px;padding:18px 32px;font-size:38px;font-weight:700;letter-spacing:12px;color:#3f756d;font-family:'Courier New',monospace;">{{.Code}}</span></div>
-        <p style="margin:0;text-align:center;color:#6b7973;font-size:13px;">This code expires in <strong style="color:#263632;">{{.TTL}} minutes</strong>.</p>
-        {{else}}{{if .Greeting}}<p style="margin:0 0 16px;">{{.Greeting}}</p>{{end}}{{range .Paragraphs}}<p style="margin:0 0 16px;">{{.}}</p>{{end}}
-        {{with .Button}}<p style="margin:24px 0 8px;text-align:center;"><a href="{{.URL}}" style="display:inline-block;background:#3f756d;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:8px;">{{.Text}}</a></p>{{end}}{{end}}
+      <tr><td style="padding:32px 40px;color:#F5F7FA;font-size:15px;line-height:1.6;">
+        {{if .Code}}<p style="margin:0 0 24px;text-align:center;color:#9BA6B8;">{{if .Name}}Hi <strong style="color:#F5F7FA;">{{.Name}}</strong>, use{{else}}Use{{end}} the code below to verify your email.</p>
+        <div style="text-align:center;margin:0 0 24px;"><span style="display:inline-block;background:#1B2230;border:2px solid #FF3045;border-radius:12px;padding:18px 28px;font-size:36px;font-weight:700;letter-spacing:12px;color:#F5F7FA;font-family:'Space Grotesk','Courier New',monospace;">{{.Code}}</span></div>
+        <p style="margin:0;text-align:center;color:#9BA6B8;font-size:13px;">This code expires in <strong style="color:#27D8E8;">{{.TTL}} minutes</strong>.</p>
+        {{else}}{{if .Greeting}}<p style="margin:0 0 16px;">{{.Greeting}}</p>{{end}}{{range .Paragraphs}}<p style="margin:0 0 16px;color:#9BA6B8;">{{.}}</p>{{end}}
+        {{with .Button}}<p style="margin:24px 0 8px;text-align:center;"><a href="{{.URL}}" style="display:inline-block;background:#FF3045;color:#FFFFFF;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px;">{{.Text}}</a></p>{{end}}{{end}}
       </td></tr>
-      <tr><td style="border-top:1px solid #d5dfda;padding:18px 40px;text-align:center;">
-        <p style="color:#6b7973;font-size:12px;margin:0;">{{.Footer}}</p>
+      <tr><td style="border-top:1px solid #303847;padding:18px 40px;text-align:center;background:#0B0E14;">
+        <p style="color:#9BA6B8;font-size:12px;margin:0 0 6px;">{{.Footer}}</p>
+        <p style="color:#5f6a7d;font-size:11px;margin:0;letter-spacing:.12em;text-transform:uppercase;">APEX &middot; Connect at full speed</p>
       </td></tr>
     </table>
   </td></tr></table>
@@ -50,6 +71,7 @@ func render(d cardData) string {
 	if d.Title == "" {
 		d.Title = d.Subject
 	}
+	d.LogoCID = logoCID
 	if d.Footer == "" {
 		d.Footer = "If you did not expect this email, you can ignore it."
 	}
@@ -75,9 +97,9 @@ func CodeEmail(appName, name, code string, ttlMinutes int) Message {
 	if name != "" {
 		text = "Hi " + name + ",\n\n" + text
 	}
-	c := Content{Subject: fmt.Sprintf("%s is your %s verification code", code, appName), Title: appName + " verification",
+	c := Content{Subject: fmt.Sprintf("%s is your %s verification code", code, appName), Title: "Verify your email",
 		Footer: "If you did not ask for this, you can ignore this email."}
-	return Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes})}
+	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes})})
 }
 
 func WelcomeEmail(appName, name string) Message {

@@ -21,6 +21,9 @@ type App struct {
 	Hub       *ws.Hub
 	Mailer    *mail.Mailer
 	OTP       *otp.Service
+	// RequireVerified locks every signed-in route except /api/me, the email
+	// code routes and logout until the user has verified their email (403).
+	RequireVerified bool
 }
 
 // Routes registers every endpoint on a standard library ServeMux.
@@ -30,7 +33,16 @@ func (a *App) Routes() *http.ServeMux {
 	// Frames browsers send over /ws (chat messages) are handled here too.
 	a.Hub.SetHandler(a.handleSocketEvent)
 	auth := middleware.RequireAuth(a.DB)
-	protected := func(h http.HandlerFunc) http.Handler { return auth(h) }
+	// session: a valid session is enough. protected: the user must also have
+	// verified their email, when RequireVerified is on.
+	session := func(h http.HandlerFunc) http.Handler { return auth(h) }
+	gate := func(h http.Handler) http.Handler {
+		if a.RequireVerified {
+			h = a.verifiedOnly(h)
+		}
+		return auth(h)
+	}
+	protected := func(h http.HandlerFunc) http.Handler { return gate(h) }
 
 	// Public: the only routes that work without a session. Logout is public
 	// so it can always clear the cookie, even an expired or unknown one.
@@ -41,11 +53,11 @@ func (a *App) Routes() *http.ServeMux {
 
 	// Everything below needs a valid session cookie (401 otherwise).
 	mux.Handle("GET /ws", protected(a.serveWS))
-	mux.Handle("GET /api/me", protected(a.me))
+	mux.Handle("GET /api/me", session(a.me))
 	mux.Handle("PATCH /api/me", protected(a.updateMe))
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
-	mux.Handle("POST /api/otp/send", protected(a.sendOTP))
-	mux.Handle("POST /api/otp/verify", protected(a.verifyOTP))
+	mux.Handle("POST /api/otp/send", session(a.sendOTP))
+	mux.Handle("POST /api/otp/verify", session(a.verifyOTP))
 	mux.Handle("GET /api/users", protected(a.searchUsers))
 	mux.Handle("GET /api/users/{id}", protected(a.getProfile))
 	mux.Handle("GET /api/users/{id}/posts", protected(a.userPosts))
@@ -60,6 +72,8 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/posts/{id}", protected(a.getPost))
 	mux.Handle("GET /api/posts/{id}/comments", protected(a.listComments))
 	mux.Handle("POST /api/posts/{id}/comments", protected(a.createComment))
+	mux.Handle("POST /api/posts/{id}/like", protected(a.likePost(true)))
+	mux.Handle("DELETE /api/posts/{id}/like", protected(a.likePost(false)))
 	mux.Handle("GET /api/feed", protected(a.feed))
 	mux.Handle("GET /api/groups/{id}/messages", protected(a.groupMessageHistory))
 	mux.Handle("GET /api/conversations", protected(a.listConversations))
@@ -87,8 +101,8 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/groups/{id}/events", protected(a.listEvents))
 	mux.Handle("POST /api/groups/{id}/events", protected(a.createEvent))
 	mux.Handle("POST /api/events/{id}/respond", protected(a.respondToEvent))
-	mux.Handle("GET /uploads/", auth(a.uploads()))
-	mux.Handle("GET /uploads", auth(a.uploads())) // 404, not a redirect to the folder
+	mux.Handle("GET /uploads/", gate(a.uploads()))
+	mux.Handle("GET /uploads", gate(a.uploads())) // 404, not a redirect to the folder
 
 	// Everything that matched no route above gets the JSON error shape instead
 	// of the default text response.

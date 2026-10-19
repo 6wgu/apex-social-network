@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
+import Icon from "@/components/Icon";
 import ImagePicker from "@/components/ImagePicker";
 
 export const PRIVACY = {
-  public: { icon: "🌍", label: "Public", hint: "Everyone can see it (only your followers while your profile is private)" },
-  almost_private: { icon: "👥", label: "Almost private", hint: "Only your followers" },
-  private: { icon: "🔒", label: "Private", hint: "Only the followers you choose" },
+  public: { icon: "globe", label: "Public", hint: "Everyone can see it (only your followers while your profile is private)" },
+  almost_private: { icon: "groups", label: "Almost private", hint: "Only your followers" },
+  private: { icon: "lock", label: "Private", hint: "Only the followers you choose" },
 };
 
 // Form for POST /api/posts: text, image/GIF with preview, privacy, and, for
@@ -83,7 +84,7 @@ export default function PostComposer({ onCreated, groupId }) {
       <ImagePicker value={image} onChange={setImage} />
 
       {groupId ? (
-        <p className="hint">👥 Only members of this group can see this post.</p>
+        <p className="hint">Only members of this group can see this post.</p>
       ) : (
         <>
           <fieldset className="privacy-picker">
@@ -91,7 +92,7 @@ export default function PostComposer({ onCreated, groupId }) {
             {Object.entries(PRIVACY).map(([value, p]) => (
               <label key={value} className={privacy === value ? "selected" : ""} title={p.hint}>
                 <input type="radio" name="privacy" value={value} checked={privacy === value} onChange={() => setPrivacy(value)} />
-                <span aria-hidden="true">{p.icon}</span> {p.label}
+                <Icon name={p.icon} size={16} /> {p.label}
               </label>
             ))}
           </fieldset>

@@ -194,38 +194,73 @@ func Build(cfg Config, msg Message) ([]byte, error) {
 		writeBase64(w, []byte(part.body))
 	}
 	altW.Close()
-	w, err := outer.CreatePart(textproto.MIMEHeader{"Content-Type": {fmt.Sprintf("multipart/alternative; boundary=%q", altW.Boundary())}})
-	if err != nil {
-		return nil, err
-	}
-	w.Write(alt.Bytes())
-
+	// Inline images (with a CID) go next to the HTML in multipart/related,
+	// so mail clients show them in the message and not as attachments.
+	body := alt.Bytes()
+	bodyType := fmt.Sprintf("multipart/alternative; boundary=%q", altW.Boundary())
+	var inline, attached []Attachment
 	for _, a := range msg.Attachments {
-		typ := a.ContentType
-		if typ == "" {
-			typ = mime.TypeByExtension(filepath.Ext(a.Filename))
-		}
-		if typ == "" {
-			typ = "application/octet-stream"
-		}
-		hdr := textproto.MIMEHeader{
-			"Content-Type":              {mime.FormatMediaType(typ, map[string]string{"name": a.Filename})},
-			"Content-Transfer-Encoding": {"base64"},
-		}
 		if a.CID != "" {
-			hdr.Set("Content-ID", "<"+a.CID+">")
-			hdr.Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": a.Filename}))
+			inline = append(inline, a)
 		} else {
-			hdr.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": a.Filename}))
+			attached = append(attached, a)
 		}
-		w, err := outer.CreatePart(hdr)
+	}
+	if len(inline) > 0 {
+		var rel bytes.Buffer
+		relW := multipart.NewWriter(&rel)
+		w, err := relW.CreatePart(textproto.MIMEHeader{"Content-Type": {bodyType}})
 		if err != nil {
 			return nil, err
 		}
-		writeBase64(w, a.Content)
+		w.Write(body)
+		for _, a := range inline {
+			if err := writeAttachment(relW, a); err != nil {
+				return nil, err
+			}
+		}
+		relW.Close()
+		body = rel.Bytes()
+		bodyType = fmt.Sprintf("multipart/related; type=\"multipart/alternative\"; boundary=%q", relW.Boundary())
+	}
+	w, err := outer.CreatePart(textproto.MIMEHeader{"Content-Type": {bodyType}})
+	if err != nil {
+		return nil, err
+	}
+	w.Write(body)
+	for _, a := range attached {
+		if err := writeAttachment(outer, a); err != nil {
+			return nil, err
+		}
 	}
 	outer.Close()
 	return buf.Bytes(), nil
+}
+
+func writeAttachment(mw *multipart.Writer, a Attachment) error {
+	typ := a.ContentType
+	if typ == "" {
+		typ = mime.TypeByExtension(filepath.Ext(a.Filename))
+	}
+	if typ == "" {
+		typ = "application/octet-stream"
+	}
+	hdr := textproto.MIMEHeader{
+		"Content-Type":              {mime.FormatMediaType(typ, map[string]string{"name": a.Filename})},
+		"Content-Transfer-Encoding": {"base64"},
+	}
+	if a.CID != "" {
+		hdr.Set("Content-ID", "<"+a.CID+">")
+		hdr.Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": a.Filename}))
+	} else {
+		hdr.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": a.Filename}))
+	}
+	w, err := mw.CreatePart(hdr)
+	if err != nil {
+		return err
+	}
+	writeBase64(w, a.Content)
+	return nil
 }
 
 func writeBase64(w interface{ Write([]byte) (int, error) }, data []byte) {

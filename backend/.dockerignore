@@ -2,3 +2,6 @@ data
 uploads
 *.db
 *.exe
+.env
+.env.*
+!.env.example

@@ -5,9 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/time";
+import useAutoRefresh from "@/lib/useAutoRefresh";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import ChatWindow from "@/components/ChatWindow";
+import Icon from "@/components/Icon";
+import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components/RealtimeProvider";
 
 const NOT_ALLOWED = "You can only message people you follow or who follow you.";
@@ -31,6 +34,7 @@ function Chats() {
   const [contacts, setContacts] = useState([]);
   const [error, setError] = useState("");
   const [stranger, setStranger] = useState(null); // ?user= someone with no conversation and not a contact
+  const [filter, setFilter] = useState(""); // narrows the list by name, in the browser only
 
   const load = useCallback(() => {
     Promise.all([api("/api/conversations"), api("/api/chat-contacts")])
@@ -43,6 +47,7 @@ function Chats() {
   }, []);
 
   useEffect(load, [load]);
+  useAutoRefresh(load, 30000);
   // Reconnected: the list may have missed messages.
   useEffect(() => {
     if (connected) load();
@@ -98,20 +103,30 @@ function Chats() {
   }, [selectedId, conversations, selectedConv, selectedContact]);
 
   const open = (id) => router.push(`/chats?user=${id}`);
+  const query = filter.trim().toLowerCase();
+  const matchesFilter = (u) => !query || name(u).toLowerCase().includes(query) || (u.nickname || "").toLowerCase().includes(query);
+  const shownConversations = (conversations || []).filter((c) => matchesFilter(c.user));
+  const shownContacts = newContacts.filter(matchesFilter);
 
   return (
     <div className={`chat-layout${selectedId ? " has-selection" : ""}`}>
       <aside className="card chat-list">
-        <h1>Chats</h1>
+        <div className="chat-list-head">
+          <h1>Messages</h1>
+          <label className="chat-filter">
+            <Icon name="search" size={16} />
+            <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search conversations" aria-label="Search conversations" />
+          </label>
+        </div>
         {error && <p className="form-error">{error}</p>}
-        {!conversations && !error && <p className="muted">Loading…</p>}
+        {!conversations && !error && <Loading className="muted" />}
         {conversations && conversations.length === 0 && newContacts.length === 0 && (
           <p className="muted">
             No chats yet. You can message people you follow or who follow you: find someone on the <Link href="/">home page</Link>.
           </p>
         )}
         <ul className="chat-conversations">
-          {(conversations || []).map((c) => (
+          {shownConversations.map((c) => (
             <li key={c.user.id}>
               <button className={`chat-item${c.user.id === selectedId ? " active" : ""}`} onClick={() => open(c.user.id)}>
                 <Avatar user={c.user} size={44} />
@@ -134,11 +149,14 @@ function Chats() {
             </li>
           ))}
         </ul>
-        {newContacts.length > 0 && (
+        {query && conversations && shownConversations.length === 0 && shownContacts.length === 0 && (
+          <p className="muted chat-filter-empty">Nobody matches “{filter.trim()}”.</p>
+        )}
+        {shownContacts.length > 0 && (
           <>
             <h2 className="chat-section">Start a new chat</h2>
             <ul className="chat-conversations">
-              {newContacts.map((u) => (
+              {shownContacts.map((u) => (
                 <li key={u.id}>
                   <button className={`chat-item${u.id === selectedId ? " active" : ""}`} onClick={() => open(u.id)}>
                     <Avatar user={u} size={36} />
@@ -154,19 +172,33 @@ function Chats() {
       </aside>
 
       <section className="card chat-main">
-        {!selectedId && <p className="muted center chat-placeholder">Choose a conversation, or start a new one.</p>}
+        {!selectedId && (
+          <div className="chat-placeholder">
+            <span className="chat-placeholder-icon">
+              <Icon name="chat" size={30} />
+            </span>
+            <h2>Your messages</h2>
+            <p className="muted">Choose a conversation, or start a new one with someone you follow.</p>
+          </div>
+        )}
         {selectedId && partner && (
           <ChatWindow
             key={selectedId}
             historyUrl={`/api/messages/${selectedId}`}
             header={
               <header className="chat-header">
-                <button className="link-btn chat-back" onClick={() => router.push("/chats")} aria-label="Back to all chats">
-                  ←
+                <button className="chat-back" onClick={() => router.push("/chats")} aria-label="Back to all chats">
+                  <Icon name="arrowLeft" size={18} />
                 </button>
                 <Link href={`/profile/${partner.id}`} className="chat-header-user">
-                  <Avatar user={partner} size={36} />
-                  <strong>{name(partner)}</strong>
+                  <Avatar user={partner} size={42} />
+                  <span className="chat-header-text">
+                    <strong>{name(partner)}</strong>
+                    <span>{partner.nickname ? `@${partner.nickname} · ` : ""}View profile</span>
+                  </span>
+                </Link>
+                <Link href={`/profile/${partner.id}`} className="chat-header-action" aria-label={`${name(partner)}'s profile`}>
+                  <Icon name="user" size={18} />
                 </Link>
               </header>
             }
@@ -181,7 +213,7 @@ function Chats() {
             onSeen={() => markRead(selectedId)}
           />
         )}
-        {selectedId && !partner && conversations && <p className="muted center chat-placeholder">Loading…</p>}
+        {selectedId && !partner && conversations && <Loading className="muted center chat-placeholder" />}
       </section>
     </div>
   );
@@ -189,7 +221,7 @@ function Chats() {
 
 export default function ChatsPage() {
   return (
-    <Suspense fallback={<p className="muted center">Loading…</p>}>
+    <Suspense fallback={<Loading />}>
       <Chats />
     </Suspense>
   );

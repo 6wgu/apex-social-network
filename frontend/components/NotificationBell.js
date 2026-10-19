@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { formatEventTime, timeAgo } from "@/lib/time";
+import useAutoRefresh from "@/lib/useAutoRefresh";
 import Avatar from "@/components/Avatar";
+import Icon from "@/components/Icon";
+import { notify } from "@/components/Toaster";
+import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
 
 // Tell open pages (e.g. a profile showing follower counts, or a group's
@@ -101,6 +105,8 @@ export default function NotificationBell() {
   }, [refreshCount]);
 
   useEffect(load, [load]);
+  // Stay current without a reload, even if a live event was missed.
+  useAutoRefresh(load);
   useEffect(() => {
     if (connected) load();
   }, [connected, load]);
@@ -109,6 +115,8 @@ export default function NotificationBell() {
     if (event.type === "notification") {
       setItems((list) => (list ? [event.payload, ...list.filter((n) => n.id !== event.payload.id)] : list));
       refreshCount();
+      const { name, text, target, href } = describe(event.payload);
+      notify({ title: name, message: target ? `${text} ${target}` : text, href });
     } else if (event.type === "notification_removed") {
       setItems((list) => list && list.filter((n) => n.id !== event.payload.id));
       refreshCount();
@@ -170,12 +178,15 @@ export default function NotificationBell() {
   return (
     <div className="bell" ref={wrapper}>
       <button
-        className="icon-btn"
+        type="button"
+        className={`nav-item bell-trigger${open ? " active" : ""}`}
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
         aria-expanded={open}
         onClick={toggle}
+        title="Notifications"
       >
-        🔔
+        <Icon name="bell" className="nav-icon" />
+        <span className="nav-label">Notifications</span>
         <span className="badge badge-notification" hidden={!unread}>
           {unread > 99 ? "99+" : unread}
         </span>
@@ -192,7 +203,7 @@ export default function NotificationBell() {
             )}
           </div>
           {error && <p className="form-error bell-error">{error}</p>}
-          {!items && !error && <p className="muted bell-empty">Loading…</p>}
+          {!items && !error && <Loading className="muted bell-empty" />}
           {items && items.length === 0 && <p className="muted bell-empty">No notifications yet.</p>}
           <ul className="bell-list">
             {(items || []).map((n) => {

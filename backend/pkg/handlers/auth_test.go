@@ -232,9 +232,10 @@ func TestRegisterAvatar(t *testing.T) {
 	if status, body := other.form("POST", "/api/register", validUser("big@example.com"), big); status != http.StatusBadRequest {
 		t.Errorf("oversized avatar = %d %v, want 400", status, body)
 	}
-	huge := append(tinyPNG(t), make([]byte, 12<<20)...)
+	// Well over the limit, but under maxFormBytes, so it still gets a proper 400.
+	huge := append(tinyPNG(t), make([]byte, maxImageBytes+7<<20)...)
 	if status, body := other.form("POST", "/api/register", validUser("huge@example.com"), huge); status != http.StatusBadRequest {
-		t.Errorf("12 MB avatar = %d %v, want 400", status, body)
+		t.Errorf("%d MB avatar = %d %v, want 400", len(huge)>>20, status, body)
 	}
 	var n int
 	app.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)

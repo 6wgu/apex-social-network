@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/time";
 import Avatar from "@/components/Avatar";
+import { Loading } from "@/components/RacingLights";
 
 // The creator's panel of pending join requests (GET /api/groups/{id}/requests)
 // with Accept / Decline. Only the creator sees this tab, and the server
@@ -49,7 +50,7 @@ export default function JoinRequests({ groupId, reloadKey, onAnswered }) {
   }
 
   if (error) return <p className="form-error tab-placeholder">{error}</p>;
-  if (!requests) return <p className="muted tab-placeholder">Loading…</p>;
+  if (!requests) return <Loading className="muted tab-placeholder" />;
   if (requests.length === 0) return <p className="muted tab-placeholder">No pending requests to join.</p>;
 
   return (

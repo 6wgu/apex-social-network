@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	// maxImageBytes is the largest image we store.
-	maxImageBytes = 5 << 20
+	// maxImageBytes is the largest image we store (big enough for animated GIFs).
+	maxImageBytes = 50 << 20
 	// maxFormBytes is the hard cap on a multipart request. It is well above
 	// maxImageBytes on purpose: a request under this cap is read to the end,
 	// so a too-big image gets a proper 400. Cutting the connection right at
-	// 5 MB makes clients and the Next.js proxy report a network error instead.
-	maxFormBytes = 32 << 20
+	// the image limit makes clients and the Next.js proxy report a network error instead.
+	maxFormBytes = 64 << 20
 )
 
 // imageExtensions maps the content types we accept to the extension the file
@@ -38,7 +38,7 @@ type uploadError string
 func (e uploadError) Error() string { return string(e) }
 
 const (
-	errImageTooLarge = uploadError("image must be 5 MB or smaller")
+	errImageTooLarge = uploadError("image must be 50 MB or smaller")
 	errImageType     = uploadError("image must be a JPEG, PNG, GIF or WebP")
 )
 

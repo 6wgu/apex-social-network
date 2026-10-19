@@ -266,6 +266,18 @@ func (h *Hub) CloseUser(userID int64) {
 	}
 }
 
+// OnlineUsers returns the ids of every user with at least one open
+// connection, in no particular order.
+func (h *Hub) OnlineUsers() []int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	ids := make([]int64, 0, len(h.clients))
+	for id := range h.clients {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 // Connections returns how many connections userID has open (used by tests).
 func (h *Hub) Connections(userID int64) int {
 	h.mu.Lock()

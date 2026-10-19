@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatEventTime, parseTime } from "@/lib/time";
+import { Loading } from "@/components/RacingLights";
 
 // The value an <input type="datetime-local"> uses for a Date, in local time.
 function localInputValue(date) {
@@ -185,7 +186,7 @@ export default function GroupEvents({ groupId, reloadKey }) {
         </div>
       )}
       {error && <p className="form-error">{error}</p>}
-      {!events && !error && <p className="muted tab-placeholder">Loading events…</p>}
+      {!events && !error && <Loading className="muted tab-placeholder">Loading events…</Loading>}
       {events && events.length === 0 && <p className="muted tab-placeholder">No events yet. Plan the first one!</p>}
       {upcoming.length > 0 && (
         <>

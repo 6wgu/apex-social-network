@@ -1,117 +1,181 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import usePagedPosts from "@/lib/usePagedPosts";
+import useAutoRefresh from "@/lib/useAutoRefresh";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
-import PostComposer from "@/components/PostComposer";
-import PostList from "@/components/PostList";
+import Icon from "@/components/Icon";
+import Landing from "@/components/Landing";
+import NewPostButton from "@/components/NewPostButton";
+import PostCard from "@/components/PostCard";
+import { Loading } from "@/components/RacingLights";
+import { notify } from "@/components/Toaster";
+import { useRealtime } from "@/components/RealtimeProvider";
+import WebmasterPost, { isWebmasterPost } from "@/components/WebmasterPost";
 
-function LandingPage() {
+// The feed as a column of cards that snap into place, with up / down
+// buttons beside it. More posts load near the end.
+function FeedReel({ feed }) {
+  const { posts, hasMore, loading, error, loadMore } = feed;
+  const box = useRef(null);
+  const frame = useRef(0);
+  const [index, setIndex] = useState(0);
+
+  const items = () => [...(box.current?.querySelectorAll(":scope > .post") || [])];
+
+  const onScroll = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      const el = box.current;
+      if (!el) return;
+      const list = items();
+      const i = list.findIndex((it) => it.offsetTop + it.offsetHeight - 80 > el.scrollTop);
+      setIndex(Math.max(0, i));
+      if (hasMore && !loading && el.scrollHeight - el.scrollTop - el.clientHeight < el.clientHeight * 1.5) loadMore();
+    });
+  }, [hasMore, loading, loadMore]);
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
+  function go(step) {
+    const list = items();
+    const target = list[Math.max(0, Math.min(list.length - 1, index + step))];
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }
+
+  const count = (posts?.filter((p) => !isWebmasterPost(p)).length || 0) + 1; // + the pinned post
+
   return (
-    <div className="landing">
-      <section className="landing-hero">
-        <div className="landing-copy">
-          <p className="eyebrow">A quieter way to stay close</p>
-          <h1>Share the moments that matter.</h1>
-          <p className="landing-lede">
-            A private, people-first social space for your updates, conversations, groups, and the people you actually want to hear from.
-          </p>
-          <div className="landing-actions">
-            <Link href="/register" className="btn-primary btn-large">Create your account</Link>
-            <Link href="/login" className="text-link">Already a member? Log in</Link>
+    <>
+      <div className="feed-reel" ref={box} onScroll={onScroll}>
+        <WebmasterPost pinned />
+        {posts && posts.filter((p) => !isWebmasterPost(p)).map((p) => <PostCard key={p.id} post={p} />)}
+        {posts && posts.length === 0 && !loading && (
+          <div className="card feed-empty">
+            <h2>Your feed is quiet</h2>
+            <p className="muted">No posts yet. Write the first one, or follow people to see theirs.</p>
           </div>
+        )}
+        {error && <p className="form-error">{error}</p>}
+        {loading && <Loading>Loading posts…</Loading>}
+        {hasMore && !loading && (
+          <button className="btn-secondary load-more" onClick={loadMore}>
+            Load more
+          </button>
+        )}
+      </div>
+      {count > 1 && (
+        <div className="reel-arrows">
+          <button type="button" className="reel-arrow" onClick={() => go(-1)} disabled={index === 0} aria-label="Previous post">
+            <Icon name="arrowUp" size={18} />
+          </button>
+          <button type="button" className="reel-arrow" onClick={() => go(1)} disabled={index >= count - 1} aria-label="Next post">
+            <Icon name="arrowDown" size={18} />
+          </button>
         </div>
-        <div className="landing-preview" aria-label="Social network preview">
-          <div className="preview-topline"><span className="preview-dot" /><span>your circle</span><span className="preview-status">private by default</span></div>
-          <div className="preview-post preview-post-featured">
-            <div className="preview-avatar avatar-initials">AM</div>
-            <div><strong>Amira Malik</strong><span> · 8 min ago</span><p>Sunday light, good coffee, and nowhere else to be.</p></div>
-          </div>
-          <div className="preview-stats"><span><b>24</b> close friends</span><span><b>06</b> active groups</span></div>
-          <div className="preview-post preview-post-secondary"><div className="preview-avatar preview-avatar-gold">JT</div><div><strong>Jonas Taylor</strong><span> · now</span><p>Anyone up for a walk?</p></div><span className="preview-reply">Reply</span></div>
-        </div>
-      </section>
-      <section className="landing-pillars" aria-label="Product highlights">
-        <article><span className="pillar-number">01</span><h2>Keep it personal</h2><p>Choose who sees your profile, posts, and conversations.</p></article>
-        <article><span className="pillar-number">02</span><h2>Find your people</h2><p>Follow friends, discover groups, and build smaller circles.</p></article>
-        <article><span className="pillar-number">03</span><h2>Stay in the moment</h2><p>Chat live, share updates, and get notifications that feel useful.</p></article>
-      </section>
-    </div>
+      )}
+    </>
   );
 }
 
-// People search (GET /api/users?search=), shown beside the feed.
-function FindPeople({ me }) {
-  const [search, setSearch] = useState("");
-  const [people, setPeople] = useState(null);
-  const [error, setError] = useState("");
+// Right column: people you can chat with, and groups you have not joined.
+function HomeSide() {
+  const [friends, setFriends] = useState(null);
+  const [groups, setGroups] = useState(null);
 
   useEffect(() => {
-    // Wait for a pause in typing before asking the server.
-    const timer = setTimeout(() => {
-      api(`/api/users?search=${encodeURIComponent(search)}`)
-        .then((list) => {
-          setPeople(list);
-          setError("");
-        })
-        .catch((err) => setError(err.message));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search]);
+    api("/api/chat-contacts").then(setFriends).catch(() => setFriends([]));
+    api("/api/groups")
+      .then((list) => setGroups(list.filter((g) => g.my_status === "none").slice(0, 5)))
+      .catch(() => setGroups([]));
+  }, []);
 
   return (
-    <section className="card">
-      <h2>Find people</h2>
-      <input
-        type="search"
-        className="search"
-        placeholder="Search by name or nickname"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        aria-label="Search people"
-      />
-      {error && <p className="form-error">{error}</p>}
-      {people && people.length === 0 && <p className="muted">Nobody matches that search.</p>}
-      <ul className="people">
-        {(people || []).map((p) => (
-          <li key={p.id}>
-            <Link href={`/profile/${p.id}`}>
-              <Avatar user={p} size={36} />
-              <span>
-                <strong>
-                  {p.first_name} {p.last_name}
-                </strong>
-                {p.nickname && <span className="muted"> @{p.nickname}</span>}
-                {p.id === me.id && <span className="muted"> (you)</span>}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <aside className="home-side">
+      <section className="side-section">
+        <h2 className="side-heading">Friends</h2>
+        {!friends && <Loading className="muted" />}
+        {friends && friends.length === 0 && <p className="side-empty">Follow people to see them here.</p>}
+        <ul className="side-list">
+          {(friends || []).slice(0, 8).map((u) => (
+            <li key={u.id}>
+              <Link href={`/profile/${u.id}`} className="side-row">
+                <Avatar user={u} size={36} />
+                <span className="side-row-name">
+                  {u.first_name} {u.last_name}
+                </span>
+              </Link>
+              <Link href={`/chats?user=${u.id}`} className="side-row-action" aria-label={`Message ${u.first_name}`}>
+                <Icon name="chat" size={17} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="side-section">
+        <div className="side-heading-row">
+          <h2 className="side-heading">Suggested groups</h2>
+          <Link href="/groups" className="side-link">
+            See all
+          </Link>
+        </div>
+        {!groups && <Loading className="muted" />}
+        {groups && groups.length === 0 && <p className="side-empty">You are in every group.</p>}
+        <ul className="side-list">
+          {(groups || []).map((g) => (
+            <li key={g.id}>
+              <Link href={`/groups/${g.id}`} className="side-row">
+                <span className="side-group-icon" aria-hidden="true">
+                  {g.title[0].toUpperCase()}
+                </span>
+                <span className="side-row-name">
+                  {g.title}
+                  <span className="side-row-meta">
+                    {g.member_count} {g.member_count === 1 ? "member" : "members"}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </aside>
   );
 }
 
-// Home: write a post, then the feed (every post you may see, newest first).
-export default function Home() {
+// The signed-in home: the feed (every post you may see, newest first), with
+// the New Post button, and the side column.
+function Feed() {
   const { user } = useAuth();
-
-  if (!user) return <LandingPage />;
-
   const feed = usePagedPosts("/api/feed");
+  const checkNew = async (quiet) => {
+    const added = await feed.refreshTop();
+    if (added && !quiet) notify({ message: `${added} new ${added === 1 ? "post" : "posts"} in your feed` });
+  };
+  // New posts arrive live; the timer catches any the socket missed.
+  useRealtime((event) => {
+    if (event.type === "post_created" && !event.payload.group_id) checkNew(event.payload.author_id === user?.id);
+  });
+  useAutoRefresh(() => checkNew(false), 20000);
 
   return (
     <div className="home-grid">
       <div className="home-main">
-        <PostComposer onCreated={feed.prepend} />
-        <PostList feed={feed} empty="No posts yet. Write the first one, or follow people to see theirs." />
+        <FeedReel feed={feed} />
+        <NewPostButton onCreated={feed.prepend} />
       </div>
-      <aside className="home-side">
-        <FindPeople me={user} />
-      </aside>
+      <HomeSide />
     </div>
   );
+}
+
+// Home: the landing page when logged out, the feed when logged in.
+export default function Home() {
+  const { user } = useAuth();
+  return user ? <Feed /> : <Landing />;
 }

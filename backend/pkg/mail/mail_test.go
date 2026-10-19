@@ -82,7 +82,7 @@ func TestFromEnvDefaultsAndPassword(t *testing.T) {
 	t.Setenv("MAIL_FROM_NAME", "")
 	t.Setenv("SMTP_PASS", "abcd efgh ijkl mnop")
 	c := FromEnv()
-	if c.Host != "smtp.gmail.com" || c.Port != 587 || c.Pass != "abcdefghijklmnop" || c.OTPLength != 6 || c.OTPTTLMinutes != 10 || c.FromName != "Social Network" {
+	if c.Host != "smtp.gmail.com" || c.Port != 587 || c.Pass != "abcdefghijklmnop" || c.OTPLength != 6 || c.OTPTTLMinutes != 10 || c.FromName != "APEX" {
 		t.Fatalf("%+v", c)
 	}
 }

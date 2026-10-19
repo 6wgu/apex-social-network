@@ -15,6 +15,8 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 COPY --from=build /out/server ./server
+# Root certificates, so the TLS connection to Gmail's SMTP server can be verified.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY pkg/db/migrations ./pkg/db/migrations
 
 ENV PORT=8080 \

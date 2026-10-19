@@ -81,7 +81,7 @@ func FromEnv() Config {
 	}
 	from := os.Getenv("MAIL_FROM_NAME")
 	if from == "" {
-		from = "Social Network"
+		from = "APEX"
 	}
 	return Config{
 		Host:     host,

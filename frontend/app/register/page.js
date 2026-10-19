@@ -4,10 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
-import Avatar from "@/components/Avatar";
+import Field, { PasswordField } from "@/components/Field";
+import Icon from "@/components/Icon";
+import RacingLights from "@/components/RacingLights";
+import LaunchOverlay, { GO_MS, MORPH_MS } from "@/components/LaunchOverlay";
 
 const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
 const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
 function isAllowedAvatar(file) {
   return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif|webp)$/i.test(file.name);
@@ -19,6 +24,7 @@ export default function RegisterPage() {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState(null); // the launch animation, see LaunchOverlay
 
   // Show the chosen picture before it is uploaded.
   useEffect(() => {
@@ -46,11 +52,21 @@ export default function RegisterPage() {
     setBusy(true);
     const form = new FormData(e.target);
     if (!avatar) form.delete("avatar"); // an empty file input still sends a part
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!calm) setPhase("wait");
     try {
       // The server validates everything and its message is shown as is.
-      // Setting the user makes AuthGate send us to the home page.
-      setUser(await api("/api/register", { method: "POST", body: form, redirectOn401: false }));
+      const user = await api("/api/register", { method: "POST", body: form, redirectOn401: false });
+      if (!calm) {
+        setPhase("morph");
+        await pause(MORPH_MS);
+        setPhase("go");
+        await pause(GO_MS);
+      }
+      // Setting the user makes AuthGate send us on (home, or verification).
+      setUser(user);
     } catch (err) {
+      setPhase(null);
       setError(err.message);
       setBusy(false);
     }
@@ -69,86 +85,78 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="auth-layout">
-      <aside className="auth-aside">
-        <div>
-          <p className="eyebrow">Make room for what matters</p>
-          <h2>A social space with more signal.</h2>
-          <p>Build your circle at your own pace, with privacy controls that stay out of the way until you need them.</p>
-          <ul className="auth-aside-list">
-            <li>Choose who sees your posts</li>
-            <li>Find groups that feel like yours</li>
-            <li>Chat without losing the thread</li>
-          </ul>
-        </div>
-      </aside>
-      <section className="card auth-card">
+    <div className="auth-screen">
+      <LaunchOverlay phase={phase} />
+      <section className="card auth-card auth-card-wide">
         <div className="auth-heading">
-          <h1>Create an account</h1>
+          <h1>Create your account</h1>
           <p>Your corner of the network starts here.</p>
         </div>
         <form onSubmit={submit} className="form auth-form" noValidate>
-        <div className="form-row">
-          <label>
-            First name
-            <input name="first_name" autoComplete="given-name" required />
-          </label>
-          <label>
-            Last name
-            <input name="last_name" autoComplete="family-name" required />
-          </label>
-        </div>
-        <label>
-          Email
-          <input name="email" type="email" autoComplete="email" required />
-        </label>
-        <label>
-          Password
-          <input name="password" type="password" autoComplete="new-password" required />
-          <span className="password-note">Use at least 8 characters.</span>
-        </label>
-        <label>
-          Date of birth
-          <input name="date_of_birth" type="date" required />
-        </label>
-
-        <fieldset className="optional">
-          <legend>Optional</legend>
-          <div className="avatar-field">
-            <Avatar src={preview} size={64} />
-            <label>
-              Avatar
-              <input
-                name="avatar"
-                type="file"
-                accept={AVATAR_ACCEPT}
-                onChange={chooseAvatar}
-              />
-              <span className="hint">JPEG, PNG, GIF or WebP, up to 5 MB.</span>
-            </label>
+          <div className="form-row">
+            <Field label="First name" icon="user">
+              <input name="first_name" autoComplete="given-name" placeholder="Alex" required />
+            </Field>
+            <Field label="Last name" icon="user">
+              <input name="last_name" autoComplete="family-name" placeholder="Rivers" required />
+            </Field>
           </div>
-          <label>
-            Nickname
-            <input name="nickname" maxLength={30} />
-            <span className="hint">Start with a letter; use only letters, numbers, _ or - (up to 30 characters).</span>
-          </label>
-          <label>
-            About me
-            <textarea name="about_me" rows={3} maxLength={500} />
-          </label>
-        </fieldset>
+          <Field label="Email address" icon="mail">
+            <input name="email" type="email" autoComplete="email" placeholder="alex@example.com" required />
+          </Field>
+          <div className="form-row">
+            <PasswordField name="password" autoComplete="new-password" placeholder="8+ characters" required />
+            <Field label="Date of birth" icon="calendar">
+              <input name="date_of_birth" type="date" required />
+            </Field>
+          </div>
 
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="btn-primary" disabled={busy}>
-          {busy ? "Creating account…" : "Register"}
-        </button>
+          <fieldset className="optional">
+            <legend>
+              Profile customization <span className="optional-tag">(Optional)</span>
+            </legend>
+            <div className="customize">
+              <label className={`avatar-drop${preview ? " has-image" : ""}`} title="Choose an avatar">
+                <input name="avatar" type="file" accept={AVATAR_ACCEPT} onChange={chooseAvatar} className="visually-hidden" />
+                {preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={preview} alt="Chosen avatar" />
+                ) : (
+                  <>
+                    <Icon name="camera" size={20} />
+                    <span>Avatar</span>
+                  </>
+                )}
+              </label>
+              <div className="customize-fields">
+                <Field icon="user" hint="Start with a letter; letters, numbers, _ or - (up to 30).">
+                  <input name="nickname" maxLength={30} placeholder="Nickname (@handle)" aria-label="Nickname" />
+                </Field>
+                <Field icon="message">
+                  <textarea name="about_me" rows={1} maxLength={500} placeholder="Tell us about yourself…" aria-label="About me" />
+                </Field>
+              </div>
+            </div>
+            <p className="hint">Avatar: JPEG, PNG, GIF or WebP, up to 50 MB.</p>
+          </fieldset>
+
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="btn-primary btn-block" disabled={busy}>
+            {busy ? (
+              <>
+                <RacingLights small /> Creating account…
+              </>
+            ) : (
+              "Complete registration"
+            )}
+          </button>
         </form>
         <p className="muted auth-footer">
-        Already have an account? <Link href="/login">Log in</Link>
+          Already have an account? <Link href="/login">Log in</Link>
         </p>
       </section>
     </div>

@@ -1,20 +1,38 @@
-# Social Network
+# APEX — Connect at Full Speed.
 
-A full-stack social network with profiles, follow requests, privacy-aware posts, comments, groups, events, notifications, and real-time private and group chat.
+A full-stack social network with a Formula-racing look: profiles, follow requests, privacy-aware posts with likes and comments, groups, events, live notifications, and real-time private and group chat.
 
 - **Backend:** Go (`net/http`), SQLite (`mattn/go-sqlite3`), `golang-migrate`, `gorilla/websocket`, `bcrypt`, `uuid`
-- **Frontend:** Next.js (App Router)
+- **Frontend:** Next.js 15 (App Router, plain JavaScript and CSS, no UI library)
 - **Docs:** [API contract](docs/api.md), [ERD](docs/erd.md), [Phase 5 report](docs/phase5-progress-report.md), [Arabic demo dataset report](docs/arabic-demo-seed-report.md)
 
 ## Features
 
+**Accounts and privacy**
 - Session-based authentication with HTTP-only cookies and bcrypt password hashes
-- Public and private profiles with follow requests and access-controlled content
-- Posts and comments with JPEG, PNG, GIF, and WebP uploads and three privacy levels
-- Groups, invitations, join requests, events, RSVPs, and group-only content
-- Private chat and group chat over authenticated WebSockets, with emoji support
-- Live notifications with separate notification and unread-message badges
-- Email through Gmail SMTP: a welcome email on sign-up and email verification with 6-digit one-time codes
+- Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout
+- Public and private profiles (a switch on the profile and in Settings), follow requests, and access-controlled content
+- Settings page: nickname, privacy, about text, avatar, cursor preference and log out
+
+**Posts**
+- Posts and comments with JPEG, PNG, GIF and WebP images up to 50 MB, and three privacy levels (public, followers, chosen followers)
+- Likes on posts
+- New posts, comments and like counts appear live on every open page that may show them, with no reload
+- People search
+
+**Groups and chat**
+- Groups, invitations, join requests, events with RSVPs, and group-only posts
+- Private chat and group chat over authenticated WebSockets, with emoji, day separators and unread badges
+
+**Notifications**
+- Live notifications with a bell, an unread-message badge and pop-up toasts
+- Pages also re-check every 20–30 seconds and whenever the tab gets focus, so nothing is missed after a dropped connection or a sleeping laptop
+
+**Design**
+- Carbon-black theme with racing red and cyan, Space Grotesk and DM Sans fonts (self-hosted)
+- Landing page with a floating Formula car, starting-light loaders, a launch animation on log in and a farewell animation on log out
+- Optional Formula-car mouse cursor (Settings), collapsible sidebar, responsive down to phone width, and reduced-motion support
+- Branded HTML emails (welcome and verification code) with the APEX logo
 
 ## Quick start with Docker
 
@@ -106,14 +124,13 @@ The backend sends email through Gmail SMTP with an App Password. Until credentia
 
 1. Use a Gmail address for the app and turn on 2-Step Verification for it.
 2. Create an App Password at https://myaccount.google.com/apppasswords (16 letters).
-3. Copy the settings file and fill in only the two credential lines:
+3. Copy the settings file to the project root and fill in only the two credential lines:
 
    ```sh
-   cd backend
-   cp .env.example .env
+   cp backend/.env.example .env
    ```
 
-   Then set `SMTP_USER=yourapp@gmail.com` and `SMTP_PASS=abcd efgh ijkl mnop` in `.env`.
+   Then set `SMTP_USER=yourapp@gmail.com` and `SMTP_PASS=abcd efgh ijkl mnop` in `.env`, and restart the backend (`docker compose up -d --build backend`).
 
 4. Check the login and send yourself a test email:
 
@@ -122,16 +139,16 @@ The backend sends email through Gmail SMTP with an App Password. Until credentia
    go run ./cmd/test-email -otp
    ```
 
-`.env` is git-ignored; never commit the App Password. Docker Compose reads `backend/.env` too when it exists. If port 587 is blocked on your network, use `SMTP_PORT=465` and `SMTP_SECURE=true`.
+`.env` is git-ignored and kept out of Docker images; never commit the App Password. Docker Compose reads `.env` in the project root and `backend/.env` when they exist; `go run .` finds `.env` in `backend/` or any parent folder. The backend log says `email: Gmail login OK` when the credentials work. If port 587 is blocked on your network, use `SMTP_PORT=465` and `SMTP_SECURE=true`.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `SMTP_USER`, `SMTP_PASS` | empty | Gmail address and its App Password; empty means console mode |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | `smtp.gmail.com`, `587`, `false` | Mail server |
-| `MAIL_FROM_NAME` | `Social Network` | Sender name |
+| `MAIL_FROM_NAME` | `APEX` | Sender name |
 | `OTP_LENGTH`, `OTP_TTL_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_SECONDS` | `6`, `10`, `5`, `60` | Verification code rules |
 
-After registering, users land on `/verify`, where a code is emailed to them. Until they verify, a banner on every page links back there. Verification is not required to use the site.
+After registering, users land on `/verify`, where a code is emailed to them. Verification is required: until the code is entered, the rest of the site is locked (pages redirect to `/verify`, the API answers `403 verify your email first`). In console mode, read the code with `docker compose logs backend`.
 
 ## Migrations and database reset
 
@@ -164,21 +181,28 @@ backend/
     │   └── sqlite/sqlite.go   connection (FKs, WAL, busy timeout) + migrate up/down
     ├── mail/                  Gmail SMTP mailer (console mode without credentials) and email templates
     ├── otp/                   one-time verification codes: hashed, expiring, limited tries, resend cooldown
-    ├── handlers/              routes and one file per feature (auth, profiles, follows, posts, comments,
-    │                          notifications, groups, events, messages, group_messages, upload)
+    ├── handlers/              routes and one file per feature (auth, otp, verified, profiles, follows, posts,
+    │                          likes, comments, live, notifications, groups, events, messages,
+    │                          group_messages, upload)
     ├── middleware/            logging, panic recovery, CORS, RequireAuth
     ├── models/                structs shared by DB and JSON
     ├── session/               sessions table + session_id cookie
     └── ws/                    WebSocket hub: live connections per user, push JSON events, hand incoming
                                frames (chat) to a handler
 frontend/
-├── app/                       Next.js pages (App Router)
-├── components/                Navbar, AuthProvider (current user + route guard), RealtimeProvider (one WebSocket per tab),
-│                              NotificationBell, FollowButton, EditProfile, UserList, Avatar,
-│                              PostComposer, PostCard (with comments), PostList, ImagePicker,
+├── app/                       Next.js pages: landing/feed, login, register, verify, profile, search,
+│                              groups, chats, settings; apex.css holds the whole theme
+├── components/                Navbar (sidebar), AuthProvider (current user, route guard, verification gate,
+│                              logout animation), RealtimeProvider (one WebSocket per tab), NotificationBell,
+│                              Toaster (notify() pop-ups), Landing, LaunchOverlay, RacingLights, RacingCursor,
+│                              PostComposer, NewPostButton, PostCard (likes + live comments), PostList,
+│                              FollowButton, FollowRequests, UserList, Avatar, Field, Icon, ImagePicker,
 │                              GroupJoinButton, GroupEvents, InviteDialog, JoinRequests, Modal,
-│                              ChatWindow (private and group chat), EmojiPicker, MessageButton, UnreadMessages
+│                              ChatWindow (private and group chat), EmojiPicker, MessageButton,
+│                              UnreadMessages, Footer
 ├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
-├── lib/usePagedPosts.js       newest-first post lists with "Load more" (feed, profile and group posts)
-└── next.config.mjs            proxies /api, /uploads, /ws to the backend
+├── lib/usePagedPosts.js       newest-first post lists with "Load more" and live refresh of the top
+├── lib/useAutoRefresh.js      re-checks data on a timer and when the tab gets focus
+├── public/fonts/              Space Grotesk and DM Sans
+└── next.config.mjs            proxies /api, /uploads, /ws to the backend (2-minute idle timeout)
 ```

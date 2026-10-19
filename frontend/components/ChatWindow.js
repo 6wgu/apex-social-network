@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { parseTime } from "@/lib/time";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import EmojiPicker from "@/components/EmojiPicker";
+import Icon from "@/components/Icon";
+import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
 
 const PAGE = 50; // the backend's page size for chat history
@@ -18,6 +20,16 @@ function formatTime(s) {
   return sameDay
     ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+// "Today", "Yesterday", or the date, for the separators between days.
+function dayLabel(d) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
 }
 
 // One chat: the history (oldest at the top, older pages loaded on scroll up),
@@ -184,13 +196,21 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
           </button>
         )}
         {error && <p className="form-error">{error}</p>}
-        {!messages && !error && <p className="muted center">Loading messages…</p>}
+        {!messages && !error && <Loading className="muted center chat-empty">Loading messages…</Loading>}
         {messages && messages.length === 0 && <p className="muted center chat-empty">No messages yet. Say hello 👋</p>}
         {(messages || []).map((m, i) => {
           const mine = m.sender.id === me.id;
-          const sameAsPrevious = i > 0 && messages[i - 1].sender.id === m.sender.id;
+          const day = parseTime(m.created_at).toDateString();
+          const newDay = i === 0 || parseTime(messages[i - 1].created_at).toDateString() !== day;
+          const sameAsPrevious = !newDay && messages[i - 1].sender.id === m.sender.id;
           return (
-            <div key={m.id} className={`chat-row ${mine ? "mine" : "theirs"}${sameAsPrevious ? " grouped" : ""}`}>
+            <Fragment key={m.id}>
+            {newDay && (
+              <div className="chat-day" role="separator">
+                <span>{dayLabel(parseTime(m.created_at))}</span>
+              </div>
+            )}
+            <div className={`chat-row ${mine ? "mine" : "theirs"}${sameAsPrevious ? " grouped" : ""}`}>
               {!mine && (
                 <Link href={`/profile/${m.sender.id}`} className="chat-avatar" aria-hidden={sameAsPrevious} tabIndex={sameAsPrevious ? -1 : 0}>
                   {!sameAsPrevious && <Avatar user={m.sender} size={30} />}
@@ -208,6 +228,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
                 </time>
               </div>
             </div>
+            </Fragment>
           );
         })}
       </div>
@@ -219,12 +240,13 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Write a message… (Enter to send, Shift+Enter for a new line)"
+            placeholder="Write a message…"
+            title="Enter to send, Shift+Enter for a new line"
             rows={1}
             aria-label="Message"
           />
-          <button className="btn-primary" disabled={sending || !text.trim() || length > MAX_LEN}>
-            Send
+          <button className="btn-primary chat-send" disabled={sending || !text.trim() || length > MAX_LEN} aria-label="Send">
+            <Icon name="send" size={18} />
           </button>
           {(sendError || length > MAX_LEN) && (
             <p className="form-error chat-send-error" role="alert">

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
+import useAutoRefresh from "@/lib/useAutoRefresh";
 
 const UnreadContext = createContext({ unread: 0, refresh: () => {} });
 
@@ -21,7 +22,7 @@ export default function UnreadMessagesProvider({ children }) {
 
   const refresh = useCallback(() => {
     const request = ++countRequest.current;
-    if (!user) {
+    if (!user?.is_verified) {
       setUnread(0);
       return;
     }
@@ -35,6 +36,8 @@ export default function UnreadMessagesProvider({ children }) {
   useEffect(() => {
     refresh();
   }, [user, refresh]);
+
+  useAutoRefresh(refresh, 20000, Boolean(user?.is_verified));
 
   // A reconnect may have missed messages: count again.
   useEffect(() => {
