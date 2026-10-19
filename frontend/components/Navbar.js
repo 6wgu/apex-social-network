@@ -41,7 +41,7 @@ function isActive(pathname, href) {
 // Logged out: a top bar that points to the other auth page.
 // Logged in: the side rail (a bottom bar on phones). Notifications and
 // messages never look alike: the bell's badge is red and round, unread
-// private messages show as a cyan, square badge on Chat.
+// private messages show as a red, square badge on Chat.
 export default function Navbar() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();

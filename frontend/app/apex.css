@@ -230,9 +230,9 @@ h1, h2, h3,
 }
 
 .badge-message {
-  background: var(--cyan);
-  color: #04161a;
-  box-shadow: 0 0 0 2px var(--carbon-deep);
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--carbon-deep), 0 0 8px rgba(255, 48, 69, .6);
 }
 
 @keyframes apex-led-pulse {
