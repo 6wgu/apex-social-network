@@ -3,7 +3,7 @@ import Icon from "@/components/Icon";
 // The webmaster's first post and its replies, hard-coded (with its images in
 // public/landing/) so every copy of the app shows it: on the landing page and
 // first in the feed, whatever is in the database.
-const DEV = { name: "Dev", avatar: "/landing/dev.webp" };
+const DEV = { name: "Developer", avatar: "/landing/dev.webp" };
 const ABS = { name: "abs", avatar: "/landing/abs.png" };
 const REPLIES = [
   { ...DEV, text: "I'm a developer :(", image: "/landing/dev-reply.png" },
