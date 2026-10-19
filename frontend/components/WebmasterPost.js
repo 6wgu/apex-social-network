@@ -2,7 +2,7 @@ import Icon from "@/components/Icon";
 
 // The webmaster's first post and its replies, hard-coded (with its images in
 // public/landing/) so every copy of the app shows it: on the landing page and
-// pinned at the top of the feed, whatever is in the database.
+// first in the feed, whatever is in the database.
 const DEV = { name: "Dev", avatar: "/landing/dev.webp" };
 const ABS = { name: "abs", avatar: "/landing/abs.png" };
 const REPLIES = [
@@ -15,20 +15,15 @@ const REPLIES = [
 export const isWebmasterPost = (p) => p.author?.nickname === "abs" && p.content === "Im the webmaster";
 
 /* eslint-disable @next/next/no-img-element */
-export default function WebmasterPost({ pinned = false }) {
+export default function WebmasterPost({ inFeed = false }) {
   return (
-    <article className={pinned ? "card post wm-post wm-pinned" : "wm-post"}>
+    <article className={inFeed ? "card post wm-post wm-in-feed" : "wm-post"}>
       <header className="wm-head">
         <img className="wm-avatar" src="/landing/abs.png" alt="" width={40} height={40} />
         <div>
           <strong>Abbas Al Abdulwahab</strong>
           <span>@abs · webmaster</span>
         </div>
-        {pinned && (
-          <span className="wm-pin">
-            <Icon name="pin" size={13} /> Pinned
-          </span>
-        )}
       </header>
       <p className="wm-text">Im the webmaster</p>
       <img className="wm-image" src="/landing/webmaster.gif" alt="The webmaster's GIF" width={200} height={336} loading="lazy" />

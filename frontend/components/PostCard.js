@@ -189,7 +189,7 @@ function LikeButton({ post }) {
 
 // One post: author, time, privacy icon, text, image, likes and comments.
 // A group post has no privacy icon: its group decides who sees it.
-export default function PostCard({ post, pinned = false }) {
+export default function PostCard({ post }) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(post.comment_count);
   // Each new comment counts once, from the form or from the live push.
@@ -205,14 +205,9 @@ export default function PostCard({ post, pinned = false }) {
   const privacy = post.group_id ? null : PRIVACY[post.privacy];
 
   return (
-    <article className={`card post${pinned ? " post-pinned" : ""}`}>
+    <article className="card post">
       <header className="post-head">
         <Author user={post.author} time={post.created_at} privacy={privacy} />
-        {pinned && (
-          <span className="wm-pin">
-            <Icon name="pin" size={13} /> Pinned
-          </span>
-        )}
       </header>
       {post.content && <p className="post-text">{post.content}</p>}
       {post.image_path && (

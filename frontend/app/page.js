@@ -47,15 +47,15 @@ function FeedReel({ feed }) {
     target?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
   }
 
-  // The webmaster's post stays pinned on top: the saved one when the
+  // The webmaster's post always comes first: the saved one when the
   // database has it (likes and comments work), the hard-coded copy if not.
   const saved = posts?.find(isWebmasterPost);
-  const count = (posts?.filter((p) => !isWebmasterPost(p)).length || 0) + 1; // + the pinned post
+  const count = (posts?.filter((p) => !isWebmasterPost(p)).length || 0) + 1; // + the webmaster's post
 
   return (
     <>
       <div className="feed-reel" ref={box} onScroll={onScroll}>
-        {saved ? <PostCard key={saved.id} post={saved} pinned /> : <WebmasterPost pinned />}
+        {saved ? <PostCard key={saved.id} post={saved} /> : <WebmasterPost inFeed />}
         {posts && posts.filter((p) => !isWebmasterPost(p)).map((p) => <PostCard key={p.id} post={p} />)}
         {posts && posts.length === 0 && !loading && (
           <div className="card feed-empty">

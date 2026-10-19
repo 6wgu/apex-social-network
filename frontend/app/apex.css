@@ -2943,10 +2943,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .wm-bubble p { margin: 2px 0 0; color: var(--text-2); }
 .wm-bubble img { display: block; max-width: 160px; max-height: 120px; margin-top: 6px; border-radius: 8px; object-fit: cover; }
 
-/* the same post pinned at the top of the feed */
-.card.wm-pinned { padding: 20px; border-color: rgba(255, 48, 69, .35); }
-.wm-pinned .wm-image { height: 280px; }
-.wm-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 10px; border: 1px solid rgba(255, 48, 69, .4); border-radius: 999px; color: var(--red); font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-
-.card.post-pinned { border-color: rgba(255, 48, 69, .35); }
-.post-pinned .post-head { display: flex; align-items: flex-start; }
+/* the same post first in the feed */
+.card.wm-in-feed { padding: 20px; }
+.wm-in-feed .wm-image { height: 280px; }
