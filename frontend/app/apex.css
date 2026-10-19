@@ -1855,7 +1855,8 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 }
 
 .loading-state.muted:not(.center):not(.tab-placeholder):not(.bell-empty) { justify-content: flex-start; }
-.loading-screen { min-height: 50vh; flex-direction: column; gap: 16px; font-size: var(--fs-meta); text-transform: uppercase; }
+/* the page-level loader sits in the middle of the window, not of the page */
+.loading-screen { position: fixed; inset: 0; z-index: 5; min-height: 0; margin: 0; pointer-events: none; flex-direction: column; gap: 16px; font-size: var(--fs-meta); text-transform: uppercase; }
 .loading-screen .racing-lights { --lens: 16px; gap: 5px; padding: 5px; border-radius: 9px; }
 .loading-screen .racing-lights i { border-radius: 6px; }
 .btn-primary .racing-lights { background: rgba(9, 12, 18, .85); border-color: rgba(0, 0, 0, .4); }
@@ -2946,3 +2947,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .card.wm-pinned { padding: 20px; border-color: rgba(255, 48, 69, .35); }
 .wm-pinned .wm-image { height: 280px; }
 .wm-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 10px; border: 1px solid rgba(255, 48, 69, .4); border-radius: 999px; color: var(--red); font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+
+.card.post-pinned { border-color: rgba(255, 48, 69, .35); }
+.post-pinned .post-head { display: flex; align-items: flex-start; }
