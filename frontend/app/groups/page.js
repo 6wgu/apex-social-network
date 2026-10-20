@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { searchQuery } from "@/lib/search";
+import useSearchQuery from "@/lib/useSearchQuery";
 import GroupJoinButton from "@/components/GroupJoinButton";
 import Modal from "@/components/Modal";
 import { Loading } from "@/components/RacingLights";
@@ -117,6 +117,7 @@ export default function GroupsPage() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const q = useSearchQuery(search).toLowerCase();
 
   const load = useCallback(
     () =>
@@ -141,7 +142,6 @@ export default function GroupsPage() {
     if (event.type === "notification" && event.payload.group) load();
   });
 
-  const q = searchQuery(search).toLowerCase();
   const shown = (groups || []).filter((g) => !q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q));
   const invited = shown.filter((g) => g.my_status === "invited");
   const mine = shown.filter((g) => g.my_status === "member");

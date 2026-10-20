@@ -3,6 +3,9 @@
 // change the two together.
 export const SEARCH_MAX_LENGTH = 50;
 
+// How long typing must pause before a search runs.
+export const SEARCH_DELAY_MS = 300;
+
 // Search text is one line: newlines, tabs and runs of spaces become one space.
 export function oneLine(text) {
   return text.replace(/\s+/g, " ");

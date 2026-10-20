@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { searchQuery } from "@/lib/search";
 import { timeAgo } from "@/lib/time";
 import useAutoRefresh from "@/lib/useAutoRefresh";
+import useSearchQuery from "@/lib/useSearchQuery";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import ChatWindow from "@/components/ChatWindow";
@@ -37,6 +37,7 @@ function Chats() {
   const [error, setError] = useState("");
   const [stranger, setStranger] = useState(null); // ?user= someone with no conversation and not a contact
   const [filter, setFilter] = useState(""); // narrows the list by name, in the browser only
+  const query = useSearchQuery(filter).toLowerCase();
 
   const load = useCallback(() => {
     Promise.all([api("/api/conversations"), api("/api/chat-contacts")])
@@ -105,7 +106,6 @@ function Chats() {
   }, [selectedId, conversations, selectedConv, selectedContact]);
 
   const open = (id) => router.push(`/chats?user=${id}`);
-  const query = searchQuery(filter).toLowerCase();
   const matchesFilter = (u) => !query || name(u).toLowerCase().includes(query) || (u.nickname || "").toLowerCase().includes(query);
   const shownConversations = (conversations || []).filter((c) => matchesFilter(c.user));
   const shownContacts = newContacts.filter(matchesFilter);

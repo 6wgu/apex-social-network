@@ -3,32 +3,46 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { searchQuery } from "@/lib/search";
+import useSearchQuery from "@/lib/useSearchQuery";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
 import { Loading } from "@/components/RacingLights";
 import SearchInput from "@/components/SearchInput";
 
-// /search: people search (GET /api/users?search=). An empty search lists users.
+// /search: people search (GET /api/users?search=). An empty box lists users,
+// loaded once; typing searches once it pauses (useSearchQuery), and only the
+// answer for the latest query is shown.
 export default function SearchPage() {
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
-  const [people, setPeople] = useState(null);
+  const query = useSearchQuery(search);
+  const [everyone, setEveryone] = useState(null);
+  const [found, setFound] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Wait for a pause in typing before asking the server.
-    const timer = setTimeout(() => {
-      api(`/api/users?search=${encodeURIComponent(searchQuery(search))}`)
-        .then((list) => {
-          setPeople(list);
-          setError("");
-        })
-        .catch((err) => setError(err.message));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search]);
+    api("/api/users")
+      .then(setEveryone)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    if (!query) return;
+    let current = true;
+    api(`/api/users?search=${encodeURIComponent(query)}`)
+      .then((list) => {
+        if (!current) return;
+        setFound(list);
+        setError("");
+      })
+      .catch((err) => current && setError(err.message));
+    return () => {
+      current = false;
+    };
+  }, [query]);
+
+  const people = query ? found : everyone;
 
   return (
     <div className="search-page">

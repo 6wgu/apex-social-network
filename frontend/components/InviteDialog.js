@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { searchQuery } from "@/lib/search";
+import useSearchQuery from "@/lib/useSearchQuery";
 import Avatar from "@/components/Avatar";
 import Modal from "@/components/Modal";
 import SearchInput from "@/components/SearchInput";
@@ -14,6 +14,7 @@ import SearchInput from "@/components/SearchInput";
 export default function InviteDialog({ group, me, onClose, onInvited }) {
   const [contacts, setContacts] = useState(null);
   const [search, setSearch] = useState("");
+  const query = useSearchQuery(search);
   const [results, setResults] = useState(null);
   const [invited, setInvited] = useState(() => new Set((group.invited_users || []).map((u) => u.id)));
   const [busy, setBusy] = useState(null);
@@ -33,20 +34,20 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
       .catch((err) => setError(err.message));
   }, [me.id]);
 
+  // The query settles once typing pauses; only the latest answer is shown.
   useEffect(() => {
-    const q = searchQuery(search);
-    if (!q) {
+    if (!query) {
       setResults(null);
       return;
     }
-    // Wait for a pause in typing before asking the server.
-    const timer = setTimeout(() => {
-      api(`/api/users?search=${encodeURIComponent(q)}`)
-        .then((list) => setResults(list.filter((u) => u.id !== me.id)))
-        .catch((err) => setError(err.message));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search, me.id]);
+    let current = true;
+    api(`/api/users?search=${encodeURIComponent(query)}`)
+      .then((list) => current && setResults(list.filter((u) => u.id !== me.id)))
+      .catch((err) => current && setError(err.message));
+    return () => {
+      current = false;
+    };
+  }, [query, me.id]);
 
   async function inviteUser(user) {
     setBusy(user.id);
