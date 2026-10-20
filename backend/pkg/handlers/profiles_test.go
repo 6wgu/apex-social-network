@@ -3,9 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // register creates a user through the API and returns a logged-in client and the user's ID.
@@ -160,5 +164,39 @@ func TestUpdateMeAndSearch(t *testing.T) {
 	}
 	if got := search("nobody"); len(got) != 0 {
 		t.Errorf("search nobody returned %d users, want 0", len(got))
+	}
+}
+
+func TestSearchTextIsLimited(t *testing.T) {
+	srv := httptest.NewServer(newTestApp(t).Routes())
+	defer srv.Close()
+	alice, _ := register(t, srv.URL, "alice@example.com", "Alice")
+
+	search := func(q string) (int, string) {
+		t.Helper()
+		res, err := alice.http.Get(srv.URL + "/api/users?search=" + url.QueryEscape(q))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		body, _ := io.ReadAll(res.Body)
+		return res.StatusCode, strings.TrimSpace(string(body))
+	}
+
+	tooLong := fmt.Sprintf(`{"error":"search must be %d characters or fewer"}`, maxSearchLen)
+	for _, q := range []string{strings.Repeat("a", maxSearchLen+1), strings.Repeat("é", maxSearchLen+1)} {
+		if status, body := search(q); status != http.StatusBadRequest || body != tooLong {
+			t.Errorf("search of %d characters = %d %s, want 400 %s", utf8.RuneCountInString(q), status, body, tooLong)
+		}
+	}
+	// Characters count, not bytes, and spaces around the text do not count.
+	for _, q := range []string{strings.Repeat("a", maxSearchLen), strings.Repeat("é", maxSearchLen), " \n" + strings.Repeat("a", maxSearchLen) + "\t "} {
+		if status, body := search(q); status != http.StatusOK {
+			t.Errorf("search of %d characters = %d %s, want 200", utf8.RuneCountInString(q), status, body)
+		}
+	}
+	// A run of spaces, tabs or newlines inside the text counts as one space.
+	if status, body := search("alice \n\t lovelace"); status != http.StatusOK || !strings.Contains(body, `"first_name":"Alice"`) {
+		t.Errorf("search with a run of spaces = %d %s, want Alice", status, body)
 	}
 }

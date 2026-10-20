@@ -3,15 +3,22 @@ package handlers
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"social-network/pkg/models"
 )
 
-// maxSearchResults caps GET /api/users.
-const maxSearchResults = 20
+// maxSearchResults caps GET /api/users. maxSearchLen caps its search text,
+// in characters; the search boxes stop at the same SEARCH_MAX_LENGTH
+// (frontend/lib/search.js), so change the two together.
+const (
+	maxSearchResults = 20
+	maxSearchLen     = 50
+)
 
 // fullProfile is what the owner, a follower, or anyone looking at a public
 // profile gets.
@@ -261,8 +268,15 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // searchUsers handles GET /api/users?search=: people whose first name, last
 // name, full name or nickname contains the text. An empty search lists users.
+// The text is trimmed and each run of spaces or newlines counts as one space,
+// as the search boxes send it; more than maxSearchLen characters is a 400.
 func (a *App) searchUsers(w http.ResponseWriter, r *http.Request) {
-	pattern := "%" + likeEscaper.Replace(strings.TrimSpace(r.URL.Query().Get("search"))) + "%"
+	search := strings.Join(strings.Fields(r.URL.Query().Get("search")), " ")
+	if utf8.RuneCountInString(search) > maxSearchLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("search must be %d characters or fewer", maxSearchLen))
+		return
+	}
+	pattern := "%" + likeEscaper.Replace(search) + "%"
 	rows, err := a.DB.Query(`
 		SELECT id, first_name, last_name, nickname, avatar_path
 		FROM users

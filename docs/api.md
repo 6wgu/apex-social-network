@@ -111,7 +111,7 @@ Both routes need a session, and the code always belongs to the logged-in user: t
 | GET | `/api/users/{id}` | none | `200 Profile` |
 | PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` (file), `remove_avatar=1` | `200 User`. A field you leave out keeps its value; send `nickname` or `about_me` empty to clear it. `remove_avatar=1` clears the avatar and deletes its file; a new `avatar` replaces the old file. `400` if nothing is sent, if `avatar` and `remove_avatar` are both sent, or if `remove_avatar` is anything but `1`. A bad `nickname` is `400` and someone else's nickname (any case) `409 {"error","fields":{"nickname":"This nickname is already taken"}}`; keeping your own, or changing only its case, is fine |
 | PATCH | `/api/me/privacy` | `{"is_public": false}` | `200 User`. Always changes the logged-in user; there is no way to name another user |
-| GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users). Matches first name, last name, full name or nickname, ignoring case |
+| GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users). Matches first name, last name, full name or nickname, ignoring case. The text is trimmed and each run of spaces or newlines counts as one space; more than 50 characters is `400 "search must be 50 characters or fewer"` |
 
 `Profile` when the viewer is the owner, the profile is public, or the viewer is an accepted follower:
 
