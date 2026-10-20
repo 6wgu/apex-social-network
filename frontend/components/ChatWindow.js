@@ -243,6 +243,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
             placeholder="Write a message…"
             title="Enter to send, Shift+Enter for a new line"
             rows={1}
+            maxLength={MAX_LEN}
             aria-label="Message"
           />
           <button className="btn-primary chat-send" disabled={sending || !text.trim() || length > MAX_LEN} aria-label="Send">

@@ -273,6 +273,7 @@ export default function SettingsPage() {
                 setSaved(false);
               }}
               rows={5}
+              maxLength={ABOUT_MAX}
               placeholder="Share something about yourself…"
               aria-label="About you"
             />

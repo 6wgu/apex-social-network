@@ -190,7 +190,7 @@ export default function RegisterPage() {
             </Field>
           </div>
           <Field label="Email address" icon="mail" error={shown("email")}>
-            <input name="email" type="email" autoComplete="email" placeholder="alex@example.com" aria-invalid={invalid("email")} required />
+            <input name="email" type="email" autoComplete="email" placeholder="alex@example.com" maxLength={254} aria-invalid={invalid("email")} required />
           </Field>
           <div className="form-row">
             <PasswordField

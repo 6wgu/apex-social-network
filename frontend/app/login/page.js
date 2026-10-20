@@ -52,7 +52,7 @@ export default function LoginPage() {
         </div>
         <form onSubmit={submit} className="form auth-form">
           <Field label="Email" icon="mail">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" required />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" maxLength={254} required />
           </Field>
           <PasswordField
             value={password}
