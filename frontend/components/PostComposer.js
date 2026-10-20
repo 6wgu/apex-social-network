@@ -115,7 +115,9 @@ export default function PostComposer({ onCreated, groupId }) {
                         <label className={chosen.includes(f.id) ? "selected" : ""}>
                           <input type="checkbox" checked={chosen.includes(f.id)} onChange={() => toggle(f.id)} />
                           <Avatar user={f} size={28} />
-                          {f.first_name} {f.last_name}
+                          <span className="viewer-name">
+                            {f.first_name} {f.last_name}
+                          </span>
                         </label>
                       </li>
                     ))}

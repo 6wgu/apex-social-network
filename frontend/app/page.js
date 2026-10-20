@@ -109,7 +109,9 @@ function HomeSide() {
               <Link href={`/profile/${u.id}`} className="side-row">
                 <Avatar user={u} size={36} />
                 <span className="side-row-name">
-                  {u.first_name} {u.last_name}
+                  <span className="side-row-title">
+                    {u.first_name} {u.last_name}
+                  </span>
                 </span>
               </Link>
               <Link href={`/chats?user=${u.id}`} className="side-row-action" aria-label={`Message ${u.first_name}`}>
@@ -137,7 +139,7 @@ function HomeSide() {
                   {g.title[0].toUpperCase()}
                 </span>
                 <span className="side-row-name">
-                  {g.title}
+                  <span className="side-row-title">{g.title}</span>
                   <span className="side-row-meta">
                     {g.member_count} {g.member_count === 1 ? "member" : "members"}
                   </span>

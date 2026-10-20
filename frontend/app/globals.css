@@ -1061,6 +1061,20 @@ button {
   list-style: none;
 }
 
+/* a long name is cut with an ellipsis instead of widening the dialog */
+.viewer-picker li,
+.viewer-picker label {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.viewer-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- posts ---- */
 .post {
   display: flex;

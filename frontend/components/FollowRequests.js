@@ -68,7 +68,9 @@ export default function FollowRequests() {
                 <Link href={`/profile/${r.user.id}`} className="side-row">
                   <Avatar user={r.user} size={34} />
                   <span className="side-row-name">
-                    {r.user.first_name} {r.user.last_name}
+                    <span className="side-row-title">
+                      {r.user.first_name} {r.user.last_name}
+                    </span>
                   </span>
                 </Link>
                 <span className="request-actions">
