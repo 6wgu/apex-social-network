@@ -10,6 +10,7 @@ A full-stack social network with a Formula-racing look: profiles, follow request
 
 **Accounts and privacy**
 - Session-based authentication with HTTP-only cookies and bcrypt password hashes
+- Registration checks the email format, a strong password (8+ characters, upper and lower case, a number and a special character, ticked off live under the field) and an age of 7 to 120, in the browser and again on the server, with each error shown next to its field
 - Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout
 - Public and private profiles (a switch on the profile and in Settings), follow requests, and access-controlled content
 - Settings page: nickname, privacy, about text, avatar, cursor preference and log out

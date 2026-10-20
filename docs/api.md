@@ -7,7 +7,7 @@ only by pull request, and tell both sides.
 
 - The browser calls everything on the frontend origin (`http://localhost:3000`). Next.js rewrites `/api/*`, `/uploads/*` and `/ws` to the backend (`:8080`).
 - JSON uses `snake_case`. Times are UTC strings in the format SQLite returns: `"2026-10-13 12:00:00"`.
-- Every error response has the same shape: `{"error": "human readable message"}`.
+- Every error response has the same shape: `{"error": "human readable message"}`. Register errors also carry `"fields"`, one message per bad field (see Auth).
 - Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login` and `POST /api/logout` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users, and post images only to users who may see the post.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
 - Images are JPEG, PNG or GIF, max 50 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
@@ -46,7 +46,7 @@ only by pull request, and tell both sides.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/register` | multipart: `email`, `password`, `first_name`, `last_name`, `date_of_birth` (YYYY-MM-DD), optional `nickname`, `about_me`, `avatar` (file) | `201 User` and sets the cookie |
+| POST | `/api/register` | multipart: `email`, `password`, `first_name`, `last_name`, `date_of_birth` (YYYY-MM-DD), optional `nickname`, `about_me`, `avatar` (file) | `201 User` and sets the cookie. `400` / `409` with `fields` (below) |
 | POST | `/api/login` | `{"email","password"}` | `200 User` and sets the cookie |
 | POST | `/api/logout` | none | `204`, always. Public route: deletes the session row if the cookie names one, and always clears the cookie, even when it is expired or unknown. For a valid session it also closes every open `/ws` connection of that user |
 | GET | `/api/me` | none | `200 User` |
@@ -54,7 +54,35 @@ only by pull request, and tell both sides.
 `User` is the full profile without the password:
 `{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "is_verified", "created_at" }`
 
-Validation (all on the server): valid email format, password 8 to 72 characters, a real birth date in the past, and first and last name required (max 50 characters). `nickname` is optional; when provided, it must be at most 30 ASCII characters, start with a letter, and contain only letters, numbers, `_` or `-`. The same rule applies when updating a nickname. `about_me` is at most 500 characters. A duplicate email returns `409 {"error":"email already registered"}`; emails are compared without case and stored in lower case. A bad avatar returns `400` with `avatar: image must be a JPEG, PNG or GIF` or `avatar: image must be 50 MB or smaller`.
+**Register validation.** The backend checks every field (`pkg/handlers/validation.go`) and the register page checks the same rules before sending (`frontend/lib/validation.js`), so `curl` cannot skip them. Text fields are trimmed; the email is also lowercased before it is checked and stored, and emails are unique without regard to case. The password is used exactly as typed.
+
+| Field | Rule | Messages |
+|---|---|---|
+| `email` | Required, at most 254 characters, exactly one `@`. Before the `@`: 1 to 64 letters, digits or `. _ % + -`, no dot at the start or end, no `..`; a leading digit is fine (`123ahmed@gmail.com`). After the `@`: two or more labels joined by single dots, each 1 to 63 letters, digits or `-` (not at a label's start or end), and a last label (TLD) of 2+ letters. Rejected for example: `a@b`, `a@b.`, `@x.com`, `a@.com`, `a b@x.com`, `a@@x.com`, `a@x..com`, `.a@x.com`, `a.@x.com` | `email is required`, `email must be 254 characters or fewer`, `email must be a valid address like name@example.com`; `409` `email already registered` |
+| `password` | Required, at least 8 characters, an uppercase letter, a lowercase letter, a number and a special character (any punctuation or symbol, e.g. `! @ # $ % ^ & * - _ + = ?`), at most 72 bytes (bcrypt's limit). Only register checks this: login accepts any password, so older accounts still sign in | `password is required`; `password needs ` + every missing rule, e.g. `password needs an uppercase letter, a number and a special character`; `password must be 72 bytes or fewer` |
+| `date_of_birth` | Required, a real `YYYY-MM-DD` date, not in the future, and an age from `MinAge` (7) to `MaxAge` (120) years on the server's date. The age counts full years: a birthday not reached yet this year does not count, so someone who turns 7 tomorrow is still 6 | `date of birth is required`, `date of birth must be a valid date (YYYY-MM-DD)`, `date of birth can't be in the future`, `you must be at least 7 years old`, `you must be 120 years old or younger` |
+| `first_name`, `last_name` | Required, at most 50 characters | `first name is required`, `first name must be 50 characters or fewer` (same for `last name`) |
+| `nickname` | Optional; at most 30 ASCII characters, starts with a letter, then letters, numbers, `_` or `-`. The same rule applies when updating a nickname | `nickname must be 30 characters or fewer`, `nickname must start with a letter and contain only letters, numbers, underscores, or hyphens` |
+| `about_me` | Optional, at most 500 characters | `about me must be 500 characters or fewer` |
+| `avatar` | Optional; JPEG, PNG, GIF or WebP by file bytes, at most 50 MB | `avatar: image must be a JPEG, PNG, GIF or WebP`, `avatar: image must be 50 MB or smaller` |
+
+The age limits live in one constant per side: `MinAge` / `MaxAge` in `pkg/handlers/validation.go` and `MIN_AGE` / `MAX_AGE` in `frontend/lib/validation.js`. The page also uses them for the date picker's `min` and `max`.
+
+Every problem is reported at once. A `400` (or the `409` for a taken email) looks like this; `error` is the first problem in the page's field order, for clients that only read `error`:
+
+```jsonc
+{
+  "error": "first name is required",
+  "fields": {
+    "first_name": "first name is required",
+    "email": "email must be a valid address like name@example.com",
+    "password": "password needs at least 8 characters, an uppercase letter, a number and a special character",
+    "date_of_birth": "you must be at least 7 years old"
+  }
+}
+```
+
+A request body over 64 MB gets a plain `400 {"error":"image must be 50 MB or smaller"}` without `fields`.
 
 Login with an unknown email or a wrong password returns the same `401 {"error":"wrong email or password"}`.
 
