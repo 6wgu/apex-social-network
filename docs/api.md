@@ -50,6 +50,7 @@ only by pull request, and tell both sides.
 | POST | `/api/login` | `{"email","password"}` | `200 User` and sets the cookie |
 | POST | `/api/logout` | none | `204`, always. Public route: deletes the session row if the cookie names one, and always clears the cookie, even when it is expired or unknown. For a valid session it also closes every open `/ws` connection of that user |
 | GET | `/api/me` | none | `200 User` |
+| GET | `/api/nicknames/available?nickname=ada` | none | `200 {"available": true}` or `{"available": false}`. Public route (the register page calls it while you type). The nickname is trimmed and must have the valid format, otherwise `400 {"error","fields":{"nickname"}}` (`nickname is required` for an empty one). Case does not matter. With a valid session your own nickname counts as available. It is one indexed lookup and answers nothing but `available`; responses are not cached |
 
 `User` is the full profile without the password:
 `{ "id", "email", "first_name", "last_name", "date_of_birth", "avatar_path", "nickname", "about_me", "is_public", "is_verified", "created_at" }`
@@ -62,7 +63,7 @@ only by pull request, and tell both sides.
 | `password` | Required, at least 8 characters, an uppercase letter, a lowercase letter, a number and a special character (any punctuation or symbol, e.g. `! @ # $ % ^ & * - _ + = ?`), at most 72 bytes (bcrypt's limit). Only register checks this: login accepts any password, so older accounts still sign in | `password is required`; `password needs ` + every missing rule, e.g. `password needs an uppercase letter, a number and a special character`; `password must be 72 bytes or fewer` |
 | `date_of_birth` | Required, a real `YYYY-MM-DD` date, not in the future, and an age from `MinAge` (7) to `MaxAge` (120) years on the server's date. The age counts full years: a birthday not reached yet this year does not count, so someone who turns 7 tomorrow is still 6 | `date of birth is required`, `date of birth must be a valid date (YYYY-MM-DD)`, `date of birth can't be in the future`, `you must be at least 7 years old`, `you must be 120 years old or younger` |
 | `first_name`, `last_name` | Required, at most 50 characters | `first name is required`, `first name must be 50 characters or fewer` (same for `last name`) |
-| `nickname` | Optional; at most 30 ASCII characters, starts with a letter, then letters, numbers, `_` or `-`. The same rule applies when updating a nickname | `nickname must be 30 characters or fewer`, `nickname must start with a letter and contain only letters, numbers, underscores, or hyphens` |
+| `nickname` | Optional; at most 30 ASCII characters, starts with a letter, then letters, numbers, `_` or `-`. When set it must be **unique without regard to case** ("Ahmed", "ahmed" and "AHMED" are one nickname); it is stored as typed. Any number of users can have no nickname (stored as `''`). The same rules apply when updating a nickname | `nickname must be 30 characters or fewer`, `nickname must start with a letter and contain only letters, numbers, underscores, or hyphens`; `409` `This nickname is already taken` |
 | `about_me` | Optional, at most 500 characters | `about me must be 500 characters or fewer` |
 | `avatar` | Optional; JPEG, PNG, GIF or WebP by file bytes, at most 50 MB | `avatar: image must be a JPEG, PNG, GIF or WebP`, `avatar: image must be 50 MB or smaller` |
 
@@ -84,6 +85,14 @@ Every problem is reported at once. A `400` (or the `409` for a taken email) look
 
 A request body over 64 MB gets a plain `400 {"error":"image must be 50 MB or smaller"}` without `fields`.
 
+**Taken email or nickname.** When the format is fine but the email or the nickname belongs to someone else, register answers `409` with the same shape, naming every taken field:
+
+```jsonc
+{ "error": "This nickname is already taken", "fields": { "nickname": "This nickname is already taken" } }
+```
+
+The handlers look first, so the message is clear; the unique indexes (`users.email`, and `idx_users_nickname` on `lower(nickname)` for non-empty nicknames, migration 000019) decide when two requests race, and the loser gets the same `409`.
+
 Login with an unknown email or a wrong password returns the same `401 {"error":"wrong email or password"}`.
 
 ## Email verification
@@ -100,7 +109,7 @@ Both routes need a session, and the code always belongs to the logged-in user: t
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/users/{id}` | none | `200 Profile` |
-| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` (file), `remove_avatar=1` | `200 User`. A field you leave out keeps its value; send `nickname` or `about_me` empty to clear it. `remove_avatar=1` clears the avatar and deletes its file; a new `avatar` replaces the old file. `400` if nothing is sent, if `avatar` and `remove_avatar` are both sent, or if `remove_avatar` is anything but `1` |
+| PATCH | `/api/me` | multipart: any of `nickname`, `about_me`, `avatar` (file), `remove_avatar=1` | `200 User`. A field you leave out keeps its value; send `nickname` or `about_me` empty to clear it. `remove_avatar=1` clears the avatar and deletes its file; a new `avatar` replaces the old file. `400` if nothing is sent, if `avatar` and `remove_avatar` are both sent, or if `remove_avatar` is anything but `1`. A bad `nickname` is `400` and someone else's nickname (any case) `409 {"error","fields":{"nickname":"This nickname is already taken"}}`; keeping your own, or changing only its case, is fine |
 | PATCH | `/api/me/privacy` | `{"is_public": false}` | `200 User`. Always changes the logged-in user; there is no way to name another user |
 | GET | `/api/users?search=ada` | none | `200 [UserSummary]` (max 20; empty search lists users). Matches first name, last name, full name or nickname, ignoring case |
 

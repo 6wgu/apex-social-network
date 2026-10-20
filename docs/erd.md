@@ -16,6 +16,7 @@ chat) and `group_messages` (group chat).
 | messages | Phase 4 (migration 000015) |
 | group_messages | Phase 4 (migration 000016) |
 | otp_codes, users.is_verified | Email verification (migration 000017) |
+| idx_users_nickname (unique) | Unique nicknames (migration 000019) |
 
 **Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
 week-2 spec. There is no separate `follow_requests` table. Accepting a request
@@ -41,7 +42,7 @@ erDiagram
         TEXT last_name
         TEXT date_of_birth
         TEXT avatar_path
-        TEXT nickname
+        TEXT nickname "optional ('' = none); unique ignoring case when set"
         TEXT about_me
         INTEGER is_public "1 public, 0 private"
         INTEGER is_verified "1 after the email code was confirmed"
@@ -183,4 +184,5 @@ erDiagram
 - `UNIQUE (group_id, invitee_id)` on `group_invites` and `UNIQUE (group_id, user_id)` on `group_requests` block duplicates; `PRIMARY KEY (event_id, user_id)` on `event_responses` keeps one answer per member, and answering again updates it.
 - `CHECK (title <> '')` and `CHECK (description <> '')` on `groups` and `events`; `CHECK (response IN ('going', 'not_going'))` on `event_responses`.
 - `CHECK (follower_id <> following_id)` on `follows`, so nobody can follow themselves.
+- `UNIQUE` index `idx_users_nickname` on `users(lower(nickname)) WHERE nickname IS NOT NULL AND nickname <> ''`: a nickname is unique without regard to case, and users without one (`''`) never clash.
 - Index every foreign key that is used in a `WHERE`, e.g. `follows(following_id, status)`, `posts(user_id)`, `posts(group_id)`, `messages(sender_id, receiver_id)`.
