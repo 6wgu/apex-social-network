@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { echoQuery } from "@/lib/search";
 import { timeAgo } from "@/lib/time";
 import useAutoRefresh from "@/lib/useAutoRefresh";
 import useSearchQuery from "@/lib/useSearchQuery";
@@ -37,7 +38,8 @@ function Chats() {
   const [error, setError] = useState("");
   const [stranger, setStranger] = useState(null); // ?user= someone with no conversation and not a contact
   const [filter, setFilter] = useState(""); // narrows the list by name, in the browser only
-  const query = useSearchQuery(filter).toLowerCase();
+  const filterQuery = useSearchQuery(filter);
+  const query = filterQuery.toLowerCase();
 
   const load = useCallback(() => {
     Promise.all([api("/api/conversations"), api("/api/chat-contacts")])
@@ -152,7 +154,7 @@ function Chats() {
           ))}
         </ul>
         {query && conversations && shownConversations.length === 0 && shownContacts.length === 0 && (
-          <p className="muted chat-filter-empty">Nobody matches “{filter.trim()}”.</p>
+          <p className="muted chat-filter-empty">Nobody matches “{echoQuery(filterQuery)}”.</p>
         )}
         {shownContacts.length > 0 && (
           <>

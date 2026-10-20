@@ -2469,7 +2469,8 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   outline: none;
 }
 
-.chat-filter-empty { margin: 8px; }
+/* one line however long the query: echoQuery shortens it, the ellipsis covers narrow screens */
+.chat-filter-empty { margin: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-item { gap: 12px; padding: 10px; }
 .chat-item-top strong { font-size: var(--fs-body); }
 .chat-item-last { font-size: var(--fs-secondary); }
