@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import useNicknameCheck from "@/lib/useNicknameCheck";
+import { NICKNAME_TAKEN, nicknameProblem, sentence } from "@/lib/validation";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import Field from "@/components/Field";
@@ -45,6 +47,8 @@ export default function SettingsPage() {
   const [preview, setPreview] = useState("");
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [error, setError] = useState("");
+  const [nicknameServerError, setNicknameServerError] = useState(""); // the server's answer about the nickname (409)
+  const nicknameCheck = useNicknameCheck(nickname, user.nickname || ""); // my own nickname is never checked
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
@@ -62,12 +66,22 @@ export default function SettingsPage() {
 
   const dirty = nickname !== (user.nickname || "") || aboutMe !== (user.about_me || "") || Boolean(file) || removeAvatar;
 
+  // A changed nickname must have the right format and be free; the unchanged
+  // one is mine and needs no check.
+  const nicknameChanged = nickname.trim() !== (user.nickname || "");
+  const nicknameError =
+    sentence(nicknameServerError) ||
+    sentence(nicknameChanged ? nicknameProblem(nickname.trim()) : "") ||
+    (nicknameCheck.status === "taken" ? NICKNAME_TAKEN : "");
+  const nicknameFree = !nicknameError && nicknameCheck.status === "available";
+
   function reset() {
     setNickname(user.nickname || "");
     setAboutMe(user.about_me || "");
     setFile(null);
     setRemoveAvatar(false);
     setError("");
+    setNicknameServerError("");
     if (fileInput.current) fileInput.current.value = "";
   }
 
@@ -87,7 +101,7 @@ export default function SettingsPage() {
 
   async function save(e) {
     e.preventDefault();
-    if (!dirty) return;
+    if (!dirty || nicknameError) return;
     setError("");
     setSaved(false);
     setBusy(true);
@@ -104,7 +118,9 @@ export default function SettingsPage() {
       setSaved(true);
       notify({ tone: "success", message: "Profile saved." });
     } catch (err) {
-      setError(err.message);
+      // A nickname problem (taken: 409, or its format) shows under the field.
+      if (err.fields?.nickname) setNicknameServerError(err.fields.nickname);
+      else setError(err.message);
     } finally {
       setBusy(false);
     }
@@ -141,7 +157,7 @@ export default function SettingsPage() {
           <button type="button" className="btn-secondary" onClick={reset} disabled={busy || !dirty}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={busy || !dirty || aboutLength > ABOUT_MAX}>
+          <button className="btn-primary" disabled={busy || !dirty || aboutLength > ABOUT_MAX || Boolean(nicknameError)}>
             {busy ? (
               <>
                 <RacingLights small /> Saving…
@@ -178,15 +194,23 @@ export default function SettingsPage() {
                 </Field>
               </div>
               <div className="form-row">
-                <Field label="Nickname" hint="Start with a letter; letters, numbers, _ or - (up to 30).">
+                <Field
+                  label="Nickname"
+                  hint="Start with a letter; letters, numbers, _ or - (up to 30)."
+                  error={nicknameError}
+                  below={nicknameFree && <span className="field-ok" role="status">✓ Available</span>}
+                >
                   <input
                     value={nickname}
                     onChange={(e) => {
                       setNickname(e.target.value);
+                      setNicknameServerError("");
                       setSaved(false);
                     }}
+                    onBlur={nicknameCheck.checkNow}
                     maxLength={30}
                     placeholder="Optional"
+                    aria-invalid={nicknameError ? true : undefined}
                   />
                 </Field>
                 <Field label="Date of birth">

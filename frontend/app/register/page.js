@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import {
   MAX_AGE,
   MIN_AGE,
+  NICKNAME_TAKEN,
   PASSWORD_RULES,
   REGISTRATION_FIELDS,
   birthDateLimits,
@@ -14,6 +15,7 @@ import {
   registrationProblems,
   sentence,
 } from "@/lib/validation";
+import useNicknameCheck from "@/lib/useNicknameCheck";
 import { useAuth } from "@/components/AuthProvider";
 import Field, { PasswordField } from "@/components/Field";
 import Icon from "@/components/Icon";
@@ -57,6 +59,8 @@ export default function RegisterPage() {
   const [avatar, setAvatar] = useState(null);
   const [preview, setPreview] = useState("");
   const [password, setPassword] = useState(""); // a copy of the password input, for the checklist
+  const [nickname, setNickname] = useState(""); // a copy of the nickname input, for the availability check
+  const nicknameCheck = useNicknameCheck(nickname);
   const [errors, setErrors] = useState({}); // field -> problem, shown under that field
   const [attempted, setAttempted] = useState(false); // the user has pressed the button once
   const [limits, setLimits] = useState(null); // { min, max } for the date picker, from today's date
@@ -104,6 +108,7 @@ export default function RegisterPage() {
     if (!REGISTRATION_FIELDS.includes(field)) return;
     const v = values();
     if (v[field] || attempted) setFieldError(field, registrationProblem(field, v));
+    if (field === "nickname") nicknameCheck.checkNow();
   }
 
   async function submit(e) {
@@ -112,6 +117,7 @@ export default function RegisterPage() {
     setAttempted(true);
     const v = values();
     const problems = registrationProblems(v);
+    if (!problems.nickname && nicknameCheck.status === "taken") problems.nickname = NICKNAME_TAKEN;
     if (Object.keys(problems).length) {
       setErrors({ ...problems, avatar: errors.avatar });
       focusFirst(problems);
@@ -161,6 +167,10 @@ export default function RegisterPage() {
 
   const shown = (field) => sentence(errors[field]);
   const invalid = (field) => (errors[field] ? true : undefined);
+  // The nickname's own error comes first (format, or the server's 409);
+  // otherwise the live check says whether it is taken or available.
+  const nicknameError = shown("nickname") || (nicknameCheck.status === "taken" ? NICKNAME_TAKEN : "");
+  const nicknameFree = !nicknameError && nicknameCheck.status === "available";
 
   return (
     <div className="auth-screen">
@@ -228,8 +238,20 @@ export default function RegisterPage() {
                 )}
               </label>
               <div className="customize-fields">
-                <Field icon="user" hint="Start with a letter; letters, numbers, _ or - (up to 30)." error={shown("nickname")}>
-                  <input name="nickname" maxLength={30} placeholder="Nickname (@handle)" aria-label="Nickname" aria-invalid={invalid("nickname")} />
+                <Field
+                  icon="user"
+                  hint="Start with a letter; letters, numbers, _ or - (up to 30)."
+                  error={nicknameError}
+                  below={nicknameFree && <span className="field-ok" role="status">✓ Available</span>}
+                >
+                  <input
+                    name="nickname"
+                    maxLength={30}
+                    placeholder="Nickname (@handle)"
+                    aria-label="Nickname"
+                    onChange={(e) => setNickname(e.target.value)}
+                    aria-invalid={nicknameError ? true : undefined}
+                  />
                 </Field>
                 <Field icon="message" error={shown("about_me")}>
                   <textarea name="about_me" rows={1} maxLength={500} placeholder="Tell us about yourself…" aria-label="About me" aria-invalid={invalid("about_me")} />
