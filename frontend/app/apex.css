@@ -107,6 +107,7 @@ body:has(.landing) {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   line-height: 1.55;
+  overflow-wrap: break-word; /* a long word, link or email breaks instead of running out of its box */
   -webkit-font-smoothing: antialiased;
 }
 

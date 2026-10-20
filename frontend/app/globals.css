@@ -521,6 +521,10 @@ button {
   background: var(--bg);
 }
 
+.people a > span {
+  min-width: 0;
+}
+
 /* ---- profile ---- */
 .profile-header {
   display: flex;
@@ -1079,11 +1083,13 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .post-author > div {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .post-name {
@@ -1213,6 +1219,7 @@ button {
 .modal {
   width: 100%;
   max-width: 520px;
+  min-width: 0;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
@@ -1224,8 +1231,11 @@ button {
   margin-bottom: 12px;
 }
 
+/* the title can name a group: let it wrap anywhere so the dialog keeps its width */
 .card .modal-head h2 {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .modal-close {
