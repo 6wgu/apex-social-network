@@ -138,7 +138,10 @@ function nameProblem(name, label) {
   return "";
 }
 
-function nicknameProblem(nickname) {
+// The 409 message for a nickname someone else has (case does not matter).
+export const NICKNAME_TAKEN = "This nickname is already taken";
+
+export function nicknameProblem(nickname) {
   if (length(nickname) > MAX_NICKNAME_LENGTH) return `nickname must be ${MAX_NICKNAME_LENGTH} characters or fewer`;
   if (nickname && !/^[A-Za-z][A-Za-z0-9_-]*$/.test(nickname)) {
     return "nickname must start with a letter and contain only letters, numbers, underscores, or hyphens";
