@@ -131,7 +131,18 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 	if r.Form.Has("nickname") {
 		user.Nickname = strings.TrimSpace(r.FormValue("nickname"))
 		if problem := validateNickname(user.Nickname); problem != "" {
-			writeError(w, http.StatusBadRequest, problem)
+			writeFieldErrors(w, http.StatusBadRequest, fieldErrors{"nickname": problem})
+			return
+		}
+		// Someone else's nickname, in any case, is taken; my own (even in
+		// another case) is not. Checked before the avatar is stored.
+		inUse, err := a.nicknameInUse(user.Nickname, user.ID)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		if inUse {
+			writeFieldErrors(w, http.StatusConflict, fieldErrors{"nickname": nicknameTaken})
 			return
 		}
 		changed = true
@@ -185,6 +196,11 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		user.Nickname, user.AboutMe, user.AvatarPath, user.ID)
 	if err != nil {
 		a.removeImage(newAvatar)
+		// Another request took the nickname since the check above.
+		if uniqueConflict(err) == "nickname" {
+			writeFieldErrors(w, http.StatusConflict, fieldErrors{"nickname": nicknameTaken})
+			return
+		}
 		serverError(w, err)
 		return
 	}

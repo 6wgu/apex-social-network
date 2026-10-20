@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 
 	"social-network/pkg/middleware"
@@ -71,17 +70,28 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for a duplicate before storing the avatar, so a rejected
-	// registration leaves no file behind. The UNIQUE constraint below still
-	// catches two registrations racing each other.
-	emailTaken := fieldErrors{"email": "email already registered"}
+	// Check for a taken email or nickname before storing the avatar, so a
+	// rejected registration leaves no file behind. The unique indexes still
+	// catch two registrations racing each other (see the INSERT below).
+	taken := fieldErrors{}
 	var exists bool
 	if err := a.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)`, reg.Email).Scan(&exists); err != nil {
 		serverError(w, err)
 		return
 	}
 	if exists {
-		writeFieldErrors(w, http.StatusConflict, emailTaken)
+		taken["email"] = conflictMessages["email"]
+	}
+	nicknameInUse, err := a.nicknameInUse(reg.Nickname, 0)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if nicknameInUse {
+		taken["nickname"] = nicknameTaken
+	}
+	if len(taken) > 0 {
+		writeFieldErrors(w, http.StatusConflict, taken)
 		return
 	}
 
@@ -107,9 +117,8 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		reg.Email, string(hash), reg.FirstName, reg.LastName, reg.DateOfBirth, avatarPath, reg.Nickname, reg.AboutMe)
 	if err != nil {
 		a.removeImage(avatarPath)
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-			writeFieldErrors(w, http.StatusConflict, emailTaken)
+		if field := uniqueConflict(err); field != "" {
+			writeFieldErrors(w, http.StatusConflict, fieldErrors{field: conflictMessages[field]})
 			return
 		}
 		serverError(w, err)
