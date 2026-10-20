@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { searchQuery } from "@/lib/search";
 import { timeAgo } from "@/lib/time";
 import useAutoRefresh from "@/lib/useAutoRefresh";
 import { useAuth } from "@/components/AuthProvider";
@@ -12,6 +13,7 @@ import ChatWindow from "@/components/ChatWindow";
 import Icon from "@/components/Icon";
 import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components/RealtimeProvider";
+import SearchInput from "@/components/SearchInput";
 
 const NOT_ALLOWED = "You can only message people you follow or who follow you.";
 
@@ -103,7 +105,7 @@ function Chats() {
   }, [selectedId, conversations, selectedConv, selectedContact]);
 
   const open = (id) => router.push(`/chats?user=${id}`);
-  const query = filter.trim().toLowerCase();
+  const query = searchQuery(filter).toLowerCase();
   const matchesFilter = (u) => !query || name(u).toLowerCase().includes(query) || (u.nickname || "").toLowerCase().includes(query);
   const shownConversations = (conversations || []).filter((c) => matchesFilter(c.user));
   const shownContacts = newContacts.filter(matchesFilter);
@@ -115,7 +117,7 @@ function Chats() {
           <h1>Messages</h1>
           <label className="chat-filter">
             <Icon name="search" size={16} />
-            <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search conversations" aria-label="Search conversations" />
+            <SearchInput value={filter} onChange={setFilter} placeholder="Search conversations" aria-label="Search conversations" />
           </label>
         </div>
         {error && <p className="form-error">{error}</p>}

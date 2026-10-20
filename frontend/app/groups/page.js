@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { searchQuery } from "@/lib/search";
 import GroupJoinButton from "@/components/GroupJoinButton";
 import Modal from "@/components/Modal";
 import { Loading } from "@/components/RacingLights";
 import { GROUPS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
+import SearchInput from "@/components/SearchInput";
 
 // Form for POST /api/groups. On success it opens the new group.
 function CreateGroup({ onClose }) {
@@ -139,7 +141,7 @@ export default function GroupsPage() {
     if (event.type === "notification" && event.payload.group) load();
   });
 
-  const q = search.trim().toLowerCase();
+  const q = searchQuery(search).toLowerCase();
   const shown = (groups || []).filter((g) => !q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q));
   const invited = shown.filter((g) => g.my_status === "invited");
   const mine = shown.filter((g) => g.my_status === "member");
@@ -155,12 +157,11 @@ export default function GroupsPage() {
         <button className="btn-primary" onClick={() => setCreating(true)}>
           + Create group
         </button>
-        <input
-          type="search"
+        <SearchInput
           className="search"
           placeholder="Filter groups by title or description"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           aria-label="Filter groups"
         />
       </section>

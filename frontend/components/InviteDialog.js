@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { searchQuery } from "@/lib/search";
 import Avatar from "@/components/Avatar";
 import Modal from "@/components/Modal";
+import SearchInput from "@/components/SearchInput";
 
 // "Invite people" for a group member. It lists the people I follow and my
 // followers; typing searches every user (GET /api/users?search=). Members
@@ -32,7 +34,7 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
   }, [me.id]);
 
   useEffect(() => {
-    const q = search.trim();
+    const q = searchQuery(search);
     if (!q) {
       setResults(null);
       return;
@@ -69,12 +71,11 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
 
   return (
     <Modal title={`Invite people to ${group.title}`} onClose={onClose}>
-      <input
-        type="search"
+      <SearchInput
         className="search"
         placeholder="Search everyone by name or nickname"
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={setSearch}
         aria-label="Search people to invite"
       />
       <p className="hint invite-hint">{results ? "Search results" : "People you follow and your followers"}</p>

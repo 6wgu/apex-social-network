@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { searchQuery } from "@/lib/search";
 import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
 import { Loading } from "@/components/RacingLights";
+import SearchInput from "@/components/SearchInput";
 
 // /search: people search (GET /api/users?search=). An empty search lists users.
 export default function SearchPage() {
@@ -18,7 +20,7 @@ export default function SearchPage() {
   useEffect(() => {
     // Wait for a pause in typing before asking the server.
     const timer = setTimeout(() => {
-      api(`/api/users?search=${encodeURIComponent(search)}`)
+      api(`/api/users?search=${encodeURIComponent(searchQuery(search))}`)
         .then((list) => {
           setPeople(list);
           setError("");
@@ -36,12 +38,11 @@ export default function SearchPage() {
       </header>
       <label className="search-box">
         <Icon name="search" size={19} />
-        <input
-          type="search"
+        <SearchInput
           className="search"
           placeholder="Search by name or nickname"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           aria-label="Search people"
           autoFocus
         />
