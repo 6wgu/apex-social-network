@@ -52,7 +52,7 @@ func TestUnverifiedUsersAreLockedOut(t *testing.T) {
 	// Logging in still works for an unverified account (to reach the code page).
 	other, _ := register(t, srv.URL, "other@example.com", "Other")
 	other.do("POST", "/api/logout", "", nil)
-	if status, body := other.json("POST", "/api/login", `{"email":"other@example.com","password":"correct horse"}`); status != http.StatusOK {
+	if status, body := other.json("POST", "/api/login", `{"email":"other@example.com","password":"`+testPassword+`"}`); status != http.StatusOK {
 		t.Errorf("unverified login = %d %v, want 200", status, body)
 	}
 }

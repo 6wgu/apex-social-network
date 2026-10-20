@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -88,9 +89,12 @@ func mustURL(t *testing.T, raw string) *url.URL {
 	return u
 }
 
+// testPassword meets every password rule; tests register and log in with it.
+const testPassword = "Correct-Horse1"
+
 func validUser(email string) map[string]string {
 	return map[string]string{
-		"email": email, "password": "correct horse", "first_name": "Ada",
+		"email": email, "password": testPassword, "first_name": "Ada",
 		"last_name": "Lovelace", "date_of_birth": "1990-12-10",
 	}
 }
@@ -129,7 +133,7 @@ func TestRegisterLoginLogout(t *testing.T) {
 
 	var hash string
 	app.DB.QueryRow(`SELECT password_hash FROM users WHERE email = ?`, "ada@example.com").Scan(&hash)
-	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("correct horse")) != nil {
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(testPassword)) != nil {
 		t.Errorf("stored password %q is not a bcrypt hash of the password", hash)
 	}
 
@@ -156,10 +160,10 @@ func TestRegisterLoginLogout(t *testing.T) {
 	if status, _ := c.json("POST", "/api/login", `{"email":"ada@example.com","password":"wrong password"}`); status != http.StatusUnauthorized {
 		t.Errorf("login with wrong password = %d, want 401", status)
 	}
-	if status, _ := c.json("POST", "/api/login", `{"email":"nobody@example.com","password":"correct horse"}`); status != http.StatusUnauthorized {
+	if status, _ := c.json("POST", "/api/login", `{"email":"nobody@example.com","password":"`+testPassword+`"}`); status != http.StatusUnauthorized {
 		t.Errorf("login with unknown email = %d, want 401", status)
 	}
-	if status, _ := c.json("POST", "/api/login", `{"email":"ada@example.com","password":"correct horse"}`); status != http.StatusOK {
+	if status, _ := c.json("POST", "/api/login", `{"email":"ada@example.com","password":"`+testPassword+`"}`); status != http.StatusOK {
 		t.Errorf("login = %d, want 200", status)
 	}
 	if status, _ := c.get("/api/me"); status != http.StatusOK {
@@ -173,22 +177,28 @@ func TestRegisterValidation(t *testing.T) {
 	c := newClient(t, srv.URL)
 
 	cases := map[string]func(map[string]string){
-		"missing email":                       func(f map[string]string) { delete(f, "email") },
-		"bad email":                           func(f map[string]string) { f["email"] = "not-an-email" },
-		"email without tld":                   func(f map[string]string) { f["email"] = "ada@localhost" },
-		"short password":                      func(f map[string]string) { f["password"] = "1234567" },
-		"blank first name":                    func(f map[string]string) { f["first_name"] = "   " },
-		"missing last name":                   func(f map[string]string) { delete(f, "last_name") },
-		"missing birth date":                  func(f map[string]string) { delete(f, "date_of_birth") },
-		"garbage birth date":                  func(f map[string]string) { f["date_of_birth"] = "31/12/1990" },
-		"impossible date":                     func(f map[string]string) { f["date_of_birth"] = "1990-02-30" },
-		"future birth date":                   func(f map[string]string) { f["date_of_birth"] = "2999-01-01" },
-		"nickname starts with number":         func(f map[string]string) { f["nickname"] = "1ada" },
-		"nickname starts with underscore":     func(f map[string]string) { f["nickname"] = "_ada" },
-		"nickname starts with hyphen":         func(f map[string]string) { f["nickname"] = "-ada" },
-		"nickname contains invalid character": func(f map[string]string) { f["nickname"] = "ad.a" },
-		"nickname contains non-ASCII letter":  func(f map[string]string) { f["nickname"] = "äda" },
-		"nickname too long":                   func(f map[string]string) { f["nickname"] = strings.Repeat("a", 31) },
+		"missing email":                        func(f map[string]string) { delete(f, "email") },
+		"bad email":                            func(f map[string]string) { f["email"] = "not-an-email" },
+		"email without tld":                    func(f map[string]string) { f["email"] = "ada@localhost" },
+		"email with a one-label domain":        func(f map[string]string) { f["email"] = "a@b" },
+		"email with two dots in the domain":    func(f map[string]string) { f["email"] = "a@x..com" },
+		"short password":                       func(f map[string]string) { f["password"] = "1234567" },
+		"password without a special char":      func(f map[string]string) { f["password"] = "Password123" },
+		"password without an uppercase letter": func(f map[string]string) { f["password"] = "password1!" },
+		"too young":                            func(f map[string]string) { f["date_of_birth"] = time.Now().AddDate(-MinAge+1, 0, 0).Format(dateLayout) },
+		"too old":                              func(f map[string]string) { f["date_of_birth"] = time.Now().AddDate(-MaxAge-2, 0, 0).Format(dateLayout) },
+		"blank first name":                     func(f map[string]string) { f["first_name"] = "   " },
+		"missing last name":                    func(f map[string]string) { delete(f, "last_name") },
+		"missing birth date":                   func(f map[string]string) { delete(f, "date_of_birth") },
+		"garbage birth date":                   func(f map[string]string) { f["date_of_birth"] = "31/12/1990" },
+		"impossible date":                      func(f map[string]string) { f["date_of_birth"] = "1990-02-30" },
+		"future birth date":                    func(f map[string]string) { f["date_of_birth"] = "2999-01-01" },
+		"nickname starts with number":          func(f map[string]string) { f["nickname"] = "1ada" },
+		"nickname starts with underscore":      func(f map[string]string) { f["nickname"] = "_ada" },
+		"nickname starts with hyphen":          func(f map[string]string) { f["nickname"] = "-ada" },
+		"nickname contains invalid character":  func(f map[string]string) { f["nickname"] = "ad.a" },
+		"nickname contains non-ASCII letter":   func(f map[string]string) { f["nickname"] = "äda" },
+		"nickname too long":                    func(f map[string]string) { f["nickname"] = strings.Repeat("a", 31) },
 	}
 	for name, breakIt := range cases {
 		fields := validUser("ok@example.com")
