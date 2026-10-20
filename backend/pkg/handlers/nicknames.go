@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
+
+	"social-network/pkg/session"
 )
 
 // Nicknames are optional but unique when set, without regard to case
@@ -49,4 +52,33 @@ func uniqueConflict(err error) string {
 		return "email"
 	}
 	return ""
+}
+
+// nicknameAvailable handles GET /api/nicknames/available?nickname=. It is
+// public (the register page needs it) and answers only {"available": bool}
+// for a nickname in the valid format; a bad format is a 400 in the
+// register field-error shape. For a signed-in caller their own nickname
+// counts as available, so the edit form can change its case.
+func (a *App) nicknameAvailable(w http.ResponseWriter, r *http.Request) {
+	nickname := strings.TrimSpace(r.URL.Query().Get("nickname"))
+	problem := validateNickname(nickname)
+	if nickname == "" {
+		problem = "nickname is required"
+	}
+	if problem != "" {
+		writeFieldErrors(w, http.StatusBadRequest, fieldErrors{"nickname": problem})
+		return
+	}
+	self, err := session.FromRequest(a.DB, r)
+	if err != nil && !errors.Is(err, session.ErrNotFound) {
+		serverError(w, err)
+		return
+	}
+	inUse, err := a.nicknameInUse(nickname, self)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]bool{"available": !inUse})
 }

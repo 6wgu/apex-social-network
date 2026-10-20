@@ -50,6 +50,7 @@ func (a *App) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/register", a.register)
 	mux.HandleFunc("POST /api/login", a.login)
 	mux.HandleFunc("POST /api/logout", a.logout)
+	mux.HandleFunc("GET /api/nicknames/available", a.nicknameAvailable)
 
 	// Everything below needs a valid session cookie (401 otherwise).
 	mux.Handle("GET /ws", protected(a.serveWS))

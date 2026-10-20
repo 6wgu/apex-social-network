@@ -94,6 +94,38 @@ func TestNicknameIsUniqueOnEdit(t *testing.T) {
 	}
 }
 
+func TestNicknameAvailability(t *testing.T) {
+	srv := httptest.NewServer(newTestApp(t).Routes())
+	defer srv.Close()
+
+	owner, status, body := registerWithNickname(t, srv.URL, "owner@example.com", "Ahmed")
+	if status != http.StatusCreated {
+		t.Fatalf("register = %d %v", status, body)
+	}
+	anonymous := newClient(t, srv.URL)
+	check := func(c *testClient, nickname string) (int, map[string]any) {
+		return c.get("/api/nicknames/available?nickname=" + nickname)
+	}
+
+	for nickname, want := range map[string]bool{"Ahmed": false, "ahmed": false, "AHMED": false, "%20ahmed%20": false, "free_name": true, "Ahmed2": true} {
+		status, body := check(anonymous, nickname)
+		if status != http.StatusOK || body["available"] != want || len(body) != 1 {
+			t.Errorf("available?nickname=%s = %d %v, want 200 {available: %v} and nothing else", nickname, status, body, want)
+		}
+	}
+	for _, nickname := range []string{"", "1bad", "_bad", "bad.name", "%C3%A4da", "abcdefghijklmnopqrstuvwxyz12345"} {
+		status, body := check(anonymous, nickname)
+		if fields, _ := body["fields"].(map[string]any); status != http.StatusBadRequest || fields["nickname"] == nil {
+			t.Errorf("available?nickname=%s = %d %v, want 400 with fields.nickname", nickname, status, body)
+		}
+	}
+
+	// Signed in, my own nickname (in any case) is available to me.
+	if status, body := check(owner, "AHMED"); status != http.StatusOK || body["available"] != true {
+		t.Errorf("my own nickname for me = %d %v, want available", status, body)
+	}
+}
+
 // Two registrations racing for one nickname both pass the check; the unique
 // index stops the second INSERT, and uniqueConflict turns that into the
 // nickname (or email) 409.
