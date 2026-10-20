@@ -1,10 +1,13 @@
 // Fetch wrapper used by every page. Paths are relative ("/api/..."), so they go
 // through the Next.js rewrite to the backend and cookies are sent automatically.
 
+// fields is the response's { "<field>": "<problem>" } map when it has one
+// (register reports every bad field at once), otherwise null.
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, fields = null) {
     super(message);
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -38,7 +41,7 @@ export async function api(path, { method = "GET", body, redirectOn401 = true } =
     ) {
       window.location.href = "/login";
     }
-    throw new ApiError(res.status, data?.error || `Request failed (${res.status})`);
+    throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data?.fields || null);
   }
   return data;
 }
