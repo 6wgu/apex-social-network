@@ -182,3 +182,79 @@ func TestEachMigrationDownThenUp(t *testing.T) {
 		t.Fatalf("up after stepping down: %v", err)
 	}
 }
+
+// Migration 000019: nicknames become unique without regard to case, any
+// number of users can have none, an existing duplicate is cleared on all but
+// the oldest account, and the migration can be rolled back and applied again.
+func TestUniqueNicknameMigration(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "nick.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := MigrateUp(db, testMigrations); err != nil {
+		t.Fatal(err)
+	}
+	step := func(n int) {
+		t.Helper()
+		m, err := newMigrator(db, testMigrations)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := m.Steps(n); err != nil {
+			t.Fatalf("steps(%d): %v", n, err)
+		}
+	}
+	addUser := func(email, nickname string) error {
+		_, err := db.Exec(`INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, nickname)
+			VALUES (?, 'h', 'A', 'B', '1990-01-01', ?)`, email, nickname)
+		return err
+	}
+	hasIndex := func() bool {
+		var n int
+		db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_users_nickname'`).Scan(&n)
+		return n == 1
+	}
+
+	// Down: the index is gone, so duplicates (as old databases have) go in.
+	step(-1)
+	if hasIndex() {
+		t.Fatal("idx_users_nickname still there after down")
+	}
+	for _, u := range [][2]string{{"a@x.com", "ali"}, {"b@x.com", "ALI"}, {"c@x.com", "Ali"}, {"d@x.com", ""}, {"e@x.com", ""}, {"f@x.com", "bob"}} {
+		if err := addUser(u[0], u[1]); err != nil {
+			t.Fatalf("insert %v before the index: %v", u, err)
+		}
+	}
+
+	// Up again: the oldest "ali" keeps it, the later two lose it, the rest is untouched.
+	step(+1)
+	if !hasIndex() {
+		t.Fatal("idx_users_nickname missing after up")
+	}
+	rows, err := db.Query(`SELECT email, nickname FROM users ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for rows.Next() {
+		var email, nickname string
+		rows.Scan(&email, &nickname)
+		got[email] = nickname
+	}
+	rows.Close()
+	want := map[string]string{"a@x.com": "ali", "b@x.com": "", "c@x.com": "", "d@x.com": "", "e@x.com": "", "f@x.com": "bob"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("nicknames after up = %v, want %v", got, want)
+	}
+
+	if err := addUser("g@x.com", "BOB"); err == nil {
+		t.Error("a second BOB went in; the index should refuse it")
+	}
+	if err := addUser("h@x.com", ""); err != nil {
+		t.Errorf("another user without a nickname: %v", err)
+	}
+	if err := addUser("i@x.com", "carol"); err != nil {
+		t.Errorf("a new nickname: %v", err)
+	}
+}
