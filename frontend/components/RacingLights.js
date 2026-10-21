@@ -26,14 +26,14 @@ export function Loading({ children = "Loading…", className = "muted center" })
   );
 }
 
-// "Name is typing…" with the colour-cycling lights. The backend does not
-// send typing events yet, so nothing renders this today; show it only from a
-// real typing state once one exists.
-export function TypingIndicator({ name }) {
+// "Name is typing…" (or "Ann and Ben are typing…" with plural) with the
+// colour-cycling lights. ChatWindow shows it from the server's "typing"
+// events (see docs/api.md).
+export function TypingIndicator({ name, plural = false }) {
   return (
     <p className="typing-indicator" role="status">
       <RacingLights mode="cycle" small />
-      <span>{name} is typing…</span>
+      <span>{name} {plural ? "are" : "is"} typing…</span>
     </p>
   );
 }

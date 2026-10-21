@@ -320,6 +320,7 @@ Every frame, in both directions, is a JSON envelope:
 |---|---|---|
 | `private_message` | `{ "recipient_id": 7, "content": "hi 😀" }` | Checks the content, then stores it only if the follow rule holds (one `INSERT … SELECT … WHERE <rule>`). After the store it sends `private_message` to every tab of the recipient and of the sender; the sending tab's copy carries the `request_id`. On any problem it sends `error` to the sending tab only, and nothing is stored |
 | `group_message` | `{ "group_id": 3, "content": "hi all" }` | Checks the content, then stores it only if the sender is a member (inside the `INSERT`). After the store it sends `group_message` to every tab of every member; the sending tab's copy carries the `request_id`. A non-member gets `error` and nothing is stored |
+| `typing` | `{ "recipient_id": 7 }` (private chat) or `{ "group_id": 3 }` (group chat), exactly one of them | "I am typing in this chat". Allowed exactly when sending a message there would be: the follow rule for a private chat, membership for a group chat. The server relays `typing` to every tab of the recipient (private) or of every other member (group); the sender's other tabs get nothing, and the sending tab gets the same payload back with its `request_id` as the answer (only when it sent one). Nothing is stored. On any problem it sends `error` to the sending tab only and relays nothing. The page sends it at most once every 2 s while the text in the message box changes |
 
 Frames are handled in order, one at a time per connection. Anything else gets an `error` and the connection stays open: a frame that is not JSON (including text with invalid UTF-8 and binary frames), a missing `type`, an unknown `type`, or a payload of the wrong shape (unknown fields are rejected). When the frame could not be parsed, the `error` has no `request_id`.
 
@@ -339,11 +340,12 @@ A tab that disappears (closed, crashed, network cut) is dropped by the hub; othe
 |---|---|---|
 | `private_message` | `Message` | a message to or from me was stored (all my tabs; the sending tab gets it with its `request_id`) |
 | `group_message` | `GroupMessage` | a message was stored in a group I am a member of (all my tabs; the sending tab gets it with its `request_id`) |
+| `typing` | `{ "user": UserSummary, "recipient_id": 7 }` or `{ "user": UserSummary, "group_id": 3 }` | `user` is typing to me (`recipient_id` is my id) or in group 3. The page shows "Ann is typing…" in that chat and hides it after 4 s without a new `typing`, or as soon as a message from `user` arrives |
 | `messages_read` | `{ "user_id": 7 }` | I marked my conversation with user 7 read in another tab |
 | `notification` | `Notification` | a notification was created for me |
 | `notification_removed` | `{ "id": 12 }` | one of my notifications was resolved |
 | `group_changed` | `{ "group_id": 3 }` | someone joined a group I am in |
-| `error` | `{ "message": "...", "for": "private_message" }` | a frame I sent was rejected; `for` is its type (`private_message`, `group_message`) when it could be read |
+| `error` | `{ "message": "...", "for": "private_message" }` | a frame I sent was rejected; `for` is its type (`private_message`, `group_message`, `typing`) when it could be read |
 
 `error` messages for `private_message`:
 
@@ -359,6 +361,8 @@ A tab that disappears (closed, crashed, network cut) is dropped by the hub; othe
 | `too many messages: slow down` | more than 10 frames per second on this connection (the frame is dropped) |
 
 `error` messages for `group_message`: `only members can send messages to this group` (not a member, including invited or requested but not yet joined), `group not found`, `payload must be {"group_id": <group id>, "content": "<text>"}`, and the same content errors as above.
+
+`error` messages for `typing`: the same permission errors as the message it announces (`you can only message people you follow or who follow you`, `you can't message yourself`, `user not found`, `only members can send messages to this group`, `group not found`), and `payload must be {"recipient_id": <user id>} or {"group_id": <group id>}` for a missing or wrongly shaped payload (none or both ids, unknown fields).
 
 Example, a successful send:
 

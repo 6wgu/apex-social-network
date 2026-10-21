@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"social-network/pkg/db/initial"
 	"social-network/pkg/db/sqlite"
 	"social-network/pkg/handlers"
 	"social-network/pkg/mail"
@@ -39,6 +40,10 @@ func main() {
 		origins    = ws.ParseOrigins(env("FRONTEND_ORIGIN", "http://localhost:3000,http://127.0.0.1:3000"))
 	)
 
+	// A fresh clone starts from the shipped database and its images.
+	if err := initial.Install(dbPath, uploadDir); err != nil {
+		log.Fatalf("install starting database: %v", err)
+	}
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		log.Fatalf("open database: %v", err)

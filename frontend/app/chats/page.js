@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { echoQuery } from "@/lib/search";
 import { timeAgo } from "@/lib/time";
@@ -12,11 +12,13 @@ import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import ChatWindow from "@/components/ChatWindow";
 import Icon from "@/components/Icon";
-import { Loading } from "@/components/RacingLights";
+import Modal from "@/components/Modal";
+import RacingLights, { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components/RealtimeProvider";
 import SearchInput from "@/components/SearchInput";
 
 const NOT_ALLOWED = "You can only message people you follow or who follow you.";
+const TYPING_SHOWN = 4000; // ms: as in ChatWindow, "typing…" goes away when no new typing event came for this long
 
 function name(u) {
   return `${u.first_name} ${u.last_name}`;
@@ -25,6 +27,47 @@ function name(u) {
 // /chats: my private conversations on the left, the open one on the right
 // (?user=ID opens a chat, e.g. from a profile's Message button). On a phone
 // it shows the list or the chat, with a back button.
+// "New chat": everyone I may message (I follow them or they follow me),
+// with a search, so a chat can start here without visiting a profile.
+function NewChatDialog({ people, onPick, onClose }) {
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+  const shown = people.filter(
+    (u) => !needle || name(u).toLowerCase().includes(needle) || (u.nickname || "").toLowerCase().includes(needle)
+  );
+
+  return (
+    <Modal title="New chat" onClose={onClose}>
+      {people.length === 0 ? (
+        <p className="muted">
+          You can message people you follow or who follow you. <Link href="/search">Find people</Link> to follow first.
+        </p>
+      ) : (
+        <>
+          <label className="chat-filter">
+            <Icon name="search" size={16} />
+            <SearchInput value={q} onChange={setQ} placeholder="Search people you follow" aria-label="Search people" />
+          </label>
+          <ul className="chat-conversations new-chat-list">
+            {shown.map((u) => (
+              <li key={u.id}>
+                <button className="chat-item" onClick={() => onPick(u.id)}>
+                  <Avatar user={u} size={40} />
+                  <span className="chat-item-text">
+                    <strong>{name(u)}</strong>
+                    {u.nickname && <span className="chat-item-last">@{u.nickname}</span>}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {shown.length === 0 && <p className="muted chat-filter-empty">Nobody matches “{echoQuery(q.trim())}”.</p>}
+        </>
+      )}
+    </Modal>
+  );
+}
+
 function Chats() {
   const { user: me } = useAuth();
   const router = useRouter();
@@ -38,6 +81,7 @@ function Chats() {
   const [error, setError] = useState("");
   const [stranger, setStranger] = useState(null); // ?user= someone with no conversation and not a contact
   const [filter, setFilter] = useState(""); // narrows the list by name, in the browser only
+  const [picking, setPicking] = useState(false); // the "New chat" dialog is open
   const filterQuery = useSearchQuery(filter);
   const query = filterQuery.toLowerCase();
 
@@ -63,7 +107,36 @@ function Chats() {
     api(`/api/messages/${otherId}/read`, { method: "POST" }).catch(() => {});
   }, []);
 
+  // Who is typing to me right now (user id -> timer), so the list shows
+  // "typing…" even when that chat is not the one open.
+  const [typing, setTyping] = useState(() => new Set());
+  const typingTimers = useRef(new Map());
+  const stopTyping = useCallback((userId) => {
+    clearTimeout(typingTimers.current.get(userId));
+    typingTimers.current.delete(userId);
+    setTyping((old) => {
+      if (!old.has(userId)) return old;
+      const next = new Set(old);
+      next.delete(userId);
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    const timers = typingTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   useRealtime((event) => {
+    if (event.type === "typing") {
+      const p = event.payload;
+      // Only private chats with me; my own tab's echo has a request_id.
+      if (event.request_id || !p?.user || p.recipient_id !== me.id) return;
+      const who = p.user.id;
+      setTyping((old) => (old.has(who) ? old : new Set(old).add(who)));
+      clearTimeout(typingTimers.current.get(who));
+      typingTimers.current.set(who, setTimeout(() => stopTyping(who), TYPING_SHOWN));
+      return;
+    }
     if (event.type === "messages_read") {
       setConversations((list) => list && list.map((c) => (c.user.id === event.payload.user_id ? { ...c, unread_count: 0 } : c)));
       return;
@@ -71,6 +144,7 @@ function Chats() {
     if (event.type !== "private_message") return;
     const m = event.payload;
     const otherId = m.sender.id === me.id ? m.recipient_id : m.sender.id;
+    if (m.sender.id !== me.id) stopTyping(m.sender.id); // their message is here: no longer typing
     setConversations((list) => {
       if (!list) return list;
       const existing = list.find((c) => c.user.id === otherId);
@@ -114,9 +188,24 @@ function Chats() {
 
   return (
     <div className={`chat-layout${selectedId ? " has-selection" : ""}`}>
+      {picking && (
+        <NewChatDialog
+          people={contacts}
+          onClose={() => setPicking(false)}
+          onPick={(id) => {
+            setPicking(false);
+            open(id);
+          }}
+        />
+      )}
       <aside className="card chat-list">
         <div className="chat-list-head">
-          <h1>Messages</h1>
+          <div className="chat-list-title">
+            <h1>Messages</h1>
+            <button type="button" className="chat-header-action chat-new" onClick={() => setPicking(true)} aria-label="New chat" title="New chat">
+              <Icon name="edit" size={17} />
+            </button>
+          </div>
           <label className="chat-filter">
             <Icon name="search" size={16} />
             <SearchInput value={filter} onChange={setFilter} placeholder="Search conversations" aria-label="Search conversations" />
@@ -139,10 +228,17 @@ function Chats() {
                     <strong>{name(c.user)}</strong>
                     <span className="muted chat-item-time">{timeAgo(c.last_message.created_at)}</span>
                   </span>
-                  <span className={`chat-item-last${c.unread_count ? " unread" : ""}`}>
-                    {c.last_message.sender.id === me.id ? "You: " : ""}
-                    {c.last_message.content}
-                  </span>
+                  {typing.has(c.user.id) ? (
+                    <span className="chat-item-last chat-item-typing">
+                      <RacingLights mode="cycle" small />
+                      typing…
+                    </span>
+                  ) : (
+                    <span className={`chat-item-last${c.unread_count ? " unread" : ""}`}>
+                      {c.last_message.sender.id === me.id ? "You: " : ""}
+                      {c.last_message.content}
+                    </span>
+                  )}
                 </span>
                 {c.unread_count > 0 && (
                   <span className="chat-unread" aria-label={`${c.unread_count} unread`}>
@@ -166,6 +262,12 @@ function Chats() {
                     <Avatar user={u} size={36} />
                     <span className="chat-item-text">
                       <strong>{name(u)}</strong>
+                      {typing.has(u.id) && (
+                        <span className="chat-item-last chat-item-typing">
+                          <RacingLights mode="cycle" small />
+                          typing…
+                        </span>
+                      )}
                     </span>
                   </button>
                 </li>

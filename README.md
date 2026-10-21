@@ -60,15 +60,16 @@ Stop the stack without deleting data with:
 docker compose down
 ```
 
-## Local test account
+## Starting accounts
 
-This account exists in the current development database only. Do not use it in production:
+The repository ships a starting database, [`backend/pkg/db/initial/social-network.db`](backend/pkg/db/initial), with the images it uses. When the backend starts and finds no database yet (a fresh clone, or after `docker compose down -v`), it copies that one in; an existing database is never touched. It holds these two accounts, abs's first post ("Im the webmaster") with its replies and likes, and their chat. Do not use these passwords in production:
 
-| Login email | Password |
-|---|---|
-| `demo@social-network.local` | `DemoPass123!` |
+| User | Login email | Password |
+|---|---|---|
+| abs (user 1, the webmaster) | `abbasazhar20200@gmail.com` | `P@ssw0rd` |
+| Developer (user 2) | `demo@social-network.local` | `DemoPass123!` |
 
-The application uses email as the login identifier. Reset the database with `docker compose down -v` and this account will be removed.
+The application uses email as the login identifier. `docker compose down -v` deletes all data; on the next start the backend installs the starting database again.
 
 ## Verification
 

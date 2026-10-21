@@ -71,6 +71,9 @@ func TestTemplatesEscape(t *testing.T) {
 	if c.Subject != "042137 is your Kit verification code" || !strings.Contains(c.HTML, "042137") || !strings.Contains(c.Text, "10 minutes") {
 		t.Fatalf("code email wrong: %+v", c.Subject)
 	}
+	if len(m.Attachments) != 1 || m.Attachments[0].CID != logoCID || !strings.Contains(m.HTML, "cid:"+logoCID) {
+		t.Fatal("message email without its logo")
+	}
 	w := WelcomeEmail("Kit", "<Sara>")
 	if w.Subject != "Welcome to Kit" || !strings.Contains(w.HTML, "&lt;Sara&gt;") || !strings.Contains(w.Text, "Hi <Sara>,") {
 		t.Fatalf("welcome email wrong: %+v", w.Subject)

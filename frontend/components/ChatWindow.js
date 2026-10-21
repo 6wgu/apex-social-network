@@ -8,11 +8,31 @@ import { useAuth } from "@/components/AuthProvider";
 import Avatar from "@/components/Avatar";
 import EmojiPicker from "@/components/EmojiPicker";
 import Icon from "@/components/Icon";
-import { Loading } from "@/components/RacingLights";
-import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
+import { Loading, TypingIndicator } from "@/components/RacingLights";
+import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components/RealtimeProvider";
 
 const PAGE = 50; // the backend's page size for chat history
 const MAX_LEN = 2000; // characters, as the backend counts them (code points)
+const TYPING_EVERY = 2000; // ms: at most one "typing" frame this often while the text changes
+const TYPING_SHOWN = 4000; // ms: hide "X is typing…" when no new typing event came for this long
+
+// Which chat a history URL is, as the "typing" frame names it:
+// /api/messages/7 -> { recipient_id: 7 }, /api/groups/3/messages -> { group_id: 3 }.
+function typingTarget(historyUrl) {
+  const path = historyUrl.split("?")[0];
+  let m = path.match(/^\/api\/messages\/(\d+)$/);
+  if (m) return { recipient_id: Number(m[1]) };
+  m = path.match(/^\/api\/groups\/(\d+)\/messages$/);
+  if (m) return { group_id: Number(m[1]) };
+  return null;
+}
+
+// "Ann", "Ann and Ben", "Ann and 2 others" for the typing indicator.
+function typingNames(users) {
+  const first = users.map((u) => u.first_name);
+  if (first.length <= 2) return first.join(" and ");
+  return `${first[0]} and ${first.length - 1} others`;
+}
 
 function formatTime(s) {
   const d = parseTime(s);
@@ -56,6 +76,11 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
   const keepScroll = useRef(null); // scrollHeight before older messages were added on top
   const stickToBottom = useRef(true);
   const wasConnected = useRef(connected);
+  const realtimeSend = useRealtimeSend();
+  const target = typingTarget(historyUrl);
+  const [typers, setTypers] = useState([]); // users typing in this chat now, oldest first
+  const typingTimers = useRef(new Map()); // user id -> timer that hides them
+  const lastTypingSent = useRef(0);
 
   const onSeenRef = useRef(onSeen);
   onSeenRef.current = onSeen;
@@ -104,13 +129,62 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     wasConnected.current = connected;
   }, [connected, historyUrl, merge, messages]);
 
+  // Someone stopped typing: their message arrived, or no typing event came
+  // for TYPING_SHOWN.
+  const stopTyping = useCallback((userId) => {
+    clearTimeout(typingTimers.current.get(userId));
+    typingTimers.current.delete(userId);
+    setTypers((old) => (old.some((u) => u.id === userId) ? old.filter((u) => u.id !== userId) : old));
+  }, []);
+
+  // A new chat starts with nobody typing; timers die with the window.
+  useEffect(() => {
+    const timers = typingTimers.current;
+    setTypers([]);
+    lastTypingSent.current = 0;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, [historyUrl]);
+
+  // Is this typing event about this chat, from someone else?
+  function typingHere(event) {
+    const p = event.payload;
+    if (event.type !== "typing" || event.request_id || !target || !p?.user || p.user.id === me.id) return false;
+    if (target.group_id) return p.group_id === target.group_id;
+    return p.recipient_id === me.id && p.user.id === target.recipient_id;
+  }
+
   useRealtime((event) => {
+    if (typingHere(event)) {
+      const who = event.payload.user;
+      const box = list.current;
+      stickToBottom.current = !box || box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      clearTimeout(typingTimers.current.get(who.id));
+      typingTimers.current.set(who.id, setTimeout(() => stopTyping(who.id), TYPING_SHOWN));
+      setTypers((old) => [...old.filter((u) => u.id !== who.id), who]);
+      return;
+    }
     if (!matches(event)) return;
     const box = list.current;
     stickToBottom.current = !box || box.scrollHeight - box.scrollTop - box.clientHeight < 80 || event.payload.sender.id === me.id;
     merge([event.payload]);
-    if (event.payload.sender.id !== me.id) onSeenRef.current?.();
+    if (event.payload.sender.id !== me.id) {
+      stopTyping(event.payload.sender.id);
+      onSeenRef.current?.();
+    }
   });
+
+  // Tells the other side I am typing, at most once every TYPING_EVERY.
+  // Fire and forget: a refused or lost frame only means no indicator.
+  function signalTyping(next) {
+    if (!target || !connected || !next.trim()) return;
+    const now = Date.now();
+    if (now - lastTypingSent.current < TYPING_EVERY) return;
+    lastTypingSent.current = now;
+    realtimeSend("typing", target).catch(() => {});
+  }
 
   async function loadOlder() {
     if (!messages?.length || loadingOlder || !hasMore) return;
@@ -140,7 +214,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     } else if (stickToBottom.current) {
       box.scrollTop = box.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, typers]);
 
   function onScroll(e) {
     if (e.currentTarget.scrollTop < 40) loadOlder();
@@ -152,6 +226,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     const end = el?.selectionEnd ?? text.length;
     const next = text.slice(0, start) + emoji + text.slice(end);
     setText(next);
+    signalTyping(next);
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(start + emoji.length, start + emoji.length);
@@ -169,6 +244,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
       stickToBottom.current = true;
       merge([stored]);
       setText("");
+      lastTypingSent.current = 0; // the next words are a new message: signal them at once
     } catch (err) {
       setSendError(err.message);
     } finally {
@@ -231,6 +307,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
             </Fragment>
           );
         })}
+        {typers.length > 0 && <TypingIndicator name={typingNames(typers)} plural={typers.length > 1} />}
       </div>
       {canSend ? (
         <form className="chat-input" onSubmit={submit}>
@@ -238,7 +315,10 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
           <textarea
             ref={input}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              signalTyping(e.target.value);
+            }}
             onKeyDown={onKeyDown}
             placeholder="Write a message…"
             title="Enter to send, Shift+Enter for a new line"

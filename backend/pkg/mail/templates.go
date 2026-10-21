@@ -89,7 +89,7 @@ func MessageEmail(c Content) Message {
 	if c.Button != nil {
 		parts = append(parts, c.Button.Text+": "+c.Button.URL)
 	}
-	return Message{Subject: c.Subject, Text: strings.Join(parts, "\n\n"), HTML: render(cardData{Content: c})}
+	return withLogo(Message{Subject: c.Subject, Text: strings.Join(parts, "\n\n"), HTML: render(cardData{Content: c})})
 }
 
 func CodeEmail(appName, name, code string, ttlMinutes int) Message {
@@ -104,9 +104,12 @@ func CodeEmail(appName, name, code string, ttlMinutes int) Message {
 
 func WelcomeEmail(appName, name string) Message {
 	return MessageEmail(Content{
-		Subject:    "Welcome to " + appName,
-		Greeting:   "Hi " + name + ",",
-		Paragraphs: []string{"Your " + appName + " account is ready.", "Verify your email address from the app to secure your account."},
-		Footer:     "You received this email because an account was created with this address.",
+		Subject:  "Welcome to " + appName,
+		Greeting: "Hi " + name + ",",
+		Paragraphs: []string{
+			"Your " + appName + " account is ready.",
+			"One step left: enter the 6-digit code we sent you on the verify page. Once your email is verified, you are on the grid: posts, groups, events and live chat.",
+		},
+		Footer: "You received this email because an account was created with this address.",
 	})
 }

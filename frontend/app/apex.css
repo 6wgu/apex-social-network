@@ -970,12 +970,14 @@ body:has(.auth-screen, .verify-card, .landing)::after {
   padding: 40px clamp(16px, 5vw, 96px) 120px;
   overflow-y: auto;
   scroll-snap-type: y proximity;
+  scroll-padding-bottom: 96px; /* keeps a comment form clear of the New Post button */
   scrollbar-width: none;
 }
 
 .feed-reel::-webkit-scrollbar { display: none; }
 .feed-reel > * { width: min(100%, 820px); flex: none; }
 .feed-reel > .post { scroll-snap-align: start; scroll-margin-top: 40px; }
+.feed-reel .comment-form { scroll-snap-align: end; }
 .feed-reel > .load-more, .feed-reel > .loading-state { width: auto; }
 .feed-empty { text-align: center; }
 .feed-empty h2 { justify-content: center; }
@@ -1016,6 +1018,11 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 }
 
 .profile-page .new-post-btn { position: fixed; right: 32px; bottom: 32px; }
+
+/* the page scrolls on its own: room below the last post, and a focused
+   comment field stops above the button */
+html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
+.profile-page:has(> .new-post-btn) { padding-bottom: 56px; }
 
 .home-side {
   position: static;
@@ -2025,9 +2032,10 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .navbar-app + .container:has(> .home-grid) { display: block; height: auto; padding: 56px 0 calc(80px + env(safe-area-inset-bottom)); }
   .home-grid { display: block; }
   .home-main { height: auto; overflow: visible; }
-  .feed-reel { height: auto; padding: 16px 12px 24px; overflow: visible; gap: 24px; }
+  .feed-reel { height: auto; padding: 16px 12px 72px; overflow: visible; gap: 24px; }
   .reel-arrows { display: none; }
   .new-post-btn, .profile-page .new-post-btn { position: fixed; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); }
+  html:has(.new-post-btn), html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: calc(192px + env(safe-area-inset-bottom)); } /* Send may wrap below the field */
 
   .navbar-app + .container:has(> .profile-page) { padding: 56px 0 calc(96px + env(safe-area-inset-bottom)); }
   .navbar-app + .container:has(> .chat-layout) { padding: 68px 14px calc(80px + env(safe-area-inset-bottom)); }
@@ -2972,3 +2980,16 @@ a.toast-body:hover strong { color: var(--red-soft); }
 /* the same post first in the feed */
 .card.wm-in-feed { padding: 20px; }
 .wm-in-feed .wm-image { height: 280px; }
+
+/* chat list: "typing…" in place of the last message */
+.chat-item-typing { display: flex; align-items: center; gap: 8px; color: var(--text-1); font-style: italic; }
+
+/* chat list: the "New chat" button next to the title, and its dialog */
+.chat-list-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.chat-list-head .chat-list-title h1 { margin: 0; }
+.chat-new { margin-left: 0; }
+.new-chat-list { max-height: min(50vh, 420px); margin-top: 12px; overflow-y: auto; }
+/* the "New chat" button: a red action button like New Post */
+.chat-header-action.chat-new { border-color: transparent; background: var(--red); color: #fff; box-shadow: 0 8px 20px rgba(255, 48, 69, .35); transition: background .15s ease, transform .15s ease; }
+.chat-header-action.chat-new:hover { border-color: transparent; background: var(--red-hover, #e3263b); color: #fff; transform: translateY(-1px); }
+.chat-header-action.chat-new:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }

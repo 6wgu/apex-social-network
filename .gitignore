@@ -2,6 +2,7 @@
 backend/data/
 backend/uploads/
 *.db
+!backend/pkg/db/initial/social-network.db
 *.db-shm
 *.db-wal
 *.exe
@@ -10,8 +11,6 @@ backend/uploads/
 frontend/node_modules/
 frontend/.next/
 npm-debug.log*
-
-.env
 .DS_Store
 
 # review screenshots (never committed)
