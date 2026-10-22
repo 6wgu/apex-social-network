@@ -22,9 +22,9 @@ type App struct {
 	Hub       *ws.Hub
 	Mailer    *mail.Mailer
 	OTP       *otp.Service
-	// RequireVerified locks every signed-in route except GET /api/me,
-	// changing the email, the email code routes and logout until the user
-	// has verified their email (403).
+	// RequireVerified locks every signed-in route except GET and DELETE
+	// /api/me, changing the email, the email code routes and logout until
+	// the user has verified their email (403).
 	RequireVerified bool
 
 	emailLocks [16]sync.Mutex // see lockEmail
@@ -59,6 +59,7 @@ func (a *App) Routes() *http.ServeMux {
 	// Everything below needs a valid session cookie (401 otherwise).
 	mux.Handle("GET /ws", protected(a.serveWS))
 	mux.Handle("GET /api/me", session(a.me))
+	mux.Handle("DELETE /api/me", session(a.deleteMe))
 	mux.Handle("PATCH /api/me", protected(a.updateMe))
 	mux.Handle("PATCH /api/me/email", session(a.changeEmail))
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))

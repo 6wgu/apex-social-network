@@ -99,8 +99,8 @@ func main() {
 
 	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer,
 		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg)),
-		// Nothing but /api/me (reading it, changing the email), the email code
-		// and logout until the email is verified.
+		// Nothing but /api/me (reading it, changing the email, starting over),
+		// the email code and logout until the email is verified.
 		RequireVerified: true}
 	handler := middleware.Chain(app.Routes(),
 		middleware.Recover,

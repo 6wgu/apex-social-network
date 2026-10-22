@@ -15,10 +15,11 @@ func otpSubject(userID int64) string {
 	return fmt.Sprintf("user:%d", userID)
 }
 
-// lockEmail makes the requests that send a code, check a code or change the
-// email run one at a time per user, so a code is always checked against the
-// address it was sent to. Use it as defer a.lockEmail(userID)(). Users who
-// share a slot of emailLocks only wait for each other a moment.
+// lockEmail makes the requests that send a code, check a code, change the
+// email or delete an unverified account run one at a time per user, so a
+// code is always checked against the address it was sent to. Use it as
+// defer a.lockEmail(userID)(). Users who share a slot of emailLocks only
+// wait for each other a moment.
 func (a *App) lockEmail(userID int64) (unlock func()) {
 	mu := &a.emailLocks[userID%int64(len(a.emailLocks))]
 	mu.Lock()

@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"social-network/pkg/otp"
+	"social-network/pkg/session"
 )
 
 // What an account can do before its email is verified, besides asking for
-// a code and entering it (otp.go): fix a mistyped email.
+// a code and entering it (otp.go): fix a mistyped email, or start over.
 
 // changeEmail handles PATCH /api/me/email {"email"}: "Wrong email? Change
 // it" on the verify page. Only an account that is not verified yet can use
@@ -80,4 +81,86 @@ func (a *App) changeEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Email = email
 	writeJSON(w, http.StatusOK, user)
+}
+
+// deleteMe handles DELETE /api/me: "Start over" on the verify page. Only an
+// account that is not verified yet can be deleted (403 otherwise), which
+// frees its email and nickname for a new registration. It logs out too: the
+// sessions go with the account and the cookie is cleared.
+func (a *App) deleteMe(w http.ResponseWriter, r *http.Request) {
+	deleted, err := a.deleteUnverifiedUser(currentUserID(r))
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if !deleted {
+		writeError(w, http.StatusForbidden, "only an account that is not verified yet can be deleted")
+		return
+	}
+	session.ClearCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// userImagesSQL lists the image files of a user's rows and of the rows ON
+// DELETE CASCADE removes with them: the avatar, their posts and comments,
+// the comments on their posts, and the posts and comments in groups they
+// created. An unverified account has an avatar at most, but accounts made
+// before verification was required can have the rest.
+const userImagesSQL = `
+SELECT avatar_path FROM users WHERE id = ?1
+UNION SELECT image_path FROM posts
+WHERE user_id = ?1 OR group_id IN (SELECT id FROM groups WHERE creator_id = ?1)
+UNION SELECT c.image_path FROM comments c JOIN posts p ON p.id = c.post_id
+WHERE c.user_id = ?1 OR p.user_id = ?1 OR p.group_id IN (SELECT id FROM groups WHERE creator_id = ?1)`
+
+// deleteUnverifiedUser deletes the user with this id if their email is not
+// verified yet, in one transaction: the users row, with it (ON DELETE
+// CASCADE) their sessions and every other row that points at them, and their
+// code, which otp_codes keeps without a foreign key. The image files of the
+// deleted rows are removed once the transaction has committed. It reports
+// false, and changes nothing, when there is no such unverified user.
+func (a *App) deleteUnverifiedUser(id int64) (bool, error) {
+	defer a.lockEmail(id)()
+	tx, err := a.DB.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	// Collect the files before the rows that name them disappear.
+	rows, err := tx.Query(userImagesSQL, id)
+	if err != nil {
+		return false, err
+	}
+	var images []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			rows.Close()
+			return false, err
+		}
+		images = append(images, path)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	res, err := tx.Exec(`DELETE FROM users WHERE id = ? AND is_verified = 0`, id)
+	if err != nil {
+		return false, err
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return false, err
+	}
+	if _, err := tx.Exec(`DELETE FROM otp_codes WHERE subject = ?`, otpSubject(id)); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	for _, path := range images {
+		a.removeImage(path)
+	}
+	return true, nil
 }
