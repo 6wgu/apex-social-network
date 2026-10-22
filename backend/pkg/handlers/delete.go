@@ -7,13 +7,21 @@ import (
 	"strconv"
 )
 
-// Live event for a removed post. It carries an id only, so they are sent to every
+// Live events for removals. They carry ids only, so they are sent to every
 // online user: the post is already gone, so its audience can no longer be
 // worked out, and an id reveals nothing.
-const eventPostDeleted = "post_deleted" // payload: postDeleted
+const (
+	eventPostDeleted    = "post_deleted"    // payload: postDeleted
+	eventCommentDeleted = "comment_deleted" // payload: commentDeleted
+)
 
 type postDeleted struct {
 	PostID int64 `json:"post_id"`
+}
+
+type commentDeleted struct {
+	PostID    int64 `json:"post_id"`
+	CommentID int64 `json:"comment_id"`
 }
 
 func (a *App) broadcast(eventType string, payload any) {
@@ -98,4 +106,43 @@ func (a *App) deletePost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 	a.broadcast(eventPostDeleted, postDeleted{PostID: postID})
+}
+
+// deleteComment handles DELETE /api/posts/{id}/comments/{commentId}. The
+// comment's author can delete it, and so can the author of the post it is on.
+func (a *App) deleteComment(w http.ResponseWriter, r *http.Request) {
+	postID, ok := a.visiblePostID(w, r)
+	if !ok {
+		return
+	}
+	commentID, ok := pathID(w, r, "commentId", "comment")
+	if !ok {
+		return
+	}
+	me := currentUserID(r)
+
+	var commentAuthor, postAuthor int64
+	var image string
+	err := a.DB.QueryRow(`SELECT c.user_id, c.image_path, p.user_id
+		FROM comments c JOIN posts p ON p.id = c.post_id
+		WHERE c.id = ? AND c.post_id = ?`, commentID, postID).Scan(&commentAuthor, &image, &postAuthor)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "comment not found")
+		return
+	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if me != commentAuthor && me != postAuthor {
+		writeError(w, http.StatusForbidden, "you can only delete your own comments")
+		return
+	}
+	if _, err := a.DB.Exec(`DELETE FROM comments WHERE id = ?`, commentID); err != nil {
+		serverError(w, err)
+		return
+	}
+	a.removeImage(image)
+	w.WriteHeader(http.StatusNoContent)
+	a.pushToViewers(postID, eventCommentDeleted, commentDeleted{PostID: postID, CommentID: commentID})
 }

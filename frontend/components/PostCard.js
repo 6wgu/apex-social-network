@@ -10,6 +10,7 @@ import ImagePicker from "@/components/ImagePicker";
 import { notify } from "@/components/Toaster";
 import { PRIVACY } from "@/components/PostComposer";
 import { useRealtime } from "@/components/RealtimeProvider";
+import { useAuth } from "@/components/AuthProvider";
 
 const COMMENTS_PAGE = 50; // the backend's page size for comments
 
@@ -43,7 +44,8 @@ function Author({ user, time, privacy }) {
 // The comments under a post: loaded when opened, oldest first, with a form
 // to add one (text and/or image). The backend answers 404 for a post the
 // user may not see, so there is no client-side permission logic here.
-function Comments({ postId, onAdded }) {
+function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
+  const { user } = useAuth();
   const [comments, setComments] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
@@ -70,9 +72,29 @@ function Comments({ postId, onAdded }) {
 
   // Adds a comment once, whether it came from our own form or live.
   const append = (c) => setComments((old) => (old && old.some((x) => x.id === c.id) ? old : [...(old || []), c]));
+  // Drops a comment once, whether we deleted it or someone else did.
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+  const drop = (commentId) => {
+    if (!commentsRef.current?.some((x) => x.id === commentId)) return;
+    commentsRef.current = commentsRef.current.filter((x) => x.id !== commentId);
+    setComments(commentsRef.current);
+    onRemoved(commentId);
+  };
   useRealtime((event) => {
     if (event.type === "comment_created" && event.payload.post_id === postId) append(event.payload);
+    if (event.type === "comment_deleted" && event.payload.post_id === postId) drop(event.payload.comment_id);
   });
+
+  async function remove(c) {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await api(`/api/posts/${postId}/comments/${c.id}`, { method: "DELETE" });
+      drop(c.id);
+    } catch (err) {
+      notify({ tone: "error", title: "Couldn't delete the comment", message: err.message });
+    }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -109,6 +131,11 @@ function Comments({ postId, onAdded }) {
                 {c.author.first_name} {c.author.last_name}
               </Link>{" "}
               <span className="muted post-time">{timeAgo(c.created_at)}</span>
+              {user && (user.id === c.author.id || user.id === postAuthorId) && (
+                <button type="button" className="delete-btn" onClick={() => remove(c)} aria-label="Delete comment" title="Delete comment">
+                  <Icon name="trash" size={15} />
+                </button>
+              )}
               {c.content && <p className="post-text">{c.content}</p>}
               {c.image_path && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -203,11 +230,35 @@ export default function PostCard({ post }) {
     if (event.type === "comment_created" && event.payload.post_id === post.id) counted(event.payload);
   });
   const privacy = post.group_id ? null : PRIVACY[post.privacy];
+  const { user } = useAuth();
+  const [gone, setGone] = useState(false);
+  useRealtime((event) => {
+    if (event.type === "post_deleted" && event.payload.post_id === post.id) setGone(true);
+    if (event.type === "comment_deleted" && event.payload.post_id === post.id && !open) setCount((n) => Math.max(0, n - 1));
+  });
+
+  async function removePost() {
+    if (!window.confirm("Delete this post? Its comments and likes will be deleted too.")) return;
+    try {
+      await api(`/api/posts/${post.id}`, { method: "DELETE" });
+      setGone(true);
+      notify({ message: "Post deleted" });
+    } catch (err) {
+      notify({ tone: "error", title: "Couldn't delete the post", message: err.message });
+    }
+  }
+
+  if (gone) return null;
 
   return (
     <article className="card post">
       <header className="post-head">
         <Author user={post.author} time={post.created_at} privacy={privacy} />
+        {user?.id === post.author.id && (
+          <button type="button" className="delete-btn" onClick={removePost} aria-label="Delete post" title="Delete post">
+            <Icon name="trash" size={18} />
+          </button>
+        )}
       </header>
       {post.content && <p className="post-text">{post.content}</p>}
       {post.image_path && (
@@ -221,7 +272,14 @@ export default function PostCard({ post }) {
           <span>{count}</span>
         </button>
       </footer>
-      {open && <Comments postId={post.id} onAdded={counted} />}
+      {open && (
+        <Comments
+          postId={post.id}
+          postAuthorId={post.author.id}
+          onAdded={counted}
+          onRemoved={() => setCount((n) => Math.max(0, n - 1))}
+        />
+      )}
     </article>
   );
 }

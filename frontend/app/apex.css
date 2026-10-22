@@ -2993,3 +2993,20 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .chat-header-action.chat-new { border-color: transparent; background: var(--red); color: #fff; box-shadow: 0 8px 20px rgba(255, 48, 69, .35); transition: background .15s ease, transform .15s ease; }
 .chat-header-action.chat-new:hover { border-color: transparent; background: var(--red-hover, #e3263b); color: #fff; transform: translateY(-1px); }
 .chat-header-action.chat-new:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* delete buttons (posts and comments) */
+.post-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.delete-btn:hover { background: rgba(255, 48, 69, .12); color: var(--red-soft); }
+.comment-bubble .delete-btn { margin-left: 6px; padding: 3px; vertical-align: middle; }
