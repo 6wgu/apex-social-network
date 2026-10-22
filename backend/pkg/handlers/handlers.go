@@ -73,6 +73,7 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /api/posts/{id}", protected(a.getPost))
 	mux.Handle("GET /api/posts/{id}/comments", protected(a.listComments))
 	mux.Handle("POST /api/posts/{id}/comments", protected(a.createComment))
+	mux.Handle("DELETE /api/posts/{id}", protected(a.deletePost))
 	mux.Handle("POST /api/posts/{id}/like", protected(a.likePost(true)))
 	mux.Handle("DELETE /api/posts/{id}/like", protected(a.likePost(false)))
 	mux.Handle("GET /api/feed", protected(a.feed))
