@@ -13,9 +13,9 @@ const BYE_MS = 700;
 const FADE_MS = 350;
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
-const AuthContext = createContext({ user: null, loading: true, setUser() {}, logout() {} });
+const AuthContext = createContext({ user: null, loading: true, setUser() {}, logout() {}, leave() {} });
 
-/** useAuth() → { user, loading, setUser, logout }. user is null when logged out. */
+/** useAuth() → { user, loading, setUser, logout, leave }. user is null when logged out. */
 export function useAuth() {
   return useContext(AuthContext);
 }
@@ -26,7 +26,9 @@ export function useAuth() {
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  // Where AuthGate takes the page after leave(), until it gets there.
+  const [exitTo, setExitTo] = useState(null);
+  const pathname = usePathname();
 
   const updateUser = useCallback((nextUser) => {
     setUser(nextUser);
@@ -45,6 +47,22 @@ export default function AuthProvider({ children }) {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, [updateUser]);
+
+  // leave(path) forgets the user, whose session the server has already
+  // ended, and has AuthGate replace the page with path. Forgetting the user
+  // first keeps AuthGate from sending the page anywhere else on the way
+  // (a user who is not verified yet would be sent back to /verify).
+  const leave = useCallback(
+    (path) => {
+      setExitTo(path);
+      updateUser(null);
+    },
+    [updateUser]
+  );
+
+  useEffect(() => {
+    if (exitTo === pathname) setExitTo(null);
+  }, [exitTo, pathname]);
 
   const [farewell, setFarewell] = useState(null); // sign-out animation phase
   const leaving = useRef(false);
@@ -69,35 +87,34 @@ export default function AuthProvider({ children }) {
       await api("/api/logout", { method: "POST", redirectOn401: false }).catch(() => {
         // Already logged out on the server: nothing left to undo.
       });
-      // Go home first, then forget the user: cleared on a private page, the
-      // user would be sent to /login by AuthGate instead.
-      router.replace("/");
-      await pause(200);
-      updateUser(null);
+      leave("/");
       if (animate) {
-        await pause(250);
+        // The home page shows under the car, then the overlay fades.
+        await pause(450);
         setFarewell("fade");
         await pause(FADE_MS);
         setFarewell(null);
       }
       leaving.current = false;
     },
-    [router, updateUser]
+    [leave]
   );
 
   return (
-    <AuthContext.Provider value={{ user, loading, setUser: updateUser, logout }}>
+    <AuthContext.Provider value={{ user, loading, setUser: updateUser, logout, leave, exitTo }}>
       {children}
       <LaunchOverlay phase={farewell} word="See you soon" label="Signing out…" />
     </AuthContext.Provider>
   );
 }
 
-// Wraps the page content: logged-out visitors are sent to /login, and
-// logged-in users who open /login or /register are sent home. Nothing is
-// rendered until we know which case applies, so a page never flashes.
+// Wraps the page content: logged-out visitors are sent to /login (or where
+// leave() said), and logged-in users who open /login or /register are sent
+// home. Nothing is rendered until we know which case applies, so a page
+// never flashes. Every redirect replaces the current history entry instead
+// of adding one, so redirects never pile up entries for Back to get through.
 export function AuthGate({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, exitTo } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const isLandingPage = pathname === "/";
@@ -111,9 +128,9 @@ export function AuthGate({ children }) {
   useEffect(() => {
     if (loading) return;
     if (mustVerify && pathname !== "/verify") router.replace("/verify");
-    else if (!user && !isPublicPage && !isLandingPage) router.replace("/login");
+    else if (!user && !isPublicPage && !isLandingPage) router.replace(exitTo || "/login");
     else if (user && isPublicPage) router.replace("/");
-  }, [loading, user, mustVerify, isPublicPage, isLandingPage, pathname, router]);
+  }, [loading, user, mustVerify, isPublicPage, isLandingPage, pathname, router, exitTo]);
 
   if (!allowed) return <Loading className="muted center loading-screen" />;
   return children;

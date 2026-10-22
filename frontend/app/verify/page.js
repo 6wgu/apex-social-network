@@ -5,13 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { emailProblem, sentence } from "@/lib/validation";
 import { useAuth } from "@/components/AuthProvider";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import Field from "@/components/Field";
 
 // The seconds a 429 asks to wait (its message names them), or a minute.
 const secondsToWait = (err) => Number(err.message.match(/\d+/)?.[0] || 60);
 
 export default function VerifyPage() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout, leave } = useAuth();
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [error, setError] = useState("");
@@ -26,6 +27,9 @@ export default function VerifyPage() {
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [changing, setChanging] = useState(false);
+  // "Start over": the dialog that asks first, and the delete under way.
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -122,6 +126,22 @@ export default function VerifyPage() {
     } finally {
       setChanging(false);
     }
+  }
+
+  // Deletes this account, which is not verified yet, so its email can be
+  // registered again, and leaves for the register page logged out.
+  async function startOver() {
+    setDeleting(true);
+    try {
+      await api("/api/me", { method: "DELETE" });
+    } catch (err) {
+      setDeleting(false);
+      setConfirming(false);
+      setEditing(false);
+      setError(err.message);
+      return;
+    }
+    leave("/register");
   }
 
   if (user?.is_verified) {
@@ -248,7 +268,25 @@ export default function VerifyPage() {
           </p>
         </>
       )}
+      <div className="verify-exit">
+        <button type="button" className="btn-secondary btn-small" onClick={() => setConfirming(true)}>
+          Start over
+        </button>
+        <button type="button" className="link-button" onClick={logout}>
+          Log out
+        </button>
+      </div>
     </section>
+    {confirming && (
+      <ConfirmDialog
+        title="Start over?"
+        message="This will delete the account you just created, so you can register again with this email or another one."
+        confirmLabel="Delete and start over"
+        busy={deleting}
+        onConfirm={startOver}
+        onClose={() => setConfirming(false)}
+      />
+    )}
     </div>
   );
 }
