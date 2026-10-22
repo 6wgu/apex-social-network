@@ -11,7 +11,7 @@ A full-stack social network with a Formula-racing look: profiles, follow request
 **Accounts and privacy**
 - Session-based authentication with HTTP-only cookies and bcrypt password hashes
 - Registration checks the email format, a strong password (8+ characters, upper and lower case, a number and a special character, ticked off live under the field) and an age of 7 to 120, in the browser and again on the server, with each error shown next to its field
-- Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout
+- Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout. On `/verify` they can fix a mistyped email, start over or log out, and an account left unverified for 24 hours is deleted
 - Public and private profiles (a switch on the profile and in Settings), follow requests, and access-controlled content
 - Settings page: nickname, privacy, about text, avatar, cursor preference and log out
 
@@ -150,7 +150,7 @@ The backend sends email through Gmail SMTP with an App Password. Until credentia
 | `MAIL_FROM_NAME` | `APEX` | Sender name |
 | `OTP_LENGTH`, `OTP_TTL_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_SECONDS` | `6`, `10`, `5`, `60` | Verification code rules |
 
-After registering, users land on `/verify`, where a code is emailed to them. Verification is required: until the code is entered, the rest of the site is locked (pages redirect to `/verify`, the API answers `403 verify your email first`). In console mode, read the code with `docker compose logs backend`.
+After registering, users land on `/verify`, where a code is emailed to them. A mistyped email can be changed there (a new code goes to the new address), and "Start over" deletes the unverified account so its email can be registered again; accounts still unverified after 24 hours are deleted automatically. Verification is required: until the code is entered, the rest of the site is locked (pages redirect to `/verify`, the API answers `403 verify your email first`). In console mode, read the code with `docker compose logs backend`.
 
 ## Migrations and database reset
 
