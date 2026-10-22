@@ -39,7 +39,9 @@ export async function api(path, { method = "GET", body, redirectOn401 = true } =
       typeof window !== "undefined" &&
       !PUBLIC_PAGES.includes(window.location.pathname)
     ) {
-      window.location.href = "/login";
+      // Replace, not push: Back from /login would land on this page, find
+      // no session and be sent to /login again.
+      window.location.replace("/login");
     }
     throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data?.fields || null);
   }
