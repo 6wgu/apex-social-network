@@ -147,3 +147,7 @@ func (s *Service) Verify(subject, code string) (Result, error) {
 	}
 	return Result{Reason: Wrong, AttemptsLeft: s.opt.MaxAttempts - rec.Attempts}, s.store.Set(subject, *rec)
 }
+
+func (s *Service) Cancel(subject string) error {
+	return s.store.Delete(subject)
+}

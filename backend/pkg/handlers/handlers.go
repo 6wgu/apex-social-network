@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
@@ -21,9 +22,12 @@ type App struct {
 	Hub       *ws.Hub
 	Mailer    *mail.Mailer
 	OTP       *otp.Service
-	// RequireVerified locks every signed-in route except /api/me, the email
-	// code routes and logout until the user has verified their email (403).
+	// RequireVerified locks every signed-in route except GET /api/me,
+	// changing the email, the email code routes and logout until the user
+	// has verified their email (403).
 	RequireVerified bool
+
+	emailLocks [16]sync.Mutex // see lockEmail
 }
 
 // Routes registers every endpoint on a standard library ServeMux.
@@ -56,6 +60,7 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("GET /ws", protected(a.serveWS))
 	mux.Handle("GET /api/me", session(a.me))
 	mux.Handle("PATCH /api/me", protected(a.updateMe))
+	mux.Handle("PATCH /api/me/email", session(a.changeEmail))
 	mux.Handle("PATCH /api/me/privacy", protected(a.updatePrivacy))
 	mux.Handle("POST /api/otp/send", session(a.sendOTP))
 	mux.Handle("POST /api/otp/verify", session(a.verifyOTP))

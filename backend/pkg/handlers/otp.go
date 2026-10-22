@@ -8,12 +8,37 @@ import (
 	"social-network/pkg/otp"
 )
 
+// sendFailed is the 502 message when the code email could not be sent.
+const sendFailed = "could not send the verification email, please try again later"
+
 func otpSubject(userID int64) string {
 	return fmt.Sprintf("user:%d", userID)
 }
 
+// lockEmail makes the requests that send a code, check a code or change the
+// email run one at a time per user, so a code is always checked against the
+// address it was sent to. Use it as defer a.lockEmail(userID)(). Users who
+// share a slot of emailLocks only wait for each other a moment.
+func (a *App) lockEmail(userID int64) (unlock func()) {
+	mu := &a.emailLocks[userID%int64(len(a.emailLocks))]
+	mu.Lock()
+	return mu.Unlock
+}
+
+// writeCooldown answers 429 when the last code went out too recently for
+// another one.
+func writeCooldown(w http.ResponseWriter, res otp.Result) {
+	w.Header().Set("Retry-After", fmt.Sprint(res.RetryAfter))
+	writeJSON(w, http.StatusTooManyRequests, map[string]any{
+		"error":       fmt.Sprintf("please wait %d seconds before asking for a new code", res.RetryAfter),
+		"retry_after": res.RetryAfter,
+	})
+}
+
 func (a *App) sendOTP(w http.ResponseWriter, r *http.Request) {
-	user, err := a.userByID(currentUserID(r))
+	userID := currentUserID(r)
+	defer a.lockEmail(userID)()
+	user, err := a.userByID(userID)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -25,15 +50,11 @@ func (a *App) sendOTP(w http.ResponseWriter, r *http.Request) {
 	res, err := a.OTP.Send(otpSubject(user.ID), user.Email, user.FirstName)
 	if err != nil {
 		log.Printf("otp send for user %d: %v", user.ID, err)
-		writeError(w, http.StatusBadGateway, "could not send the verification email, please try again later")
+		writeError(w, http.StatusBadGateway, sendFailed)
 		return
 	}
 	if res.Reason == otp.Cooldown {
-		w.Header().Set("Retry-After", fmt.Sprint(res.RetryAfter))
-		writeJSON(w, http.StatusTooManyRequests, map[string]any{
-			"error":       fmt.Sprintf("please wait %d seconds before asking for a new code", res.RetryAfter),
-			"retry_after": res.RetryAfter,
-		})
+		writeCooldown(w, res)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "sent", "email": user.Email})
@@ -51,6 +72,7 @@ func (a *App) verifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := currentUserID(r)
+	defer a.lockEmail(userID)()
 	user, err := a.userByID(userID)
 	if err != nil {
 		serverError(w, err)
