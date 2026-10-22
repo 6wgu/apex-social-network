@@ -122,6 +122,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Accounts left unverified for longer than handlers.UnverifiedAccountTTL
+	// are deleted now and then on a timer, so their emails are free again.
+	go app.CleanUpAbandonedAccounts(ctx)
+
 	serverErr := make(chan error, 1)
 	go func() {
 		log.Printf("backend listening on :%s", port)

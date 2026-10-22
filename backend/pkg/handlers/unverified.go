@@ -1,16 +1,28 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"social-network/pkg/otp"
 	"social-network/pkg/session"
 )
 
 // What an account can do before its email is verified, besides asking for
-// a code and entering it (otp.go): fix a mistyped email, or start over.
+// a code and entering it (otp.go): fix a mistyped email, or start over. An
+// account nobody verifies is deleted after a while.
+
+// UnverifiedAccountTTL is how long a new account has to verify its email.
+// One still unverified after that is abandoned (a mistyped address, or
+// nobody came back) and DeleteAbandonedAccounts removes it, so its email
+// and nickname can be registered again. Verified accounts never expire.
+const UnverifiedAccountTTL = 24 * time.Hour
+
+// abandonedCheckEvery is how often a running server looks for them.
+const abandonedCheckEvery = time.Hour
 
 // changeEmail handles PATCH /api/me/email {"email"}: "Wrong email? Change
 // it" on the verify page. Only an account that is not verified yet can use
@@ -163,4 +175,60 @@ func (a *App) deleteUnverifiedUser(id int64) (bool, error) {
 		a.removeImage(path)
 	}
 	return true, nil
+}
+
+// DeleteAbandonedAccounts deletes every account that is, as of now, still
+// unverified more than UnverifiedAccountTTL after it was created, each with
+// its sessions and files (deleteUnverifiedUser), and returns how many it
+// deleted.
+func (a *App) DeleteAbandonedAccounts(now time.Time) (int, error) {
+	cutoff := now.UTC().Add(-UnverifiedAccountTTL).Format(time.DateTime)
+	rows, err := a.DB.Query(`SELECT id FROM users WHERE is_verified = 0 AND datetime(created_at) < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	deleted := 0
+	for _, id := range ids {
+		ok, err := a.deleteUnverifiedUser(id)
+		if err != nil {
+			return deleted, err
+		}
+		if ok {
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+// CleanUpAbandonedAccounts runs DeleteAbandonedAccounts right away and then
+// every abandonedCheckEvery, until ctx is done. server.go starts it.
+func (a *App) CleanUpAbandonedAccounts(ctx context.Context) {
+	tick := time.NewTicker(abandonedCheckEvery)
+	defer tick.Stop()
+	for {
+		if n, err := a.DeleteAbandonedAccounts(time.Now()); err != nil {
+			log.Printf("abandoned accounts: %v", err)
+		} else if n > 0 {
+			log.Printf("abandoned accounts: deleted %d, unverified for more than %v", n, UnverifiedAccountTTL)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }
