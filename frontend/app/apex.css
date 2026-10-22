@@ -3010,3 +3010,8 @@ a.toast-body:hover strong { color: var(--red-soft); }
 }
 .delete-btn:hover { background: rgba(255, 48, 69, .12); color: var(--red-soft); }
 .comment-bubble .delete-btn { margin-left: 6px; padding: 3px; vertical-align: middle; }
+
+/* delete confirmation dialog */
+.confirm-dialog { padding-top: 16px; }
+.confirm-message { margin: 0 0 20px; color: var(--text-2); line-height: 1.6; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }

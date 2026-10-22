@@ -11,6 +11,7 @@ import { notify } from "@/components/Toaster";
 import { PRIVACY } from "@/components/PostComposer";
 import { useRealtime } from "@/components/RealtimeProvider";
 import { useAuth } from "@/components/AuthProvider";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const COMMENTS_PAGE = 50; // the backend's page size for comments
 
@@ -86,13 +87,18 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
     if (event.type === "comment_deleted" && event.payload.post_id === postId) drop(event.payload.comment_id);
   });
 
-  async function remove(c) {
-    if (!window.confirm("Delete this comment?")) return;
+  const [toDelete, setToDelete] = useState(null); // the comment waiting for confirmation
+  const [deleting, setDeleting] = useState(false);
+  async function confirmRemove() {
+    setDeleting(true);
     try {
-      await api(`/api/posts/${postId}/comments/${c.id}`, { method: "DELETE" });
-      drop(c.id);
+      await api(`/api/posts/${postId}/comments/${toDelete.id}`, { method: "DELETE" });
+      drop(toDelete.id);
+      setToDelete(null);
     } catch (err) {
       notify({ tone: "error", title: "Couldn't delete the comment", message: err.message });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -132,7 +138,7 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
               </Link>{" "}
               <span className="muted post-time">{timeAgo(c.created_at)}</span>
               {user && (user.id === c.author.id || user.id === postAuthorId) && (
-                <button type="button" className="delete-btn" onClick={() => remove(c)} aria-label="Delete comment" title="Delete comment">
+                <button type="button" className="delete-btn" onClick={() => setToDelete(c)} aria-label="Delete comment" title="Delete comment">
                   <Icon name="trash" size={15} />
                 </button>
               )}
@@ -165,6 +171,15 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
         </button>
       </form>
       {error && <p className="form-error">{error}</p>}
+      {toDelete && (
+        <ConfirmDialog
+          title="Delete comment"
+          message="Are you sure you want to delete this comment? This can't be undone."
+          busy={deleting}
+          onConfirm={confirmRemove}
+          onClose={() => setToDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -237,14 +252,18 @@ export default function PostCard({ post }) {
     if (event.type === "comment_deleted" && event.payload.post_id === post.id && !open) setCount((n) => Math.max(0, n - 1));
   });
 
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   async function removePost() {
-    if (!window.confirm("Delete this post? Its comments and likes will be deleted too.")) return;
+    setDeleting(true);
     try {
       await api(`/api/posts/${post.id}`, { method: "DELETE" });
       setGone(true);
       notify({ message: "Post deleted" });
     } catch (err) {
       notify({ tone: "error", title: "Couldn't delete the post", message: err.message });
+      setDeleting(false);
+      setConfirming(false);
     }
   }
 
@@ -255,7 +274,7 @@ export default function PostCard({ post }) {
       <header className="post-head">
         <Author user={post.author} time={post.created_at} privacy={privacy} />
         {user?.id === post.author.id && (
-          <button type="button" className="delete-btn" onClick={removePost} aria-label="Delete post" title="Delete post">
+          <button type="button" className="delete-btn" onClick={() => setConfirming(true)} aria-label="Delete post" title="Delete post">
             <Icon name="trash" size={18} />
           </button>
         )}
@@ -272,6 +291,15 @@ export default function PostCard({ post }) {
           <span>{count}</span>
         </button>
       </footer>
+      {confirming && (
+        <ConfirmDialog
+          title="Delete post"
+          message="Are you sure you want to delete this post? Its comments and likes will be deleted too. This can't be undone."
+          busy={deleting}
+          onConfirm={removePost}
+          onClose={() => setConfirming(false)}
+        />
+      )}
       {open && (
         <Comments
           postId={post.id}
