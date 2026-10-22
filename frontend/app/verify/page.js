@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { emailProblem, sentence } from "@/lib/validation";
 import { useAuth } from "@/components/AuthProvider";
@@ -10,6 +10,61 @@ import Field from "@/components/Field";
 
 // The seconds a 429 asks to wait (its message names them), or a minute.
 const secondsToWait = (err) => Number(err.message.match(/\d+/)?.[0] || 60);
+
+// Marks the extra history entry useBackGuard adds, so a reload on it does
+// not add another one.
+const GUARD = "verifyBackGuard";
+
+// While the code is pending, every other page sends the user straight back
+// here, so plain Back would only bounce. Instead an extra history entry for
+// this page sits on top of its own: Back steps down onto the page's own
+// entry and calls onBack. restore() puts the extra entry back when the user
+// stays, so the history never grows; remove() steps down off it before
+// leaving on purpose, so Back on the next page goes where Back from here
+// would have gone.
+function useBackGuard(active, onBack) {
+  const onTop = useRef(false); // the extra entry is the current one
+  const stepping = useRef(null); // remove() waiting for the step down
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+
+  useEffect(() => {
+    if (!active) return;
+    if (!onTop.current) {
+      if (!window.history.state?.[GUARD]) window.history.pushState({ [GUARD]: true }, "");
+      onTop.current = true;
+    }
+    const onPop = () => {
+      onTop.current = false;
+      if (stepping.current) {
+        stepping.current();
+        stepping.current = null;
+      } else {
+        onBackRef.current();
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [active]);
+
+  return useMemo(
+    () => ({
+      restore() {
+        if (onTop.current) return;
+        window.history.pushState({ [GUARD]: true }, "");
+        onTop.current = true;
+      },
+      remove() {
+        if (!onTop.current) return Promise.resolve();
+        return new Promise((done) => {
+          stepping.current = done;
+          window.history.back();
+        });
+      },
+    }),
+    []
+  );
+}
 
 export default function VerifyPage() {
   const { user, setUser, logout, leave } = useAuth();
@@ -28,8 +83,10 @@ export default function VerifyPage() {
   const [emailError, setEmailError] = useState("");
   const [changing, setChanging] = useState(false);
   // "Start over": the dialog that asks first, and the delete under way.
+  // Back on this page asks the same.
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const guard = useBackGuard(Boolean(user) && !user.is_verified, () => setConfirming(true));
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -128,6 +185,12 @@ export default function VerifyPage() {
     }
   }
 
+  // The dialog was cancelled: stay, with Back guarded again.
+  function stay() {
+    setConfirming(false);
+    guard.restore();
+  }
+
   // Deletes this account, which is not verified yet, so its email can be
   // registered again, and leaves for the register page logged out.
   async function startOver() {
@@ -136,12 +199,18 @@ export default function VerifyPage() {
       await api("/api/me", { method: "DELETE" });
     } catch (err) {
       setDeleting(false);
-      setConfirming(false);
+      stay();
       setEditing(false);
       setError(err.message);
       return;
     }
+    await guard.remove();
     leave("/register");
+  }
+
+  async function signOut() {
+    await guard.remove();
+    logout();
   }
 
   if (user?.is_verified) {
@@ -272,7 +341,7 @@ export default function VerifyPage() {
         <button type="button" className="btn-secondary btn-small" onClick={() => setConfirming(true)}>
           Start over
         </button>
-        <button type="button" className="link-button" onClick={logout}>
+        <button type="button" className="link-button" onClick={signOut}>
           Log out
         </button>
       </div>
@@ -284,7 +353,7 @@ export default function VerifyPage() {
         confirmLabel="Delete and start over"
         busy={deleting}
         onConfirm={startOver}
-        onClose={() => setConfirming(false)}
+        onClose={stay}
       />
     )}
     </div>
