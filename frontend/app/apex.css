@@ -927,6 +927,8 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 .avatar-drop img { width: 100%; height: 100%; object-fit: cover; }
 
 .verify-card { text-align: center; }
+.verify-card .auth-heading strong { color: var(--text-1); font-weight: 600; }
+.auth-heading .verify-change { margin-top: 10px; }
 .verify-mark { border: 1px solid var(--line); background: var(--graphite-2); color: var(--red); }
 .verify-mark-done { border-color: var(--green); background: rgba(56, 229, 141, .14); color: var(--green); }
 .otp-input { font-family: var(--font-display); letter-spacing: 14px; border-radius: 18px !important; }
