@@ -8,7 +8,6 @@ import {
   MAX_AGE,
   MIN_AGE,
   NICKNAME_TAKEN,
-  PASSWORD_RULES,
   REGISTRATION_FIELDS,
   birthDateLimits,
   normalizeRegistration,
@@ -20,32 +19,11 @@ import useNicknameCheck from "@/lib/useNicknameCheck";
 import { useAuth } from "@/components/AuthProvider";
 import Field, { PasswordField } from "@/components/Field";
 import Icon from "@/components/Icon";
+import PasswordRules from "@/components/PasswordRules";
 import RacingLights from "@/components/RacingLights";
 import LaunchOverlay, { GO_MS, MORPH_MS } from "@/components/LaunchOverlay";
 
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));
-
-// The password rules under the password field. Each one turns green with a
-// ✓ as soon as it is met; until then it is grey, or red once the user has
-// tried to submit (strict).
-function PasswordRules({ password, strict }) {
-  return (
-    <span className="password-rules" role="list" aria-label="Password rules">
-      {PASSWORD_RULES.map((rule) => {
-        const met = rule.met(password);
-        return (
-          <span key={rule.label} role="listitem" className={`password-rule${met ? " is-met" : strict ? " is-missing" : ""}`}>
-            <span className="password-rule-mark" aria-hidden="true">
-              {met ? "✓" : strict ? "✕" : "•"}
-            </span>
-            {rule.label}
-            <span className="visually-hidden">{met ? " (done)" : " (not yet)"}</span>
-          </span>
-        );
-      })}
-    </span>
-  );
-}
 
 export default function RegisterPage() {
   const { setUser } = useAuth();
