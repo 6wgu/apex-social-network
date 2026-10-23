@@ -19,3 +19,23 @@ func (a *App) sendWelcome(u models.User) {
 		}
 	}()
 }
+
+// sendPasswordChanged tells the user, at their address, that their
+// password was reset.
+func (a *App) sendPasswordChanged(userID int64) {
+	if a.Mailer == nil {
+		return
+	}
+	u, err := a.userByID(userID)
+	if err != nil {
+		log.Printf("password changed email to user %d: %v", userID, err)
+		return
+	}
+	msg := mail.PasswordChangedEmail(a.Mailer.FromName(), u.FirstName)
+	msg.To = []string{u.Email}
+	a.mailing.Go(func() {
+		if err := a.Mailer.Send(msg); err != nil {
+			log.Printf("password changed email to user %d: %v", userID, err)
+		}
+	})
+}

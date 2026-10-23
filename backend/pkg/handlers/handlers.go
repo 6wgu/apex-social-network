@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"social-network/pkg/mail"
 	"social-network/pkg/middleware"
@@ -26,8 +27,14 @@ type App struct {
 	// /api/me, changing the email, the email code routes and logout until
 	// the user has verified their email (403).
 	RequireVerified bool
+	// Now is the clock of the password reset limits and tokens (time.Now
+	// when nil).
+	Now func() time.Time
 
-	emailLocks [16]sync.Mutex // see lockEmail
+	emailLocks     [16]sync.Mutex // see lockEmail
+	addressLocks   [16]sync.Mutex // see lockAddress
+	forgotRequests requestLog     // see forgotPassword
+	mailing        sync.WaitGroup // emails being sent in the background
 }
 
 // Routes registers every endpoint on a standard library ServeMux.
@@ -50,11 +57,15 @@ func (a *App) Routes() *http.ServeMux {
 
 	// Public: the only routes that work without a session. Logout is public
 	// so it can always clear the cookie, even an expired or unknown one.
+	// The password reset routes ignore any session (password.go).
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("POST /api/register", a.register)
 	mux.HandleFunc("POST /api/login", a.login)
 	mux.HandleFunc("POST /api/logout", a.logout)
 	mux.HandleFunc("GET /api/nicknames/available", a.nicknameAvailable)
+	mux.HandleFunc("POST /api/password/forgot", a.forgotPassword)
+	mux.HandleFunc("POST /api/password/verify-code", a.checkResetCode)
+	mux.HandleFunc("POST /api/password/reset", a.resetPassword)
 
 	// Everything below needs a valid session cookie (401 otherwise).
 	mux.Handle("GET /ws", protected(a.serveWS))
