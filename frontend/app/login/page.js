@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { handOffEmail, takeEmail } from "@/lib/emailHandoff";
 import { useAuth } from "@/components/AuthProvider";
 import Field, { PasswordField } from "@/components/Field";
 import RacingLights from "@/components/RacingLights";
@@ -17,6 +18,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState(null); // the launch animation, see LaunchOverlay
+
+  // The email from "Forgot password?", after a reset.
+  useEffect(() => {
+    const handed = takeEmail();
+    if (handed) setEmail(handed);
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -61,6 +68,11 @@ export default function LoginPage() {
             placeholder="Your password"
             required
           />
+          <p className="auth-forgot">
+            <Link href="/forgot-password" onClick={() => handOffEmail(email)}>
+              Forgot password?
+            </Link>
+          </p>
           {error && (
             <p className="form-error" role="alert">
               {error}

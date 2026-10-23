@@ -877,6 +877,10 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 .auth-footer a { color: var(--text-1); font-weight: 700; }
 .auth-footer a:hover { color: var(--red); }
 
+/* "Forgot password?" right under the login password field */
+.auth-forgot { margin: -8px 0 0; font-size: var(--fs-meta); text-align: right; }
+.auth-forgot a { font-weight: 600; }
+
 .optional {
   gap: 14px;
   margin: 4px 0 0;
