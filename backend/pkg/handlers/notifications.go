@@ -224,6 +224,10 @@ func (a *App) push(n *notifier) {
 				members = append(members, id)
 			}
 		}
+		// A read that stops early is logged; the members read so far still get the event.
+		if err := rows.Err(); err != nil {
+			log.Printf("push group_changed %d: %v", groupID, err)
+		}
 		rows.Close()
 		for _, id := range members {
 			a.Hub.SendToUser(id, eventGroupChanged, map[string]int64{"group_id": groupID})
