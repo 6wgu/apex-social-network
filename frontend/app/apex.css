@@ -2079,6 +2079,10 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .navbar-app .nav-item .nav-label { display: none; }
   .navbar-app .nav-item { min-height: 48px; }
   .navbar-app .nav-item .nav-icon { width: 22px; height: 22px; }
+  /* Going / Not going: one row across the whole card (under the 56px date
+     box and its 14px gap too), half each */
+  .rsvp { display: flex; flex-wrap: nowrap; margin-left: -70px; }
+  .rsvp-btn { flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 8px; white-space: nowrap; }
 }
 
 /* ---- reduced motion: no movement, lights shown steady ---- */
