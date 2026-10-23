@@ -91,6 +91,26 @@ func TestConsoleModeSend(t *testing.T) {
 	}
 }
 
+// The reset code is in the body only: with SMTP the mailer logs the subject.
+func TestResetCodeEmail(t *testing.T) {
+	msg := ResetCodeEmail("APEX", "Ada", "123456", 10)
+	if strings.Contains(msg.Subject, "123456") {
+		t.Errorf("subject %q carries the code", msg.Subject)
+	}
+	if !strings.Contains(msg.Text, "Your APEX password reset code is 123456.") || !strings.Contains(msg.Text, "10 minutes") {
+		t.Errorf("text = %q", msg.Text)
+	}
+	if !strings.Contains(msg.HTML, "123456") || !strings.Contains(msg.HTML, "reset your password") || strings.Contains(msg.HTML, "verify your email") {
+		t.Error("the HTML card does not show the code for a password reset")
+	}
+	if !strings.Contains(CodeEmail("APEX", "Ada", "123456", 10).HTML, "verify your email") {
+		t.Error("the verification card lost its wording")
+	}
+	if got := PasswordChangedEmail("APEX", "Ada").Subject; got != "Your APEX password was changed" {
+		t.Errorf("password changed subject = %q", got)
+	}
+}
+
 func TestSendChecksTheMessage(t *testing.T) {
 	m := New(Config{})
 	m.Log = func(string, ...any) {}

@@ -47,7 +47,7 @@ var cardTmpl = template.Must(template.New("card").Parse(`<!DOCTYPE html>
         <h1 style="margin:0;color:#F5F7FA;font-size:20px;font-weight:700;letter-spacing:.3px;">{{.Title}}</h1>
       </td></tr>
       <tr><td style="padding:32px 40px;color:#F5F7FA;font-size:15px;line-height:1.6;">
-        {{if .Code}}<p style="margin:0 0 24px;text-align:center;color:#9BA6B8;">{{if .Name}}Hi <strong style="color:#F5F7FA;">{{.Name}}</strong>, use{{else}}Use{{end}} the code below to verify your email.</p>
+        {{if .Code}}<p style="margin:0 0 24px;text-align:center;color:#9BA6B8;">{{if .Name}}Hi <strong style="color:#F5F7FA;">{{.Name}}</strong>, use{{else}}Use{{end}} the code below to {{.Action}}.</p>
         <div style="text-align:center;margin:0 0 24px;"><span style="display:inline-block;background:#1B2230;border:2px solid #FF3045;border-radius:12px;padding:18px 28px;font-size:36px;font-weight:700;letter-spacing:12px;color:#F5F7FA;font-family:'Space Grotesk','Courier New',monospace;">{{.Code}}</span></div>
         <p style="margin:0;text-align:center;color:#9BA6B8;font-size:13px;">This code expires in <strong style="color:#27D8E8;">{{.TTL}} minutes</strong>.</p>
         {{else}}{{if .Greeting}}<p style="margin:0 0 16px;">{{.Greeting}}</p>{{end}}{{range .Paragraphs}}<p style="margin:0 0 16px;color:#9BA6B8;">{{.}}</p>{{end}}
@@ -65,6 +65,7 @@ type cardData struct {
 	Content
 	Code, Name string
 	TTL        int
+	Action     string // what the code is for: "verify your email"
 }
 
 func render(d cardData) string {
@@ -99,7 +100,32 @@ func CodeEmail(appName, name, code string, ttlMinutes int) Message {
 	}
 	c := Content{Subject: fmt.Sprintf("%s is your %s verification code", code, appName), Title: "Verify your email",
 		Footer: "If you did not ask for this, you can ignore this email."}
-	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes})})
+	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes, Action: "verify your email"})})
+}
+
+// ResetCodeEmail carries the code of "Forgot password?". Unlike the
+// verification code, it stays out of the subject, which the mailer logs.
+func ResetCodeEmail(appName, name, code string, ttlMinutes int) Message {
+	text := fmt.Sprintf("Your %s password reset code is %s.\nIt expires in %d minutes.\n\nIf you didn't ask for this, ignore this email.", appName, code, ttlMinutes)
+	if name != "" {
+		text = "Hi " + name + ",\n\n" + text
+	}
+	c := Content{Subject: fmt.Sprintf("Your %s password reset code", appName), Title: "Reset your password",
+		Footer: "If you didn't ask for this, ignore this email. Your password stays the same."}
+	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes, Action: "reset your password"})})
+}
+
+// PasswordChangedEmail tells the owner that a password reset went through.
+func PasswordChangedEmail(appName, name string) Message {
+	return MessageEmail(Content{
+		Subject:  "Your " + appName + " password was changed",
+		Greeting: "Hi " + name + ",",
+		Paragraphs: []string{
+			"The password of your " + appName + " account was just changed, and every device that was signed in to it has been signed out.",
+			"If this wasn't you, use \"Forgot password?\" on the login page right away to choose a new one.",
+		},
+		Footer: "You received this email because the password of your account was changed.",
+	})
 }
 
 func WelcomeEmail(appName, name string) Message {
