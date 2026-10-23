@@ -16,9 +16,12 @@ chat) and `group_messages` (group chat).
 | messages | Phase 4 (migration 000015) |
 | group_messages | Phase 4 (migration 000016) |
 | otp_codes, users.is_verified | Email verification (migration 000017) |
+| post_likes | Likes on posts (migration 000018) |
 | idx_users_nickname (unique) | Unique nicknames (migration 000019) |
 | otp_codes.purpose | Password reset (migration 000020: the table is rebuilt with the primary key `(purpose, subject)`) |
 | password_reset_tokens | Password reset (migration 000021) |
+
+A keys-only picture of the same diagram: [erd.webp](erd.webp).
 
 **Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
 week-2 spec. There is no separate `follow_requests` table. Accepting a request
@@ -89,6 +92,11 @@ erDiagram
     post_viewers {
         INTEGER post_id PK,FK
         INTEGER user_id PK,FK
+    }
+    post_likes {
+        INTEGER post_id PK,FK
+        INTEGER user_id PK,FK
+        DATETIME created_at
     }
     comments {
         INTEGER id PK
@@ -170,6 +178,8 @@ erDiagram
     users ||--o{ posts : writes
     posts ||--o{ post_viewers : "visible to"
     users ||--o{ post_viewers : "chosen viewer"
+    posts ||--o{ post_likes : "liked by"
+    users ||--o{ post_likes : likes
     posts ||--o{ comments : has
     users ||--o{ comments : writes
     users ||--o{ groups : creates
