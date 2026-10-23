@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 
@@ -94,7 +95,7 @@ func (a *App) sendGroupMessage(c *ws.Client, in ws.Incoming) {
 	}
 	// Everyone who is a member now gets it in all their tabs; the sender's
 	// own tabs are handled below.
-	members, err := a.groupMemberIDs(p.GroupID)
+	members, err := groupMemberIDs(a.DB, p.GroupID)
 	if err != nil {
 		// Stored, but the fan-out failed: the others see it when they load
 		// the history; the sender still gets the confirmation.
@@ -109,9 +110,12 @@ func (a *App) sendGroupMessage(c *ws.Client, in ws.Incoming) {
 	a.Hub.Reply(c, eventGroupMessage, in.RequestID, m)
 }
 
-// groupMemberIDs lists the ids of groupID's current members.
-func (a *App) groupMemberIDs(groupID int64) ([]int64, error) {
-	rows, err := a.DB.Query(`SELECT user_id FROM group_members WHERE group_id = ?`, groupID)
+// groupMemberIDs lists the ids of groupID's current members. q is a.DB, or a
+// transaction when the list must be the members that transaction sees.
+func groupMemberIDs(q interface {
+	Query(string, ...any) (*sql.Rows, error)
+}, groupID int64) ([]int64, error) {
+	rows, err := q.Query(`SELECT user_id FROM group_members WHERE group_id = ?`, groupID)
 	if err != nil {
 		return nil, err
 	}

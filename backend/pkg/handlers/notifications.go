@@ -212,23 +212,11 @@ func (a *App) push(n *notifier) {
 		a.Hub.SendToUser(r.userID, eventNotificationRemoved, map[string]int64{"id": r.id})
 	}
 	for _, groupID := range n.changedGroups {
-		rows, err := a.DB.Query(`SELECT user_id FROM group_members WHERE group_id = ?`, groupID)
+		members, err := groupMemberIDs(a.DB, groupID)
 		if err != nil {
 			log.Printf("push group_changed %d: %v", groupID, err)
 			continue
 		}
-		var members []int64
-		for rows.Next() {
-			var id int64
-			if rows.Scan(&id) == nil {
-				members = append(members, id)
-			}
-		}
-		// A read that stops early is logged; the members read so far still get the event.
-		if err := rows.Err(); err != nil {
-			log.Printf("push group_changed %d: %v", groupID, err)
-		}
-		rows.Close()
 		for _, id := range members {
 			a.Hub.SendToUser(id, eventGroupChanged, map[string]int64{"group_id": groupID})
 		}

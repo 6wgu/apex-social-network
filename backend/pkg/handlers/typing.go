@@ -79,7 +79,7 @@ func (a *App) sendTyping(c *ws.Client, in ws.Incoming) {
 			a.Hub.ReplyError(c, in, "only members can send messages to this group")
 			return
 		}
-		if recipients, err = a.groupMemberIDs(p.GroupID); err != nil {
+		if recipients, err = groupMemberIDs(a.DB, p.GroupID); err != nil {
 			a.socketServerError(c, in, err)
 			return
 		}

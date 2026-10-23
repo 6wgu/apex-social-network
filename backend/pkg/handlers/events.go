@@ -140,7 +140,7 @@ func (a *App) createEvent(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	members, err := memberIDs(tx, groupID)
+	members, err := groupMemberIDs(tx, groupID)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -163,24 +163,6 @@ func (a *App) createEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, e)
-}
-
-// memberIDs lists the ids of groupID's members inside tx.
-func memberIDs(tx *sql.Tx, groupID int64) ([]int64, error) {
-	rows, err := tx.Query(`SELECT user_id FROM group_members WHERE group_id = ?`, groupID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
 }
 
 // listEvents handles GET /api/groups/{id}/events: the group's events in
