@@ -68,13 +68,6 @@ func scanMessage(row interface{ Scan(...any) error }, extra ...any) (message, er
 	return m, err
 }
 
-// canMessage reports whether a and b may exchange messages right now.
-func (a *App) canMessage(userA, userB int64) (bool, error) {
-	var ok bool
-	err := a.DB.QueryRow(`SELECT `+canMessageSQL, userA, userB).Scan(&ok)
-	return ok, err
-}
-
 // checkMessageText trims s and checks it is not empty and at most
 // maxMessageLen characters. It returns the trimmed text and a problem ("" when fine).
 func checkMessageText(s string) (string, string) {
