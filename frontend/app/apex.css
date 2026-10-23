@@ -1335,6 +1335,8 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .side-toggle[aria-expanded="true"] .side-toggle-chevron { transform: rotate(180deg); }
 .side-toggle-body { margin-top: 8px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--graphite-0); }
 .request-row { flex-wrap: wrap; }
+/* the name gets the whole line, Accept / Decline go under it */
+.request-row .side-row { flex-basis: 100%; }
 .request-row .request-actions { display: flex; gap: 6px; padding: 0 8px 8px 54px; }
 
 .about-bio { margin: 0; padding: 4px 4px 4px 14px; border-left: 2px solid var(--red); color: var(--text-2); }
