@@ -179,10 +179,12 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	a.Hub.Serve(w, r, currentUserID(r))
 }
 
+// health handles GET /api/health: 200 when the database answers, 503 when
+// it does not, so a load balancer or container check can tell the two apart.
 func (a *App) health(w http.ResponseWriter, r *http.Request) {
-	dbStatus := "ok"
 	if err := a.DB.PingContext(r.Context()); err != nil {
-		dbStatus = "unreachable"
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable", "database": "unreachable"})
+		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "database": dbStatus})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "database": "ok"})
 }

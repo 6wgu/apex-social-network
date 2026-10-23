@@ -41,7 +41,7 @@ only by pull request, and tell both sides.
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/api/health` | `200 {"status":"ok","database":"ok"}` |
+| GET | `/api/health` | `200 {"status":"ok","database":"ok"}`, or `503 {"status":"unavailable","database":"unreachable"}` when the database does not answer |
 
 ## Auth (Phase 1)
 
