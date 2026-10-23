@@ -10,7 +10,8 @@ only by pull request, and tell both sides.
 - Every error response has the same shape: `{"error": "human readable message"}`. Register errors also carry `"fields"`, one message per bad field (see Auth).
 - Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login` and `POST /api/logout` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users, and post images only to users who may see the post.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
-- Images are JPEG, PNG or GIF, max 50 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
+- Images are JPEG, PNG, GIF or WebP, max 50 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif|.webp` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
+- Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`.
 - Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate, `429` too soon for another verification code (with `Retry-After`), `502` the email could not be sent.
 
 ### Shared shapes
