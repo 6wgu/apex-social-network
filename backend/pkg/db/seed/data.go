@@ -74,7 +74,7 @@ var posts = []post{
 	{Key: "p-hello", Author: "theo", Privacy: "public", Ago: 15 * hour,
 		Content: "Hello everyone 👋 First post here."},
 	{Key: "p-route", Author: "maya", Privacy: "almost_private", Ago: 12 * hour,
-		Content: "Followers only: Saturday's route is the river loop. Bring water 💧"},
+		Content: "Followers only: the next long run is the river loop. Bring water 💧"},
 	{Key: "p-book", Author: "nora", Privacy: "almost_private", Ago: 10 * hour,
 		Content: "Finished this month's book 📚 Notes coming soon.", Image: "seed-books.png"},
 	{Key: "p-coffee", Author: "leo", Privacy: "almost_private", Ago: 8 * hour,
@@ -159,7 +159,8 @@ type groupPost struct {
 // event: every member except the creator gets a group_event notification.
 type event struct {
 	Title, Description string
-	In                 time.Duration // from the moment of seeding
+	In                 time.Duration // days from the moment of seeding
+	Hour               int           // on that day, UTC
 	Going, NotGoing    []string
 }
 
@@ -178,16 +179,16 @@ var groups = []group{
 		Invites:  []invite{{From: "maya", To: "theo"}}, // Theo sees Accept / Decline
 		Requests: []string{"sam"},                      // Maya sees Sam's request
 		Posts: []groupPost{
-			{Author: "iris", Content: "Here's the route for Saturday 🗺️", Image: "seed-route.png", Ago: 30 * hour,
+			{Author: "iris", Content: "Here's the route for the 10K 🗺️", Image: "seed-route.png", Ago: 30 * hour,
 				Comments: []comment{
 					{Author: "maya", Content: "Perfect, see you there!", Ago: 29 * hour},
 					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-wave.gif", Ago: 28 * hour},
 				}},
-			{Author: "leo", Content: "Who's coming on Saturday? 🏃‍♂️", Ago: 7 * hour,
+			{Author: "leo", Content: "Who's coming to the 10K? 🏃‍♂️", Ago: 7 * hour,
 				Comments: []comment{{Author: "iris", Content: "Me! 🙋‍♀️", Ago: 6 * hour}}},
 		},
-		Events: []event{{Title: "Saturday 10K", In: 3 * day,
-			Description: "Meet at the park gate at 7:00. Easy pace, coffee after ☕",
+		Events: []event{{Title: "Morning 10K", In: 3 * day, Hour: 6,
+			Description: "Meet at the park gate. Easy pace, coffee after ☕",
 			Going:       []string{"maya", "leo"}, NotGoing: []string{"iris"}}},
 		Chat: []chatLine{
 			{From: "maya", Text: "Welcome to the group chat 🏃‍♀️", Ago: 12 * day},
@@ -209,7 +210,7 @@ var groups = []group{
 			{Author: "maya", Content: "Halfway through. No spoilers please 🤐", Ago: 2 * day,
 				Comments: []comment{{Author: "nora", Content: "😄 Promise.", Ago: 2 * day}}},
 		},
-		Events: []event{{Title: "Book night", In: 9 * day,
+		Events: []event{{Title: "Book night", In: 9 * day, Hour: 15,
 			Description: "We talk about this month's book. Snacks welcome 🍪",
 			Going:       []string{"nora", "sam"}, NotGoing: []string{"maya"}}},
 		Chat: []chatLine{
@@ -240,5 +241,5 @@ var messages = []message{
 	{From: "leo", To: "sam", Text: "Always 😄", Ago: 3 * hour},
 	{From: "iris", To: "maya", Text: "I can design shirts for the club 🎨", Ago: 90 * time.Minute, Unread: true},
 	{From: "theo", To: "maya", Text: "Hi Maya 👋 Can a beginner join a run?", Ago: 2 * day},
-	{From: "maya", To: "theo", Text: "Of course! Saturday, easy pace 😊", Ago: 47 * hour},
+	{From: "maya", To: "theo", Text: "Of course! Join the 10K, easy pace 😊", Ago: 47 * hour},
 }

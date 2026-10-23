@@ -306,8 +306,8 @@ func (s *seeder) insertGroups() error {
 			}
 		}
 		for i, e := range g.Events {
-			// On the hour, so the time reads naturally.
-			when := s.now.Add(e.In).Truncate(time.Hour).Format(sqliteTime)
+			date := s.now.Add(e.In)
+			when := time.Date(date.Year(), date.Month(), date.Day(), e.Hour, 0, 0, 0, time.UTC).Format(sqliteTime)
 			res, err := s.tx.Exec(`INSERT INTO events (group_id, creator_id, title, description, event_time, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
 				id, s.users[g.Creator], e.Title, e.Description, when, s.at(-day))
 			if err != nil {

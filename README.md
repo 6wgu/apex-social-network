@@ -228,14 +228,14 @@ A fresh database is filled with six demo accounts with posts, groups, events, ch
 | Leo Hart (`@leo`) | `leo@example.com` | Public | Sees Maya's private post (he is its chosen viewer) and Nora's private profile (he follows her). Has an **invitation to Book Club** from Nora in the bell. |
 | Nora Vale (`@nora`) | `nora@example.com` | Private | Has a **follow request from Sam**: accept or decline it on her own profile or in the bell. Creator of **Book Club**, with a join request from **Iris**. |
 | Sam Park (`@sam`) | `sam@example.com` | Private | Has a **follow request from Iris**; his own request to Nora is still waiting. Member of Book Club: answer the "Book night" event. |
-| Iris Cole (`@iris`) | `iris@example.com` | Public | Member of Trail Runners ("Saturday 10K" event, group chat). Her Book Club join request is waiting. Not a follower of Nora, so Nora's profile shows the private screen. |
+| Iris Cole (`@iris`) | `iris@example.com` | Public | Member of Trail Runners ("Morning 10K" event, group chat). Her Book Club join request is waiting. Not a follower of Nora, so Nora's profile shows the private screen. |
 | Theo Brandt (`@theo`) | `theo@example.com` | Public | The newcomer: follows only Maya. Has an **invitation to Trail Runners**. Try messaging Nora: not allowed, since neither follows the other. |
 
 ### Try it in 5 minutes
 
 1. Log in as **Nora**, open your profile and accept **Sam**'s follow request.
 2. Log in as **Maya**: the bell shows Sam's join request for Trail Runners, and Chats shows 3 unread conversations.
-3. Log in as **Theo** in a second browser (or a private window): accept the Trail Runners invitation from the bell, open the group's **Events** tab and answer "Saturday 10K". Then chat with Maya: messages arrive live in both windows.
+3. Log in as **Theo** in a second browser (or a private window): accept the Trail Runners invitation from the bell, open the group's **Events** tab and answer "Morning 10K". Then chat with Maya: messages arrive live in both windows.
 4. Still as **Theo**: open **Nora**'s profile (private, no posts shown) and try to message her: not allowed.
 5. Log in as **Leo**: the feed shows Maya's post "Only Leo can see this". As **Iris** it is not there.
 6. As anyone: like and comment on a post, and write a post with an image, choosing "Private" and a few followers.
