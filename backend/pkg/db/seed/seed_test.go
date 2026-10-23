@@ -88,6 +88,17 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 	}
 	rows.Close()
 
+	// Each image file belongs to one row only: the upload check looks at the
+	// first post or comment that uses a file, so a shared file would be
+	// hidden from viewers of the other row.
+	if n := count(t, db, `SELECT COUNT(*) FROM (SELECT p FROM (
+		SELECT avatar_path AS p FROM users WHERE avatar_path <> ''
+		UNION ALL SELECT image_path FROM posts WHERE image_path <> ''
+		UNION ALL SELECT image_path FROM comments WHERE image_path <> ''
+	) GROUP BY p HAVING COUNT(*) > 1)`); n != 0 {
+		t.Errorf("%d image files are used by more than one row", n)
+	}
+
 	// The data follows the app's own rules: a private post's viewers follow
 	// its author, and whoever commented on or liked a post can see it.
 	if n := count(t, db, `SELECT COUNT(*) FROM post_viewers v JOIN posts p ON p.id = v.post_id

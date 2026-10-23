@@ -179,10 +179,10 @@ var groups = []group{
 		Invites:  []invite{{From: "maya", To: "theo"}}, // Theo sees Accept / Decline
 		Requests: []string{"sam"},                      // Maya sees Sam's request
 		Posts: []groupPost{
-			{Author: "iris", Content: "Here's the route for the 10K 🗺️", Image: "seed-route.png", Ago: 30 * hour,
+			{Author: "iris", Content: "Here's the route for the 10K 🗺️", Image: "seed-route-group.png", Ago: 30 * hour,
 				Comments: []comment{
 					{Author: "maya", Content: "Perfect, see you there!", Ago: 29 * hour},
-					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-wave.gif", Ago: 28 * hour},
+					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-wave-group.gif", Ago: 28 * hour},
 				}},
 			{Author: "leo", Content: "Who's coming to the 10K? 🏃‍♂️", Ago: 7 * hour,
 				Comments: []comment{{Author: "iris", Content: "Me! 🙋‍♀️", Ago: 6 * hour}}},
@@ -205,7 +205,7 @@ var groups = []group{
 		Invites:  []invite{{From: "nora", To: "leo"}}, // Leo sees Accept / Decline
 		Requests: []string{"iris"},                    // Nora sees Iris's request
 		Posts: []groupPost{
-			{Author: "nora", Content: "This month: a short novel, about 200 pages 📖", Image: "seed-books.png", Ago: 9 * day,
+			{Author: "nora", Content: "This month: a short novel, about 200 pages 📖", Image: "seed-books-club.png", Ago: 9 * day,
 				Comments: []comment{{Author: "sam", Content: "Count me in!", Ago: 8 * day}}},
 			{Author: "maya", Content: "Halfway through. No spoilers please 🤐", Ago: 2 * day,
 				Comments: []comment{{Author: "nora", Content: "😄 Promise.", Ago: 2 * day}}},
