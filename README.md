@@ -81,12 +81,15 @@ go test -race ./...
 go vet ./...
 ```
 
-Run the frontend production build from `frontend/`:
+Run the frontend unit tests (Node's built-in test runner, no extra packages) and the production build from `frontend/`:
 
 ```sh
 npm ci
+npm test
 npm run build
 ```
+
+The frontend tests in `frontend/lib/validation.test.mjs` check the same cases as `backend/pkg/handlers/validation_test.go`, so the register page and the server agree on every rule. Change both when a rule changes.
 
 The current results are recorded in the [Phase 5 report](docs/phase5-progress-report.md). The 17 October 2026 verification passed the backend tests, race detector, vet, frontend production build, Docker image build, container startup, health checks, and fresh-volume migration startup check. Browser smoke checks also confirmed the login and registration routes, unauthenticated protection for private routes, a responsive 390px registration layout, and rejection of non-image avatar selections.
 
