@@ -12,6 +12,7 @@ A full-stack social network with a Formula-racing look: profiles, follow request
 - Session-based authentication with HTTP-only cookies and bcrypt password hashes
 - Registration checks the email format, a strong password (8+ characters, upper and lower case, a number and a special character, ticked off live under the field) and an age of 7 to 120, in the browser and again on the server, with each error shown next to its field
 - Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout. On `/verify` they can fix a mistyped email, start over or log out, and an account left unverified for 24 hours is deleted
+- "Forgot password?" on the login page: a 6-digit code goes to the email, then a new password is set with the same live checklist; the answers never reveal whether an account exists, requests are rate limited, and a reset signs out every device
 - Public and private profiles (a switch on the profile and in Settings), follow requests, and access-controlled content
 - Settings page: nickname, privacy, about text, avatar, cursor preference and log out
 
