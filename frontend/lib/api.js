@@ -2,17 +2,19 @@
 // through the Next.js rewrite to the backend and cookies are sent automatically.
 
 // fields is the response's { "<field>": "<problem>" } map when it has one
-// (register reports every bad field at once), otherwise null.
+// (register reports every bad field at once), otherwise null. body is the
+// whole JSON response, for the extras some errors carry (retry_after, reason).
 export class ApiError extends Error {
-  constructor(status, message, fields = null) {
+  constructor(status, message, fields = null, body = null) {
     super(message);
     this.status = status;
     this.fields = fields;
+    this.body = body;
   }
 }
 
 // Pages a logged-out visitor may see. Everything else needs a session.
-export const PUBLIC_PAGES = ["/", "/login", "/register"];
+export const PUBLIC_PAGES = ["/", "/login", "/register", "/forgot-password"];
 
 /**
  * api("/api/me")
@@ -43,7 +45,7 @@ export async function api(path, { method = "GET", body, redirectOn401 = true } =
       // no session and be sent to /login again.
       window.location.replace("/login");
     }
-    throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data?.fields || null);
+    throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data?.fields || null, data);
   }
   return data;
 }
