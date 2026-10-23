@@ -103,6 +103,7 @@ func main() {
 		// the email code and logout until the email is verified.
 		RequireVerified: true}
 	handler := middleware.Chain(app.Routes(),
+		middleware.SecurityHeaders, // outermost, so even a 500 from Recover carries them
 		middleware.Recover,
 		middleware.Logger,
 		middleware.CORS(origins...),
