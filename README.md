@@ -1,214 +1,348 @@
-# APEX — Connect at Full Speed.
+# APEX · social-network
 
-A full-stack social network with a Formula-racing look: profiles, follow requests, privacy-aware posts with likes and comments, groups, events, live notifications, and real-time private and group chat.
+**Connect at full speed.** A full-stack social network with profiles, followers, posts, groups, events and real-time chat.
 
-- **Backend:** Go (`net/http`), SQLite (`mattn/go-sqlite3`), `golang-migrate`, `gorilla/websocket`, `bcrypt`, `uuid`
-- **Frontend:** Next.js 15 (App Router, plain JavaScript and CSS, no UI library)
-- **Docs:** [API contract](docs/api.md), [ERD](docs/erd.md), [Phase 5 report](docs/phase5-progress-report.md), [Arabic demo dataset report](docs/arabic-demo-seed-report.md)
+<a href="docs/screenshots/01-landing.webp"><img src="docs/screenshots/01-landing.webp" alt="APEX landing page"></a>
+
+## Contents
+
+- [About](#about)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Tech stack](#tech-stack)
+- [Getting started](#getting-started)
+- [Project structure](#project-structure)
+- [Database](#database)
+- [API](#api)
+- [Security and privacy](#security-and-privacy)
+- [Testing](#testing)
+- [Team](#team)
+
+## About
+
+APEX is our Reboot01 **social-network** project: a Facebook-like social network.
+People sign up, choose who can see their profile and posts, follow each other, join groups, plan events and chat in real time.
+The Go backend enforces every rule, so privacy does not depend on the browser.
+The Next.js frontend gives it a dark, Formula-racing look that works from desktop down to phone width.
 
 ## Features
 
-**Accounts and privacy**
-- Session-based authentication with HTTP-only cookies and bcrypt password hashes
-- Registration checks the email format, a strong password (8+ characters, upper and lower case, a number and a special character, ticked off live under the field) and an age of 7 to 120, in the browser and again on the server, with each error shown next to its field
-- Email verification is required: until a user enters the 6-digit code emailed to them, every page sends them to `/verify` and the API answers `403` to everything except `/api/me`, the code routes and logout. On `/verify` they can fix a mistyped email, start over or log out, and an account left unverified for 24 hours is deleted
-- "Forgot password?" on the login page: a 6-digit code goes to the email, then a new password is set with the same live checklist; the answers never reveal whether an account exists, requests are rate limited, and a reset signs out every device
-- Public and private profiles (a switch on the profile and in Settings), follow requests, and access-controlled content
-- Settings page: nickname, privacy, about text, avatar, cursor preference and log out
+### Accounts & security
 
-**Posts**
-- Posts and comments with JPEG, PNG, GIF and WebP images up to 50 MB, and three privacy levels (public, followers, chosen followers)
-- Likes on posts
-- New posts, comments and like counts appear live on every open page that may show them, with no reload
-- People search
+- Sign up with email, password, first and last name and date of birth; nickname, about me and avatar are optional.
+- A live checklist under the password field: 8+ characters, upper and lower case, a number and a special character.
+- Every rule is checked in the browser and again on the server, with the error shown next to its field.
+- Email verification with a 6-digit code. Until it is entered, only the verify page works. A mistyped email can be changed there.
+- Accounts left unverified for 24 hours are deleted, so their email can be used again.
+- "Forgot password?": a code by email, then a new password. The answers never reveal whether an account exists, and a reset signs out every device.
 
-**Groups and chat**
-- Groups, invitations, join requests, events with RSVPs, and group-only posts
-- Private chat and group chat over authenticated WebSockets, with emoji, day separators and unread badges
+### Profiles & followers
 
-**Notifications**
-- Live notifications with a bell, an unread-message badge and pop-up toasts
-- Pages also re-check every 20–30 seconds and whenever the tab gets focus, so nothing is missed after a dropped connection or a sleeping laptop
+- Public or private profile, switched on the profile page or in Settings.
+- Following a public profile is instant. A private profile gets a follow request to accept or decline.
+- A profile shows the user's details, posts, followers and following. A private profile shows only the name and avatar to non-followers.
+- People search by name or nickname.
+- Settings for nickname (unique), about me, avatar, privacy and the optional racing-car mouse cursor.
 
-**Design**
-- Carbon-black theme with racing red and cyan, Space Grotesk and DM Sans fonts (self-hosted)
-- Landing page with a floating Formula car, starting-light loaders, a launch animation on log in and a farewell animation on log out
-- Optional Formula-car mouse cursor (Settings), collapsible sidebar, responsive down to phone width, and reduced-motion support
-- Branded HTML emails (welcome and verification code) with the APEX logo
+### Posts & comments
 
-## Quick start with Docker
+- Posts and comments with text, an image or a GIF (JPEG, PNG, GIF or WebP, up to 50 MB).
+- Three privacy levels per post: **public**, **almost private** (followers only) and **private** (only the followers you pick).
+- Likes, and deleting your own posts and comments (a post's author can also remove comments on it).
+- New posts, comments and like counts appear live, without a reload.
 
-```sh
+### Groups & events
+
+- Create groups, browse all groups, and filter them by title or description.
+- Join by invitation from any member, or by a join request that the creator accepts.
+- Group posts, comments, members and events are visible to members only.
+- Events with a title, description and date. Members answer **Going** or **Not going**.
+
+### Chat
+
+- Private chat between two users when at least one follows the other.
+- One chat room per group, for members only.
+- Real-time messages over WebSockets, with an emoji picker, a typing indicator, day separators and unread badges.
+- Messages are stored, so offline users see them on their next visit.
+
+### Notifications
+
+- A bell with live notifications: follow requests, group invitations, join requests, new events, new followers and accepted requests.
+- Follow requests, invitations and join requests can be answered right from the bell.
+- Unread badges for notifications and for messages, pop-up toasts, and "Mark all as read".
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><a href="docs/screenshots/02-register.webp"><img src="docs/screenshots/02-register.webp" alt="Register page"></a><br><b>Register</b>: the password checklist ticks off as you type</td>
+    <td><a href="docs/screenshots/03-login.webp"><img src="docs/screenshots/03-login.webp" alt="Login page"></a><br><b>Log in</b> with email and password</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/04-verify.webp"><img src="docs/screenshots/04-verify.webp" alt="Verify email page"></a><br><b>Verify email</b> with a 6-digit code</td>
+    <td><a href="docs/screenshots/05-forgot-password.webp"><img src="docs/screenshots/05-forgot-password.webp" alt="Forgot password page"></a><br><b>Forgot password</b>: a reset code by email</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/06-feed.webp"><img src="docs/screenshots/06-feed.webp" alt="Feed"></a><br><b>Feed</b> with friends and suggested groups</td>
+    <td><a href="docs/screenshots/07-create-post.webp"><img src="docs/screenshots/07-create-post.webp" alt="Create post dialog"></a><br><b>New post</b> with an image and the privacy picker</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/08-profile.webp"><img src="docs/screenshots/08-profile.webp" alt="Own profile"></a><br><b>Own profile</b> with the privacy switch</td>
+    <td><a href="docs/screenshots/09-private-profile.webp"><img src="docs/screenshots/09-private-profile.webp" alt="Private profile seen by a stranger"></a><br><b>Private profile</b> seen by someone who does not follow</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/10-followers.webp"><img src="docs/screenshots/10-followers.webp" alt="Followers tab"></a><br><b>Followers</b>, with a pending follow request</td>
+    <td><a href="docs/screenshots/11-notifications.webp"><img src="docs/screenshots/11-notifications.webp" alt="Notification bell open"></a><br><b>Notifications</b>, answered from the bell</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/12-groups.webp"><img src="docs/screenshots/12-groups.webp" alt="Groups browser"></a><br><b>Groups</b>: invitations, your groups and more to discover</td>
+    <td><a href="docs/screenshots/13-group.webp"><img src="docs/screenshots/13-group.webp" alt="Group page"></a><br><b>Group page</b> with members-only posts</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/14-group-events.webp"><img src="docs/screenshots/14-group-events.webp" alt="Group events"></a><br><b>Events</b> with Going / Not going</td>
+    <td><a href="docs/screenshots/15-chat.webp"><img src="docs/screenshots/15-chat.webp" alt="Private chat"></a><br><b>Private chat</b> with emoji and unread badges</td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/16-group-chat.webp"><img src="docs/screenshots/16-group-chat.webp" alt="Group chat"></a><br><b>Group chat</b> for the members</td>
+    <td><a href="docs/screenshots/17-settings.webp"><img src="docs/screenshots/17-settings.webp" alt="Settings page"></a><br><b>Settings</b>: nickname, privacy, about me and avatar</td>
+  </tr>
+</table>
+
+### On a phone
+
+<table>
+  <tr>
+    <td><a href="docs/screenshots/18-phone-feed.webp"><img src="docs/screenshots/18-phone-feed.webp" alt="Feed on a phone" width="240"></a><br><b>Feed</b></td>
+    <td><a href="docs/screenshots/19-phone-chat.webp"><img src="docs/screenshots/19-phone-chat.webp" alt="Chat on a phone" width="240"></a><br><b>Chat</b></td>
+    <td><a href="docs/screenshots/20-phone-profile.webp"><img src="docs/screenshots/20-phone-profile.webp" alt="Profile on a phone" width="240"></a><br><b>Profile</b></td>
+  </tr>
+</table>
+
+The screenshots use made-up demo users and pictures.
+
+## Tech stack
+
+| Part | Technology |
+|---|---|
+| Backend | Go (`net/http` standard library router), SQLite (`mattn/go-sqlite3`), `golang-migrate`, `gorilla/websocket`, `bcrypt` (`golang.org/x/crypto`), `google/uuid` |
+| Frontend | Next.js 15 (App Router) and React 19, plain JavaScript and CSS, self-hosted fonts |
+| Containers | Docker multi-stage images for the backend and the frontend, Docker Compose |
+
+Only the packages allowed by the project are used. The backend has no web framework and no ORM. The frontend has no UI library, and its unit tests use Node's built-in test runner.
+
+## Getting started
+
+### With Docker
+
+From the project root:
+
+```bash
 docker compose up --build
 ```
 
-Open the frontend at http://localhost:3000. The backend health endpoint is http://localhost:8080/api/health.
+| Service | URL |
+|---|---|
+| Frontend (open this one) | http://localhost:3000 |
+| Backend health check | http://localhost:8080/api/health |
 
-| Image | Container port | URL |
-|---|---|---|
-| `social-network-frontend` | 3000 | http://localhost:3000 (open this one) |
-| `social-network-backend` | 8080 | http://localhost:8080/api/health |
+The database and uploaded images live in the named volumes `db-data` and `uploads`, so they survive restarts.
 
-The SQLite database and uploaded images are stored in the named volumes `db-data` and `uploads`, so they survive container restarts. To reset all local data and apply every migration from scratch, run:
-
-```sh
-docker compose down -v && docker compose up --build
+```bash
+docker compose logs -f backend   # backend log (email codes in console mode)
+docker compose down              # stop, keep the data
+docker compose down -v           # stop and delete all data
 ```
 
-Stop the stack without deleting data with:
+### Without Docker
 
-```sh
-docker compose down
-```
+Requirements:
 
-## Starting accounts
+- **Go 1.26+** with cgo, which needs a C compiler (`gcc`) for SQLite.
+- **Node.js 22** (20.11 or newer works) and npm.
+- **Windows:** install a MinGW-w64 `gcc` (for example from MSYS2 or TDM-GCC), add it to `PATH`, and check that `go env CGO_ENABLED` prints `1`. If a built `.exe` refuses to start, build with `go build -ldflags="-s -w"`, as the Dockerfile does.
 
-The repository ships a starting database, [`backend/pkg/db/initial/social-network.db`](backend/pkg/db/initial), with the images it uses. When the backend starts and finds no database yet (a fresh clone, or after `docker compose down -v`), it copies that one in; an existing database is never touched. It holds these two accounts, abs's first post ("Im the webmaster") with its replies and likes, and their chat. Do not use these passwords in production:
+Start the backend (http://localhost:8080):
 
-| User | Login email | Password |
-|---|---|---|
-| abs (user 1, the webmaster) | `abbasazhar20200@gmail.com` | `P@ssw0rd` |
-| Developer (user 2) | `demo@social-network.local` | `DemoPass123!` |
-
-The application uses email as the login identifier. `docker compose down -v` deletes all data; on the next start the backend installs the starting database again.
-
-## Verification
-
-Run the backend checks from `backend/`:
-
-```sh
-go test ./...
-go test -race ./...
-go vet ./...
-```
-
-Run the frontend unit tests (Node's built-in test runner, no extra packages) and the production build from `frontend/`:
-
-```sh
-npm ci
-npm test
-npm run build
-```
-
-The frontend tests in `frontend/lib/validation.test.mjs` check the same cases as `backend/pkg/handlers/validation_test.go`, so the register page and the server agree on every rule. Change both when a rule changes.
-
-The current results are recorded in the [Phase 5 report](docs/phase5-progress-report.md). The 17 October 2026 verification passed the backend tests, race detector, vet, frontend production build, Docker image build, container startup, health checks, and fresh-volume migration startup check. Browser smoke checks also confirmed the login and registration routes, unauthenticated protection for private routes, a responsive 390px registration layout, and rejection of non-image avatar selections.
-
-The WebSocket server uses a two-minute idle timeout. The frontend production dependency audit currently reports one moderate and one high advisory through Next.js/PostCSS; resolving them requires the breaking `npm audit fix --force` upgrade to Next.js 16 and was intentionally left for a dependency upgrade review.
-
-## Run locally without Docker
-
-Requires Go 1.26+ with a C compiler (CGO is needed for SQLite) and Node.js 20+.
-
-```sh
-# Terminal 1
+```bash
 cd backend
 go run .
+```
 
-# Terminal 2
+Start the frontend (http://localhost:3000) in a second terminal:
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The local frontend runs at http://localhost:3000 and proxies API, upload, and WebSocket traffic to the backend at http://localhost:8080.
+The frontend proxies `/api`, `/uploads` and `/ws` to the backend, so the browser only talks to port 3000. Set `BACKEND_URL` before `npm run dev` (or `npm run build`) if the backend runs somewhere else.
 
-Backend environment variables (all optional):
+### Configuration
 
-| Variable | Default |
-|---|---|
-| `PORT` | `8080` |
-| `DB_PATH` | `data/social-network.db` |
-| `UPLOAD_DIR` | `uploads` |
-| `MIGRATIONS_PATH` | `file://pkg/db/migrations/sqlite` |
-| `FRONTEND_ORIGIN` | `http://localhost:3000,http://127.0.0.1:3000`: comma-separated list of the browser origins allowed to open `/ws` (exact matches, no wildcard), also used for CORS when the frontend calls `:8080` directly |
-| `COOKIE_SECURE` | unset. Set to `1` when the site is served over HTTPS, to add the `Secure` flag to the session cookie |
+All settings are optional. Copy the example file and edit what you need:
 
-## Email and verification
+```bash
+cp backend/.env.example backend/.env
+```
 
-The backend sends email through Gmail SMTP with an App Password. Until credentials are set it runs in **console mode**: every email (and every verification code) is printed in the backend log instead of being sent, so the app and its tests work without them.
-
-1. Use a Gmail address for the app and turn on 2-Step Verification for it.
-2. Create an App Password at https://myaccount.google.com/apppasswords (16 letters).
-3. Copy the settings file to the project root and fill in only the two credential lines:
-
-   ```sh
-   cp backend/.env.example .env
-   ```
-
-   Then set `SMTP_USER=yourapp@gmail.com` and `SMTP_PASS=abcd efgh ijkl mnop` in `.env`, and restart the backend (`docker compose up -d --build backend`).
-
-4. Check the login and send yourself a test email:
-
-   ```sh
-   go run ./cmd/test-email
-   go run ./cmd/test-email -otp
-   ```
-
-`.env` is git-ignored and kept out of Docker images; never commit the App Password. Docker Compose reads `.env` in the project root and `backend/.env` when they exist; `go run .` finds `.env` in `backend/` or any parent folder. The backend log says `email: Gmail login OK` when the credentials work. If port 587 is blocked on your network, use `SMTP_PORT=465` and `SMTP_SECURE=true`.
+`go run .` reads `backend/.env` (or a `.env` in a parent folder), and Docker Compose reads `backend/.env` and `./.env`. Variables already set in the environment win.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SMTP_USER`, `SMTP_PASS` | empty | Gmail address and its App Password; empty means console mode |
+| `PORT` | `8080` | Backend port |
+| `DB_PATH` | `data/social-network.db` | SQLite database file |
+| `UPLOAD_DIR` | `uploads` | Folder for uploaded images |
+| `MIGRATIONS_PATH` | `file://pkg/db/migrations/sqlite` | Migration files |
+| `FRONTEND_ORIGIN` | `http://localhost:3000,http://127.0.0.1:3000` | Browser origins allowed to open the WebSocket (comma-separated) |
+| `COOKIE_SECURE` | unset | `1` adds the `Secure` flag to the session cookie (use it behind HTTPS) |
+| `SMTP_USER`, `SMTP_PASS` | empty | Gmail address and its App Password. Empty means console mode |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | `smtp.gmail.com`, `587`, `false` | Mail server |
 | `MAIL_FROM_NAME` | `APEX` | Sender name |
-| `OTP_LENGTH`, `OTP_TTL_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_SECONDS` | `6`, `10`, `5`, `60` | Verification code rules |
+| `OTP_LENGTH`, `OTP_TTL_MINUTES`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_SECONDS` | `6`, `10`, `5`, `60` | Email code rules |
 
-After registering, users land on `/verify`, where a code is emailed to them. A mistyped email can be changed there (a new code goes to the new address), and "Start over" deletes the unverified account so its email can be registered again; accounts still unverified after 24 hours are deleted automatically. Verification is required: until the code is entered, the rest of the site is locked (pages redirect to `/verify`, the API answers `403 verify your email first`). In console mode, read the code with `docker compose logs backend`.
+**Email.** The backend sends its emails (welcome, verification code, reset code, password changed) in one of two modes:
 
-## Migrations and database reset
+- **Console mode** (default, no setup): `SMTP_USER` and `SMTP_PASS` are empty, nothing is sent, and every email, with its code, is printed in the backend terminal. With Docker, read it with `docker compose logs backend`.
+- **SMTP with Gmail:** turn on 2-Step Verification for a Gmail account, create an App Password at https://myaccount.google.com/apppasswords, and put the address and the 16-letter password in `SMTP_USER` and `SMTP_PASS`. Restart the backend (`docker compose up -d --force-recreate backend` with Docker). The log then says `email: Gmail login OK`. If port 587 is blocked, use `SMTP_PORT=465` and `SMTP_SECURE=true`.
 
-Migrations live in `backend/pkg/db/migrations/sqlite` as `NNNNNN_name.up.sql` / `.down.sql`. All pending ones are applied on every start.
+Check the SMTP settings by sending yourself a test email (to `SMTP_USER`, or `-to` another address). Without credentials it stops and asks you to fill them in.
 
-```sh
+```bash
 cd backend
-go run . -migrate=down
-go run .
+go run ./cmd/test-email          # a plain test email
+go run ./cmd/test-email -otp     # a sample verification code email
 ```
 
-Every new table or column requires a new numbered migration. Never edit a migration that has already been merged. Pending migrations are applied automatically when the backend starts.
+`.env` is git-ignored and kept out of the Docker images. Never commit real credentials.
 
-Rolling back `000014_add_group_id_to_posts` deletes every group post (the `group_id` column they depend on is dropped; their comments go with them). Their image files are **not** deleted: they stay in `uploads/` with nothing pointing to them. `/uploads/` treats a file that belongs to no post or comment like an avatar, so any logged-in user who knows its URL can still fetch it. Delete those files by hand after such a rollback.
+### Demo account
 
-## Documentation
+A fresh clone starts from the database shipped in [`backend/pkg/db/initial`](backend/pkg/db/initial). The backend copies it in when no database exists yet (first start, or after `docker compose down -v`). It never touches an existing database.
 
-- [API contract](docs/api.md): routes, request bodies, responses, and WebSocket envelopes
-- [ERD](docs/erd.md): database tables and relationships
-- [Phase 5 report](docs/phase5-progress-report.md): verification evidence, decisions, and remaining optional coverage
+| Email | Password |
+|---|---|
+| `demo@social-network.local` | `DemoPass123!` |
+
+It also holds the webmaster's account and first post. These passwords are for local development only.
 
 ## Project structure
 
+```text
+social-network/
+├── backend/
+│   ├── server.go             entry point: settings, database, migrations, routes, shutdown
+│   ├── cmd/test-email/       sends a test email to check the SMTP settings
+│   └── pkg/
+│       ├── db/initial/       starting database and its images, copied in on first start
+│       ├── db/migrations/    numbered .up.sql / .down.sql files
+│       ├── db/sqlite/        opens SQLite (foreign keys, WAL) and runs the migrations
+│       ├── handlers/         all routes, one file per feature
+│       ├── mail/             SMTP mailer, console mode and email templates
+│       ├── middleware/       security headers, panic recovery, logging, CORS, auth
+│       ├── models/           structs shared by the database and the JSON
+│       ├── otp/              email codes: hashed, expiring, limited tries
+│       ├── session/          sessions table and the session cookie
+│       └── ws/               WebSocket hub: connections, pings, size and rate limits
+├── frontend/
+│   ├── app/                  pages: landing and feed, login, register, verify, forgot-password,
+│   │                         profile, search, groups, chats, settings
+│   ├── components/           navbar, post card, composer, chat window, notification bell, ...
+│   ├── lib/                  API client, validation, hooks and their unit tests
+│   ├── public/               self-hosted fonts and landing images
+│   └── next.config.mjs       proxies /api, /uploads and /ws to the backend
+├── docs/                     API contract, ERD and screenshots
+└── docker-compose.yml        backend and frontend with named volumes
 ```
-backend/
-├── server.go                  entry point: config, DB, migrations, middleware, server
-└── pkg/
-    ├── db/
-    │   ├── migrations/sqlite/ numbered .up.sql / .down.sql files
-    │   └── sqlite/sqlite.go   connection (FKs, WAL, busy timeout) + migrate up/down
-    ├── mail/                  Gmail SMTP mailer (console mode without credentials) and email templates
-    ├── otp/                   one-time verification codes: hashed, expiring, limited tries, resend cooldown
-    ├── handlers/              routes and one file per feature (auth, otp, verified, profiles, follows, posts,
-    │                          likes, comments, live, notifications, groups, events, messages,
-    │                          group_messages, upload)
-    ├── middleware/            logging, panic recovery, CORS, RequireAuth
-    ├── models/                structs shared by DB and JSON
-    ├── session/               sessions table + session_id cookie
-    └── ws/                    WebSocket hub: live connections per user, push JSON events, hand incoming
-                               frames (chat) to a handler
-frontend/
-├── app/                       Next.js pages: landing/feed, login, register, verify, profile, search,
-│                              groups, chats, settings; apex.css holds the whole theme
-├── components/                Navbar (sidebar), AuthProvider (current user, route guard, verification gate,
-│                              logout animation), RealtimeProvider (one WebSocket per tab), NotificationBell,
-│                              Toaster (notify() pop-ups), Landing, LaunchOverlay, RacingLights, RacingCursor,
-│                              PostComposer, NewPostButton, PostCard (likes + live comments), PostList,
-│                              FollowButton, FollowRequests, UserList, Avatar, Field, Icon, ImagePicker,
-│                              GroupJoinButton, GroupEvents, InviteDialog, JoinRequests, Modal,
-│                              ChatWindow (private and group chat), EmojiPicker, MessageButton,
-│                              UnreadMessages, Footer
-├── lib/api.js                 fetch wrapper (credentials, JSON errors, 401 → /login)
-├── lib/usePagedPosts.js       newest-first post lists with "Load more" and live refresh of the top
-├── lib/useAutoRefresh.js      re-checks data on a timer and when the tab gets focus
-├── public/fonts/              Space Grotesk and DM Sans
-└── next.config.mjs            proxies /api, /uploads, /ws to the backend (2-minute idle timeout)
+
+## Database
+
+SQLite with 18 tables. The full diagram and the constraints are in [docs/erd.md](docs/erd.md).
+
+| Area | Tables |
+|---|---|
+| Accounts | `users`, `sessions`, `otp_codes`, `password_reset_tokens` |
+| Followers | `follows` (a pending row is a follow request) |
+| Posts | `posts`, `post_viewers`, `post_likes`, `comments` |
+| Groups | `groups`, `group_members`, `group_invites`, `group_requests`, `events`, `event_responses` |
+| Chat | `messages`, `group_messages` |
+| Notifications | `notifications` |
+
+<a href="docs/erd.webp"><img src="docs/erd.webp" alt="Database diagram: the 18 tables and their keys"></a>
+
+**Migrations.** Every table and column comes from a numbered migration in `backend/pkg/db/migrations/sqlite` (`NNNNNN_name.up.sql` and `.down.sql`), run with `golang-migrate`. The backend applies all pending migrations every time it starts.
+
+To roll back every migration, run this from `backend/`. It drops all tables, so **all data is lost**, then exits:
+
+```bash
+go run . -migrate=down
 ```
+
+The next `go run .` creates empty tables again. To get the shipped starting database back instead, stop the backend and delete the `backend/data` folder. A change to the schema always needs a new migration; never edit one that is already merged.
+
+## API
+
+The browser only talks to the frontend; Next.js forwards `/api/*`, `/uploads/*` and `/ws` to the backend. JSON uses `snake_case`, and every error looks like `{"error": "message"}`. The full contract is in [docs/api.md](docs/api.md).
+
+| Area | Main endpoints |
+|---|---|
+| Health | `GET /api/health` |
+| Auth | `POST /api/register`, `POST /api/login`, `POST /api/logout`, `GET /api/me`, `GET /api/nicknames/available` |
+| Email verification | `POST /api/otp/send`, `POST /api/otp/verify`, `PATCH /api/me/email`, `DELETE /api/me` |
+| Password reset | `POST /api/password/forgot`, `POST /api/password/verify-code`, `POST /api/password/reset` |
+| Profiles | `GET /api/users?search=`, `GET /api/users/{id}`, `PATCH /api/me`, `PATCH /api/me/privacy` |
+| Followers | `POST` / `DELETE /api/users/{id}/follow`, `GET /api/follow-requests`, `POST /api/follow-requests/{userId}/accept` or `/decline`, `GET /api/users/{id}/followers`, `GET /api/users/{id}/following` |
+| Posts | `GET /api/feed`, `GET /api/users/{id}/posts`, `POST /api/posts`, `GET` / `DELETE /api/posts/{id}`, `POST` / `DELETE /api/posts/{id}/like` |
+| Comments | `GET` / `POST /api/posts/{id}/comments`, `DELETE /api/posts/{id}/comments/{commentId}` |
+| Groups | `GET` / `POST /api/groups`, `GET /api/groups/{id}`, invitations (`/invite`, `/api/group-invites/{id}/...`), join requests (`/request`, `/requests`, `/api/group-requests/{id}/...`), `GET` / `POST /api/groups/{id}/posts` |
+| Events | `GET` / `POST /api/groups/{id}/events`, `POST /api/events/{id}/respond` |
+| Chat history | `GET /api/conversations`, `GET /api/chat-contacts`, `GET /api/messages/{userId}`, `POST /api/messages/{userId}/read`, `GET /api/messages/unread-count`, `GET /api/groups/{id}/messages` |
+| Notifications | `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all` |
+| Images | `GET /uploads/{file}` |
+
+**WebSocket `/ws`.** One authenticated connection per tab. Every frame is a JSON envelope: `{"type", "request_id", "payload"}`.
+
+| Direction | Event types |
+|---|---|
+| Browser to server | `private_message`, `group_message`, `typing` |
+| Server to browser | `private_message`, `group_message`, `typing`, `messages_read`, `notification`, `notification_removed`, `group_changed`, `post_created`, `comment_created`, `post_likes`, `post_deleted`, `comment_deleted`, `error` |
+
+## Security and privacy
+
+- **Sessions:** a random UUID in the `session_id` cookie (HttpOnly, SameSite=Lax, 7 days, `Secure` with `COOKIE_SECURE=1`). The session lives in the database; logout deletes it, and a password reset deletes every session of the user.
+- **Passwords:** stored as bcrypt hashes, never in plain text. The strong-password rules apply at sign-up and at reset.
+- **Codes and tokens:** email codes are stored as salted SHA-256 hashes. They expire after 10 minutes and allow 5 tries. Reset tokens are hashed, single use and valid for 15 minutes.
+- **Access rules in the backend:** profile privacy, post privacy (one SQL condition used by every query that returns posts), members-only groups and the chat follow rule are all checked on the server. The chat and like rules are checked inside the `INSERT` itself. Something you may not see answers `404`, exactly like something that does not exist.
+- **Uploads:** the type is detected from the file bytes (JPEG, PNG, GIF or WebP), images are capped at 50 MB, and files get random UUID names. They are served only to logged-in users, and post images only to users who may see the post. There is no folder listing.
+- **Rate limits:** one email code per 60 seconds; 5 password reset requests per hour per email address and per client; WebSocket frames are limited to 16 KB and 10 per second per connection.
+- **Headers and origins:** every response sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`. The WebSocket only accepts the browser origins in `FRONTEND_ORIGIN`.
+- **Logs:** the backend log prints each password reset code on purpose, for the audit.
+
+## Testing
+
+Backend (from `backend/`):
+
+```bash
+go test ./...
+go test -race ./...
+go vet ./...
+```
+
+Frontend (from `frontend/`):
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+The backend tests cover validation, password reset, email codes, unverified accounts, uploads, sessions, middleware, mail and the WebSocket hub. The frontend tests (`lib/*.test.mjs`) check the same validation cases as `backend/pkg/handlers/validation_test.go`, so the register page and the server always agree. Change both when a rule changes.
+
+## Team
+
+| Name | Role |
+|---|---|
+| `<name>` | `<role>` |
+| `<name>` | `<role>` |
+| `<name>` | `<role>` |
+| `<name>` | `<role>` |
