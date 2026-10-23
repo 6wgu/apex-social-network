@@ -203,7 +203,7 @@ func nameProblem(name, label string) string {
 // validateNickname and validateAbout are shared by register and edit profile.
 func validateNickname(s string) string {
 	if utf8.RuneCountInString(s) > maxNicknameLen {
-		return "nickname must be 30 characters or fewer"
+		return fmt.Sprintf("nickname must be %d characters or fewer", maxNicknameLen)
 	}
 	if s == "" {
 		return ""
@@ -226,7 +226,7 @@ func isNicknameLetter(c byte) bool {
 
 func validateAbout(s string) string {
 	if utf8.RuneCountInString(s) > maxAboutLen {
-		return "about me must be 500 characters or fewer"
+		return fmt.Sprintf("about me must be %d characters or fewer", maxAboutLen)
 	}
 	return ""
 }
