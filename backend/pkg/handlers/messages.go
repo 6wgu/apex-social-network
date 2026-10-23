@@ -14,45 +14,31 @@ import (
 	"social-network/pkg/ws"
 )
 
-// Private messages. Two users may write to each other while at least one of
-// them follows the other with an accepted follow. The rule is checked inside
-// the INSERT of every message, so it holds at the moment of storing: an
-// unfollow blocks the very next message. Messages already exchanged stay
-// readable by both.
-
 const (
-	maxMessageLen   = 2000 // characters (runes), not bytes, so emojis count as one or a few
+	maxMessageLen   = 2000
 	messagesPerPage = 50
 
-	// WebSocket event types for private messages.
-	eventPrivateMessage = "private_message" // both ways; server -> client payload: message
-	eventMessagesRead   = "messages_read"   // server -> client: {"user_id": 7}, I read that conversation in another tab
+	eventPrivateMessage = "private_message"
+	eventMessagesRead   = "messages_read"
 
 	errNotAllowedToMessage = "you can only message people you follow or who follow you"
 )
 
-// canMessageSQL is the follow rule as a SQL condition: users ?1 and ?2 may
-// exchange messages when either follows the other with an accepted follow.
-// SQL constant: never built from user input; every value is a bound parameter.
 const canMessageSQL = `EXISTS (SELECT 1 FROM follows f WHERE f.status = 'accepted'
 	AND ((f.follower_id = ?1 AND f.following_id = ?2) OR (f.follower_id = ?2 AND f.following_id = ?1)))`
 
-// message is the JSON shape of a private message.
 type message struct {
 	ID          int64              `json:"id"`
 	Sender      models.UserSummary `json:"sender"`
 	RecipientID int64              `json:"recipient_id"`
 	Content     string             `json:"content"`
 	CreatedAt   string             `json:"created_at"`
-	ReadAt      *string            `json:"read_at"` // null until the recipient opens the conversation
+	ReadAt      *string            `json:"read_at"`
 }
 
-// messageColumns selects a message (alias m) with its sender (alias s).
-// SQL constant: never built from user input; every value is a bound parameter.
 const messageColumns = `m.id, m.recipient_id, m.content, strftime('%Y-%m-%d %H:%M:%S', m.created_at),
 	strftime('%Y-%m-%d %H:%M:%S', m.read_at), s.id, s.first_name, s.last_name, s.nickname, s.avatar_path`
 
-// SQL constant: never built from user input; every value is a bound parameter.
 const messageFrom = `FROM messages m JOIN users s ON s.id = m.sender_id`
 
 func scanMessage(row interface{ Scan(...any) error }, extra ...any) (message, error) {
@@ -68,8 +54,6 @@ func scanMessage(row interface{ Scan(...any) error }, extra ...any) (message, er
 	return m, err
 }
 
-// checkMessageText trims s and checks it is not empty and at most
-// maxMessageLen characters. It returns the trimmed text and a problem ("" when fine).
 func checkMessageText(s string) (string, string) {
 	s = strings.TrimSpace(s)
 	switch {
@@ -83,14 +67,12 @@ func checkMessageText(s string) (string, string) {
 	return s, ""
 }
 
-// decodePayload reads a frame's payload into dst, rejecting unknown fields.
 func decodePayload(raw json.RawMessage, dst any) bool {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	return len(raw) > 0 && dec.Decode(dst) == nil
 }
 
-// handleSocketEvent dispatches every frame a browser sends over /ws.
 func (a *App) handleSocketEvent(c *ws.Client, in ws.Incoming) {
 	switch in.Type {
 	case eventPrivateMessage:
@@ -104,11 +86,6 @@ func (a *App) handleSocketEvent(c *ws.Client, in ws.Incoming) {
 	}
 }
 
-// sendPrivateMessage handles a private_message frame:
-// {"type":"private_message","request_id":"r1","payload":{"recipient_id":7,"content":"hi"}}.
-// The message is stored only if the follow rule allows it at that moment;
-// then it is pushed to the recipient's tabs and to all of the sender's tabs
-// (the sending tab gets it with its request_id, as the confirmation).
 func (a *App) sendPrivateMessage(c *ws.Client, in ws.Incoming) {
 	var p struct {
 		RecipientID int64  `json:"recipient_id"`
@@ -129,8 +106,6 @@ func (a *App) sendPrivateMessage(c *ws.Client, in ws.Incoming) {
 		return
 	}
 
-	// The follow rule is part of the INSERT: nothing is stored unless it
-	// holds when the row is written.
 	res, err := a.DB.Exec(`INSERT INTO messages (sender_id, recipient_id, content)
 		SELECT ?1, ?2, ?3 WHERE `+canMessageSQL, me, p.RecipientID, content)
 	if err != nil {
@@ -165,13 +140,11 @@ func (a *App) sendPrivateMessage(c *ws.Client, in ws.Incoming) {
 	a.Hub.Reply(c, eventPrivateMessage, in.RequestID, m)
 }
 
-// socketServerError logs an unexpected failure and tells the tab, without details.
 func (a *App) socketServerError(c *ws.Client, in ws.Incoming, err error) {
 	log.Printf("internal error (%s from user %d): %v", in.Type, c.UserID(), err)
 	a.Hub.ReplyError(c, in, "internal server error")
 }
 
-// chatPartnerFromPath reads {userId}: 404 for an unknown user, 400 for yourself.
 func (a *App) chatPartnerFromPath(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	other, ok := a.userIDFromPath(w, r, "userId")
 	if !ok {
@@ -184,12 +157,6 @@ func (a *App) chatPartnerFromPath(w http.ResponseWriter, r *http.Request) (int64
 	return other, true
 }
 
-// messageHistory handles GET /api/messages/{userId}?before={messageId}: my
-// conversation with that user, newest first, 50 per page. It is readable
-// while the follow rule allows chatting, and afterwards if messages were
-// already exchanged (they are the reader's own conversation). Anyone else
-// gets 403: a third user never sees a conversation they are not part of,
-// because the query only ever selects messages between me and {userId}.
 func (a *App) messageHistory(w http.ResponseWriter, r *http.Request) {
 	other, ok := a.chatPartnerFromPath(w, r)
 	if !ok {
@@ -235,9 +202,6 @@ func (a *App) messageHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
-// markConversationRead handles POST /api/messages/{userId}/read: every
-// message {userId} sent me is marked read. My other tabs are told
-// (messages_read), so their unread badges drop too.
 func (a *App) markConversationRead(w http.ResponseWriter, r *http.Request) {
 	other, ok := a.chatPartnerFromPath(w, r)
 	if !ok {
@@ -253,8 +217,6 @@ func (a *App) markConversationRead(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// unreadMessages handles GET /api/messages/unread-count: my unread private
-// messages in total. It is separate from the notification count on purpose.
 func (a *App) unreadMessages(w http.ResponseWriter, r *http.Request) {
 	var n int
 	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM messages WHERE recipient_id = ? AND read_at IS NULL`, currentUserID(r)).Scan(&n); err != nil {
@@ -264,17 +226,13 @@ func (a *App) unreadMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"unread": n})
 }
 
-// conversation is one entry of GET /api/conversations.
 type conversation struct {
 	User        models.UserSummary `json:"user"`
 	LastMessage message            `json:"last_message"`
 	UnreadCount int                `json:"unread_count"`
-	CanMessage  bool               `json:"can_message"` // the follow rule, right now
+	CanMessage  bool               `json:"can_message"`
 }
 
-// listConversations handles GET /api/conversations: everyone I have
-// exchanged messages with, the last message and my unread count, most
-// recent conversation first.
 func (a *App) listConversations(w http.ResponseWriter, r *http.Request) {
 	me := currentUserID(r)
 	rows, err := a.DB.Query(`
@@ -317,8 +275,6 @@ func (a *App) listConversations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
-// chatContacts handles GET /api/chat-contacts: everyone I may message right
-// now (I follow them or they follow me, accepted), sorted by name.
 func (a *App) chatContacts(w http.ResponseWriter, r *http.Request) {
 	users, err := a.userSummaries(`
 		SELECT u.id, u.first_name, u.last_name, u.nickname, u.avatar_path

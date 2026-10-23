@@ -28,36 +28,24 @@ import (
 	"social-network/pkg/ws"
 )
 
-// Tests for what an account can do before its email is verified: change the
-// email, start over, and be deleted once abandoned. Run from backend/:
-// go test ./pkg/handlers
-
 const migrationsForTests = "file://../db/migrations/sqlite"
 
-// strongPassword meets every password rule.
 const strongPassword = "Correct-Horse1"
 
-// testEnv is the App as server.go builds it (unverified accounts locked
-// out), on a fresh database and upload folder, behind an httptest server.
-// The code service reads clock and stores codes in codes, and every email
-// is kept in mails instead of being sent.
 type testEnv struct {
 	app   *App
 	url   string
 	clock *testClock
 	codes *codeStore
 
-	mu    sync.Mutex
-	mails []string
-	// slowMail makes every email take this long to send (nanoseconds).
+	mu       sync.Mutex
+	mails    []string
 	slowMail atomic.Int64
 }
 
-// codeStore is the real code store, with an optional pause before every
-// read so that racing requests overlap.
 type codeStore struct {
 	otp.Store
-	pause atomic.Int64 // nanoseconds
+	pause atomic.Int64
 }
 
 func (s *codeStore) Get(p otp.Purpose, subject string) (*otp.Record, error) {
@@ -99,7 +87,6 @@ func newTestEnv(t *testing.T) *testEnv {
 	}
 
 	e := &testEnv{clock: &testClock{now: time.Now()}, codes: &codeStore{Store: otp.SQLStore{DB: db}}}
-	// No SMTP credentials: console mode, which hands every email to Log.
 	mailer := mail.New(mail.Config{FromName: "APEX"})
 	mailer.Log = func(format string, args ...any) {
 		time.Sleep(time.Duration(e.slowMail.Load()))
@@ -117,7 +104,6 @@ func newTestEnv(t *testing.T) *testEnv {
 
 var codeMail = regexp.MustCompile(`(?s)^\[console mode\] email to ([^:]+): .*verification code is (\d{6})`)
 
-// codeMails returns the address and code of every code email, oldest first.
 func (e *testEnv) codeMails() [][2]string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -130,7 +116,6 @@ func (e *testEnv) codeMails() [][2]string {
 	return out
 }
 
-// lastCode returns the newest code email's address and code.
 func (e *testEnv) lastCode(t *testing.T) (to, code string) {
 	t.Helper()
 	all := e.codeMails()
@@ -141,7 +126,6 @@ func (e *testEnv) lastCode(t *testing.T) (to, code string) {
 	return last[0], last[1]
 }
 
-// client is one browser, with its own cookie jar.
 type client struct {
 	t    *testing.T
 	base string
@@ -157,7 +141,6 @@ func (e *testEnv) client(t *testing.T) *client {
 	return &client{t: t, base: e.url, http: &http.Client{Jar: jar}}
 }
 
-// do sends a request and returns the status and the decoded JSON body.
 func (c *client) do(method, path, contentType string, body io.Reader) (int, map[string]any) {
 	c.t.Helper()
 	req, err := http.NewRequest(method, c.base+path, body)
@@ -182,8 +165,6 @@ func (c *client) json(method, path, body string) (int, map[string]any) {
 	return c.do(method, path, "application/json", strings.NewReader(body))
 }
 
-// register signs up through the API, with avatar as the picture when it is
-// not nil, and returns the logged-in browser and the new user's id.
 func (e *testEnv) register(t *testing.T, email string, avatar []byte) (*client, int64) {
 	t.Helper()
 	var buf bytes.Buffer
@@ -245,7 +226,6 @@ func (e *testEnv) markVerified(t *testing.T, id int64) {
 	e.exec(t, `UPDATE users SET is_verified = 1 WHERE id = ?`, id)
 }
 
-// avatarFile returns where the user's avatar is stored on disk.
 func (e *testEnv) avatarFile(t *testing.T, id int64) string {
 	t.Helper()
 	var path string
@@ -285,7 +265,6 @@ func TestChangeEmailWhileUnverified(t *testing.T) {
 		t.Errorf("new code sent to %q, want the new address", to)
 	}
 
-	// The mistyped address is free again.
 	e.register(t, "ada@exmaple.com", nil)
 
 	status, user = c.json("POST", "/api/otp/verify", `{"code":"`+code+`"}`)
@@ -302,7 +281,6 @@ func TestChangeEmailVoidsTheOldCodeAndKeepsTheCooldown(t *testing.T) {
 	}
 	_, oldCode := e.lastCode(t)
 
-	// A code went out a moment ago: changing the email waits like a resend.
 	status, body := c.json("PATCH", "/api/me/email", `{"email":"new@example.com"}`)
 	if status != http.StatusTooManyRequests || body["retry_after"] == nil {
 		t.Fatalf("change during the cooldown = %d %v, want 429 with retry_after", status, body)
@@ -323,15 +301,12 @@ func TestChangeEmailVoidsTheOldCodeAndKeepsTheCooldown(t *testing.T) {
 		t.Fatalf("new code sent to %q, want new@example.com", to)
 	}
 
-	// The code sent to the old address no longer works (unless the two
-	// random codes happen to be equal).
 	if oldCode != newCode {
 		status, body = c.json("POST", "/api/otp/verify", `{"code":"`+oldCode+`"}`)
 		if status != http.StatusBadRequest || body["reason"] != otp.Wrong {
 			t.Fatalf("verify with the old code = %d %v, want 400 wrong", status, body)
 		}
 	}
-	// A new change has to wait again.
 	if status, _ := c.json("PATCH", "/api/me/email", `{"email":"third@example.com"}`); status != http.StatusTooManyRequests {
 		t.Errorf("second change right away = %d, want 429", status)
 	}
@@ -341,8 +316,6 @@ func TestChangeEmailVoidsTheOldCodeAndKeepsTheCooldown(t *testing.T) {
 	}
 }
 
-// Changes and resends racing each other still send a single code (the
-// cooldown), and it goes to the address the account ends up with.
 func TestCodeMatchesTheEmailUnderRacingRequests(t *testing.T) {
 	e := newTestEnv(t)
 	c, id := e.register(t, "race@example.com", nil)
@@ -465,7 +438,6 @@ func TestStartOverDeletesOnlyAnUnverifiedAccount(t *testing.T) {
 	if status, body := c.do("DELETE", "/api/me", "", nil); status != http.StatusNoContent {
 		t.Fatalf("start over = %d %v, want 204", status, body)
 	}
-	// The account goes with its sessions, its code and its avatar file.
 	for query, arg := range map[string]any{
 		`SELECT COUNT(*) FROM users WHERE id = ?`:          id,
 		`SELECT COUNT(*) FROM sessions WHERE user_id = ?`:  id,
@@ -478,7 +450,6 @@ func TestStartOverDeletesOnlyAnUnverifiedAccount(t *testing.T) {
 	if exists(avatar) {
 		t.Error("the avatar file is still on disk")
 	}
-	// The browser is logged out: the cookie is cleared and the session is gone.
 	base, _ := url.Parse(e.url)
 	if cookies := c.http.Jar.Cookies(base); len(cookies) != 0 {
 		t.Errorf("cookies after starting over = %v, want none", cookies)
@@ -489,10 +460,8 @@ func TestStartOverDeletesOnlyAnUnverifiedAccount(t *testing.T) {
 	if n := e.count(t, `SELECT COUNT(*) FROM users WHERE id = ?`, otherID); n != 1 {
 		t.Error("another unverified account was deleted too")
 	}
-	// The email can be registered again.
 	e.register(t, "oops@exmaple.com", nil)
 
-	// A verified account stays, with its avatar and its session.
 	v, vid := e.register(t, "kept@example.com", smallPNG(t))
 	e.markVerified(t, vid)
 	vAvatar := e.avatarFile(t, vid)
@@ -539,7 +508,6 @@ func TestDeleteAbandonedAccounts(t *testing.T) {
 	}
 	e.register(t, "typo@exmaple.com", nil)
 
-	// Once past the limit the recent account goes too; a verified one never does.
 	if n, err := e.app.DeleteAbandonedAccounts(now.Add(2 * time.Minute)); err != nil || n != 1 {
 		t.Fatalf("second pass = %d, %v; want 1", n, err)
 	}
@@ -551,8 +519,6 @@ func TestDeleteAbandonedAccounts(t *testing.T) {
 	}
 }
 
-// An account from before verification was required can own posts; their
-// images and the images of comments on them go with it.
 func TestDeleteAbandonedAccountRemovesItsImages(t *testing.T) {
 	e := newTestEnv(t)
 	_, oldID := e.register(t, "old@example.com", nil)
@@ -587,7 +553,7 @@ func TestCleanUpRunsRightAway(t *testing.T) {
 	e.setCreated(t, id, time.Now().Add(-UnverifiedAccountTTL-time.Hour))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // the first pass still runs, then the loop stops
+	cancel()
 	e.app.CleanUpAbandonedAccounts(ctx)
 	if e.count(t, `SELECT COUNT(*) FROM users WHERE id = ?`, id) != 0 {
 		t.Error("the first pass, at startup, did not delete the abandoned account")

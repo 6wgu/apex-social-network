@@ -242,7 +242,7 @@ A fresh database is filled with six demo accounts with posts, groups, events, ch
 
 ### How the demo data is added
 
-The backend adds it on its first start, when the `users` table is empty: on a fresh clone with `docker compose up --build`, after `docker compose down -v`, or with a new database file when running without Docker. It never touches a database that already has accounts, and it never runs inside `go test`. The data and its images live in [`backend/pkg/db/seed`](backend/pkg/db/seed); the images are copied into the upload folder. Dates are relative to the first start, so posts look recent and events are in the future.
+The backend adds it on its first start, when the `users` table is empty: on a fresh clone with `docker compose up --build`, after `docker compose down -v`, or with a new database file when running without Docker. It never touches a database that already has accounts, and it never runs inside `go test`. The data and its images live in [`backend/pkg/db/seed`](backend/pkg/db/seed); the images are copied into the upload folder. Their sources and licenses are listed in [docs/image-credits.md](docs/image-credits.md). Dates are relative to the first start, so posts look recent and events are in the future.
 
 - **Turn it off:** set `SEED_DEMO=0` (in `backend/.env`, the environment, or `SEED_DEMO=0 docker compose up --build`).
 - **Remove it:** this deletes the six demo accounts and everything they created, and keeps every other account:
@@ -281,7 +281,7 @@ social-network/
 │   ├── lib/                  API client, validation, hooks and their unit tests
 │   ├── public/               self-hosted fonts and landing images
 │   └── next.config.mjs       proxies /api, /uploads and /ws to the backend
-├── docs/                     API contract, ERD and screenshots
+├── docs/                     API contract, ERD, screenshots and image credits
 └── docker-compose.yml        backend and frontend with named volumes
 ```
 

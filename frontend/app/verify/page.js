@@ -9,23 +9,13 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import Field from "@/components/Field";
 import SuccessCheck from "@/components/SuccessCheck";
 
-// The seconds a 429 asks to wait (its message names them), or a minute.
 const secondsToWait = (err) => Number(err.message.match(/\d+/)?.[0] || 60);
 
-// Marks the extra history entry useBackGuard adds, so a reload on it does
-// not add another one.
 const GUARD = "verifyBackGuard";
 
-// While the code is pending, every other page sends the user straight back
-// here, so plain Back would only bounce. Instead an extra history entry for
-// this page sits on top of its own: Back steps down onto the page's own
-// entry and calls onBack. restore() puts the extra entry back when the user
-// stays, so the history never grows; remove() steps down off it before
-// leaving on purpose, so Back on the next page goes where Back from here
-// would have gone.
 function useBackGuard(active, onBack) {
-  const onTop = useRef(false); // the extra entry is the current one
-  const stepping = useRef(null); // remove() waiting for the step down
+  const onTop = useRef(false);
+  const stepping = useRef(null);
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
 
@@ -77,14 +67,10 @@ export default function VerifyPage() {
   const [sending, setSending] = useState(false);
   const [wait, setWait] = useState(0);
   const autoSent = useRef(false);
-  // "Wrong email? Change it": whether the form is open, what is typed in
-  // it and what is wrong with that.
   const [editing, setEditing] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [changing, setChanging] = useState(false);
-  // "Start over": the dialog that asks first, and the delete under way.
-  // Back on this page asks the same.
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const guard = useBackGuard(Boolean(user) && !user.is_verified, () => setConfirming(true));
@@ -144,8 +130,6 @@ export default function VerifyPage() {
     }
   }
 
-  // The server's rules and messages: the email format of the register page,
-  // and not the address the account already has.
   function newEmailProblem(value) {
     const email = value.trim().toLowerCase();
     return emailProblem(email) || (email === user.email ? "that is already your email" : "");
@@ -157,9 +141,6 @@ export default function VerifyPage() {
     setEditing(true);
   }
 
-  // The server checks the address again (a taken one is a 409, as on the
-  // register page), sends a new code there and only then makes it the
-  // account's email. The code sent to the old address stops working.
   async function changeEmail(e) {
     e.preventDefault();
     const problem = newEmailProblem(newEmail);
@@ -186,14 +167,11 @@ export default function VerifyPage() {
     }
   }
 
-  // The dialog was cancelled: stay, with Back guarded again.
   function stay() {
     setConfirming(false);
     guard.restore();
   }
 
-  // Deletes this account, which is not verified yet, so its email can be
-  // registered again, and leaves for the register page logged out.
   async function startOver() {
     setDeleting(true);
     try {

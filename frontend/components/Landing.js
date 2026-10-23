@@ -7,16 +7,12 @@ import RacingLights from "@/components/RacingLights";
 import { CarSvg } from "@/components/RacingCursor";
 import SamplePost from "@/components/SamplePost";
 
-// Each timing sector stands for one part of the app.
 const SECTORS = [
   { key: "s1", label: "S1", name: "Profiles", text: "Choose who sees your profile, posts, and conversations." },
   { key: "s2", label: "S2", name: "Groups", text: "Follow friends, discover groups, and plan events together." },
   { key: "s3", label: "S3", name: "Chat", text: "Message people live, and get notifications that are worth it." },
 ];
 
-// The finish-line start: all five lights red, yellow for 400 ms, then green,
-// and a reaction timer runs below and stops at 0.695 s. It plays while the
-// section is on screen and repeats; with reduced motion it just shows the end.
 const RED_MS = 1400;
 const YELLOW_MS = 400;
 const REACTION_MS = 695;
@@ -84,8 +80,6 @@ function StartSequence() {
   );
 }
 
-// The hero car: launches in when the start lights go out, then floats,
-// with speed streaks behind it and the three sectors tagged around it.
 function HeroCar() {
   return (
     <div className="hero-car" aria-hidden="true">
@@ -111,7 +105,6 @@ function HeroCar() {
   );
 }
 
-// The logged-out home page.
 export default function Landing() {
   return (
     <div className="landing">

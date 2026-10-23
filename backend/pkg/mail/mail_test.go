@@ -27,7 +27,6 @@ func TestLoadDotEnv(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// A variable that is already set wins over the file.
 	t.Setenv("MAILTEST_KEEP", "from environment")
 	keys := []string{"MAILTEST_PLAIN", "MAILTEST_EXPORT", "MAILTEST_QUOTED", "MAILTEST_SINGLE", "MAILTEST_INLINE", "MAILTEST_EMPTY"}
 	t.Cleanup(func() {
@@ -36,7 +35,6 @@ func TestLoadDotEnv(t *testing.T) {
 		}
 	})
 
-	// It is found from a folder below the one that holds it.
 	sub := filepath.Join(dir, "a", "b")
 	os.MkdirAll(sub, 0o755)
 	if got := LoadDotEnv(sub); got != filepath.Join(dir, ".env") {
@@ -62,7 +60,7 @@ func TestFromEnvDefaults(t *testing.T) {
 		"OTP_LENGTH", "OTP_TTL_MINUTES", "OTP_MAX_ATTEMPTS", "OTP_RESEND_SECONDS"} {
 		t.Setenv(k, "")
 	}
-	t.Setenv("SMTP_PASS", "abcd efgh ijkl mnop") // Google shows App Passwords with spaces
+	t.Setenv("SMTP_PASS", "abcd efgh ijkl mnop")
 	t.Setenv("SMTP_PORT", "not a number")
 
 	got := FromEnv()
@@ -91,7 +89,6 @@ func TestConsoleModeSend(t *testing.T) {
 	}
 }
 
-// The reset code is in the body only: with SMTP the mailer logs the subject.
 func TestResetCodeEmail(t *testing.T) {
 	msg := ResetCodeEmail("APEX", "Ada", "123456", 10)
 	if strings.Contains(msg.Subject, "123456") {
@@ -129,7 +126,7 @@ func TestBuild(t *testing.T) {
 	cfg := Config{User: "app@example.com", FromName: "APEX"}
 	msg := CodeEmail("APEX", "Ada", "123456", 10)
 	msg.To = []string{"ada@example.com"}
-	msg.Subject = "Café " + msg.Subject // non-ASCII must be encoded
+	msg.Subject = "Café " + msg.Subject
 	raw, err := Build(cfg, msg)
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +150,6 @@ func TestBuild(t *testing.T) {
 		t.Errorf("Message-ID = %q", h.Get("Message-ID"))
 	}
 
-	// mixed > related (the HTML and its inline logo) > alternative (text and HTML).
 	types := partTypes(t, h.Get("Content-Type"), parsed.Body)
 	want := []string{"multipart/related", "multipart/alternative", "text/plain", "text/html", "image/png"}
 	if strings.Join(types, " ") != strings.Join(want, " ") {
@@ -161,7 +157,6 @@ func TestBuild(t *testing.T) {
 	}
 }
 
-// partTypes lists the media types of every part under a multipart body, depth first.
 func partTypes(t *testing.T, contentType string, body io.Reader) []string {
 	t.Helper()
 	_, params, err := mime.ParseMediaType(contentType)

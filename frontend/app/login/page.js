@@ -17,9 +17,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [phase, setPhase] = useState(null); // the launch animation, see LaunchOverlay
+  const [phase, setPhase] = useState(null);
 
-  // The email from "Forgot password?", after a reset.
   useEffect(() => {
     const handed = takeEmail();
     if (handed) setEmail(handed);
@@ -34,13 +33,11 @@ export default function LoginPage() {
     try {
       const user = await api("/api/login", { method: "POST", body: { email, password }, redirectOn401: false });
       if (!calm) {
-        // The logo turns into the car, and the car launches.
         setPhase("morph");
         await pause(MORPH_MS);
         setPhase("go");
         await pause(GO_MS);
       }
-      // Setting the user makes AuthGate send us to the home page.
       setUser(user);
     } catch (err) {
       setPhase(null);

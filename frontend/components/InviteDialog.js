@@ -7,10 +7,6 @@ import Avatar from "@/components/Avatar";
 import Modal from "@/components/Modal";
 import SearchInput from "@/components/SearchInput";
 
-// "Invite people" for a group member. It lists the people I follow and my
-// followers; typing searches every user (GET /api/users?search=). Members
-// and people already invited are marked instead of offering the button.
-// The server checks it all again (members only, no duplicates).
 export default function InviteDialog({ group, me, onClose, onInvited }) {
   const [contacts, setContacts] = useState(null);
   const [search, setSearch] = useState("");
@@ -21,7 +17,6 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
   const [error, setError] = useState("");
   const members = new Set((group.members || []).map((u) => u.id));
 
-  // Followers and following, merged and sorted by name.
   useEffect(() => {
     Promise.all([api(`/api/users/${me.id}/followers`), api(`/api/users/${me.id}/following`)])
       .then(([followers, following]) => {
@@ -34,7 +29,6 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
       .catch((err) => setError(err.message));
   }, [me.id]);
 
-  // The query settles once typing pauses; only the latest answer is shown.
   useEffect(() => {
     if (!query) {
       setResults(null);
@@ -58,7 +52,7 @@ export default function InviteDialog({ group, me, onClose, onInvited }) {
       onInvited();
     } catch (err) {
       if (err.status === 409) {
-        setInvited((s) => new Set(s).add(user.id)); // invited or joined meanwhile
+        setInvited((s) => new Set(s).add(user.id));
         onInvited();
       } else {
         setError(err.message);

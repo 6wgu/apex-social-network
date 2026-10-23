@@ -19,9 +19,6 @@ import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeSend } from "@/components/RealtimeProvider";
 import UserList from "@/components/UserList";
 
-// /groups/{id}, optionally ?tab=Events (links from the bell open a tab).
-// Everyone sees the header; posts, events and members are only requested
-// for members, and the backend answers 403 to anyone else anyway.
 export default function GroupPage() {
   const { id } = useParams();
   const searchParams = useSearchParams();
@@ -31,7 +28,7 @@ export default function GroupPage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState("Posts");
   const [inviting, setInviting] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0); // bumps when events or requests may have changed
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(
     () =>
@@ -56,14 +53,11 @@ export default function GroupPage() {
     setTab(askedTab || "Posts");
   }, [askedTab, id]);
 
-  // Answers given in the bell, and live notifications about this group
-  // (a new event, a join request, being accepted), reload what they touch.
   useEffect(() => {
     window.addEventListener(GROUPS_CHANGED, load);
     return () => window.removeEventListener(GROUPS_CHANGED, load);
   }, [load]);
   useRealtime((event) => {
-    // Someone joined: reload the group (member list and count).
     if (event.type === "group_changed") {
       if (String(event.payload.group_id) === String(id)) load();
       return;
@@ -76,7 +70,6 @@ export default function GroupPage() {
   const isMember = group?.my_status === "member";
   const isCreator = group && group.creator.id === me.id;
   const posts = usePagedPosts(isMember && tab === "Posts" ? `/api/groups/${encodeURIComponent(id)}/posts` : null);
-  // A new post in this group shows up at once.
   useRealtime((event) => {
     if (event.type === "post_created" && String(event.payload.group_id) === String(id)) posts.refreshTop();
   });

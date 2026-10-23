@@ -11,13 +11,11 @@ import Icon from "@/components/Icon";
 import { Loading, TypingIndicator } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components/RealtimeProvider";
 
-const PAGE = 50; // the backend's page size for chat history
-const MAX_LEN = 2000; // characters, as the backend counts them (code points)
-const TYPING_EVERY = 2000; // ms: at most one "typing" frame this often while the text changes
-const TYPING_SHOWN = 4000; // ms: hide "X is typing…" when no new typing event came for this long
+const PAGE = 50;
+const MAX_LEN = 2000;
+const TYPING_EVERY = 2000;
+const TYPING_SHOWN = 4000;
 
-// Which chat a history URL is, as the "typing" frame names it:
-// /api/messages/7 -> { recipient_id: 7 }, /api/groups/3/messages -> { group_id: 3 }.
 function typingTarget(historyUrl) {
   const path = historyUrl.split("?")[0];
   let m = path.match(/^\/api\/messages\/(\d+)$/);
@@ -27,7 +25,6 @@ function typingTarget(historyUrl) {
   return null;
 }
 
-// "Ann", "Ann and Ben", "Ann and 2 others" for the typing indicator.
 function typingNames(users) {
   const first = users.map((u) => u.first_name);
   if (first.length <= 2) return first.join(" and ");
@@ -42,7 +39,6 @@ function formatTime(s) {
     : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-// "Today", "Yesterday", or the date, for the separators between days.
 function dayLabel(d) {
   const today = new Date();
   const yesterday = new Date(today);
@@ -52,19 +48,10 @@ function dayLabel(d) {
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
 }
 
-// One chat: the history (oldest at the top, older pages loaded on scroll up),
-// live messages, and the message box with an emoji picker. Used for private
-// chats and for group chats; the caller says how:
-//   historyUrl  REST history, newest first, paged with ?before=
-//   matches     (event) => true for live events that belong to this chat
-//   send        (content) => Promise of the stored message (over the WebSocket)
-//   canSend     false shows cannotSend instead of the message box
-//   showNames   show the sender's name on others' messages (group chat)
-//   onSeen      called after messages from others are shown (to mark them read)
 export default function ChatWindow({ historyUrl, header, matches, send, canSend = true, cannotSend, showNames = false, onSeen }) {
   const { user: me } = useAuth();
   const connected = useRealtimeConnected();
-  const [messages, setMessages] = useState(null); // oldest first
+  const [messages, setMessages] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState("");
@@ -73,20 +60,18 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
   const [sending, setSending] = useState(false);
   const list = useRef(null);
   const input = useRef(null);
-  const keepScroll = useRef(null); // scrollHeight before older messages were added on top
+  const keepScroll = useRef(null);
   const stickToBottom = useRef(true);
   const wasConnected = useRef(connected);
   const realtimeSend = useRealtimeSend();
   const target = typingTarget(historyUrl);
-  const [typers, setTypers] = useState([]); // users typing in this chat now, oldest first
-  const typingTimers = useRef(new Map()); // user id -> timer that hides them
+  const [typers, setTypers] = useState([]);
+  const typingTimers = useRef(new Map());
   const lastTypingSent = useRef(0);
 
   const onSeenRef = useRef(onSeen);
   onSeenRef.current = onSeen;
 
-  // Adds messages, oldest first, without duplicates (a sent message comes
-  // back both as the answer to send() and as a live event).
   const merge = useCallback((incoming) => {
     setMessages((old) => {
       const byId = new Map((old || []).map((m) => [m.id, m]));
@@ -95,7 +80,6 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     });
   }, []);
 
-  // First page.
   useEffect(() => {
     let current = true;
     setMessages(null);
@@ -115,8 +99,6 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     };
   }, [historyUrl]);
 
-  // After a reconnect, fetch the newest page again: anything sent while
-  // this tab was disconnected is merged in.
   useEffect(() => {
     if (connected && !wasConnected.current && messages) {
       api(historyUrl)
@@ -129,15 +111,12 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     wasConnected.current = connected;
   }, [connected, historyUrl, merge, messages]);
 
-  // Someone stopped typing: their message arrived, or no typing event came
-  // for TYPING_SHOWN.
   const stopTyping = useCallback((userId) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);
     setTypers((old) => (old.some((u) => u.id === userId) ? old.filter((u) => u.id !== userId) : old));
   }, []);
 
-  // A new chat starts with nobody typing; timers die with the window.
   useEffect(() => {
     const timers = typingTimers.current;
     setTypers([]);
@@ -148,7 +127,6 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     };
   }, [historyUrl]);
 
-  // Is this typing event about this chat, from someone else?
   function typingHere(event) {
     const p = event.payload;
     if (event.type !== "typing" || event.request_id || !target || !p?.user || p.user.id === me.id) return false;
@@ -176,8 +154,6 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     }
   });
 
-  // Tells the other side I am typing, at most once every TYPING_EVERY.
-  // Fire and forget: a refused or lost frame only means no indicator.
   function signalTyping(next) {
     if (!target || !connected || !next.trim()) return;
     const now = Date.now();
@@ -203,8 +179,6 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     }
   }
 
-  // Keep the view steady: at the bottom for new messages, at the same
-  // message when older ones are added on top.
   useLayoutEffect(() => {
     const box = list.current;
     if (!box) return;
@@ -244,7 +218,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
       stickToBottom.current = true;
       merge([stored]);
       setText("");
-      lastTypingSent.current = 0; // the next words are a new message: signal them at once
+      lastTypingSent.current = 0;
     } catch (err) {
       setSendError(err.message);
     } finally {
@@ -260,7 +234,7 @@ export default function ChatWindow({ historyUrl, header, matches, send, canSend 
     }
   }
 
-  const length = [...text].length; // code points, like the backend
+  const length = [...text].length;
 
   return (
     <div className="chat-window">

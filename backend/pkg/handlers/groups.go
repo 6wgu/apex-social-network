@@ -14,26 +14,11 @@ import (
 	"social-network/pkg/models"
 )
 
-// Groups. Every logged-in user can browse them (title, description,
-// creator, member count) and ask to join; everything inside a group (its
-// members, posts with their comments and images, events) is for members
-// only, and every endpoint checks that here, in the backend. There are two
-// ways in:
-//   - an invitation from any member, which only the invitee can accept or
-//     decline
-//   - a join request, which only the group's creator can accept or decline
-//
-// Joining either way also clears the other one, so nobody keeps a stale
-// invitation or request for a group they are already in. Members are never
-// removed (there is no leave or kick), so a membership check cannot go
-// stale between a check and the write that follows it.
-
 const (
 	maxGroupTitleLen       = 100
 	maxGroupDescriptionLen = 2000
 )
 
-// Membership states as the API shows them (viewer -> group).
 const (
 	groupNone      = "none"
 	groupMember    = "member"
@@ -41,8 +26,6 @@ const (
 	groupRequested = "requested"
 )
 
-// group is the JSON shape of a group. Members and InvitedUsers are only
-// filled in for members (GET /api/groups/{id}); they are left out otherwise.
 type group struct {
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
@@ -50,17 +33,12 @@ type group struct {
 	Creator      models.UserSummary    `json:"creator"`
 	MemberCount  int                   `json:"member_count"`
 	MyStatus     string                `json:"my_status"`
-	InviteID     *int64                `json:"invite_id"` // my pending invitation, when my_status is "invited"
+	InviteID     *int64                `json:"invite_id"`
 	CreatedAt    string                `json:"created_at"`
 	Members      *[]models.UserSummary `json:"members,omitempty"`
 	InvitedUsers *[]models.UserSummary `json:"invited_users,omitempty"`
 }
 
-// groupColumns selects a group (alias g) with its creator (alias u), seen
-// by the viewer bound as ?1. A member never has an invitation or a request
-// (joining deletes them), so the CASE order only matters for invited and
-// requested: an invitation wins, because accepting it is all it takes.
-// SQL constant: never built from user input; every value is a bound parameter.
 const groupColumns = `g.id, g.title, g.description, strftime('%Y-%m-%d %H:%M:%S', g.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 	(SELECT COUNT(*) FROM group_members m WHERE m.group_id = g.id),
@@ -72,7 +50,6 @@ const groupColumns = `g.id, g.title, g.description, strftime('%Y-%m-%d %H:%M:%S'
 	END,
 	(SELECT i.id FROM group_invites i WHERE i.group_id = g.id AND i.invitee_id = ?1)`
 
-// SQL constant: never built from user input; every value is a bound parameter.
 const groupFrom = `FROM groups g JOIN users u ON u.id = g.creator_id`
 
 func scanGroup(row interface{ Scan(...any) error }) (group, error) {
@@ -88,13 +65,10 @@ func scanGroup(row interface{ Scan(...any) error }) (group, error) {
 	return g, err
 }
 
-// groupByID loads a group as viewerID sees it, or sql.ErrNoRows.
 func (a *App) groupByID(viewerID, groupID int64) (group, error) {
 	return scanGroup(a.DB.QueryRow(`SELECT `+groupColumns+` `+groupFrom+` WHERE g.id = ?2`, viewerID, groupID))
 }
 
-// IsGroupMember reports whether userID is a member of groupID. Every
-// members-only endpoint uses it, and so does group chat (Phase 4).
 func (a *App) IsGroupMember(userID, groupID int64) (bool, error) {
 	var member bool
 	err := a.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?)`,
@@ -102,8 +76,6 @@ func (a *App) IsGroupMember(userID, groupID int64) (bool, error) {
 	return member, err
 }
 
-// groupIDFromPath reads {id} from the path. It writes a 404 and returns
-// false when it is not a positive integer or no such group exists.
 func (a *App) groupIDFromPath(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -122,9 +94,6 @@ func (a *App) groupIDFromPath(w http.ResponseWriter, r *http.Request) (int64, bo
 	return id, true
 }
 
-// memberGroupID is groupIDFromPath for members-only endpoints: a group that
-// exists but that the logged-in user is not a member of is a 403 with the
-// given message. Groups are public to browse, so their existence is no secret.
 func (a *App) memberGroupID(w http.ResponseWriter, r *http.Request, forbidden string) (int64, bool) {
 	groupID, ok := a.groupIDFromPath(w, r)
 	if !ok {
@@ -142,8 +111,6 @@ func (a *App) memberGroupID(w http.ResponseWriter, r *http.Request, forbidden st
 	return groupID, true
 }
 
-// checkText trims s and checks it is present and at most max characters.
-// It returns the trimmed text and a 400 message ("" when fine).
 func checkText(s, field string, max int) (string, string) {
 	s = strings.TrimSpace(s)
 	switch {
@@ -155,8 +122,6 @@ func checkText(s, field string, max int) (string, string) {
 	return s, ""
 }
 
-// createGroup handles POST /api/groups {"title","description"}. The
-// creator becomes the first member.
 func (a *App) createGroup(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title       string `json:"title"`
@@ -209,8 +174,6 @@ func (a *App) createGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, g)
 }
 
-// listGroups handles GET /api/groups: every group, newest first, each with
-// my_status so the page can show Join / Invited / Requested / Open.
 func (a *App) listGroups(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.DB.Query(`SELECT `+groupColumns+` `+groupFrom+` ORDER BY g.id DESC`, currentUserID(r))
 	if err != nil {
@@ -234,8 +197,6 @@ func (a *App) listGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, groups)
 }
 
-// getGroup handles GET /api/groups/{id}. Everyone gets the public part;
-// members also get the member list and who has a pending invitation.
 func (a *App) getGroup(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.groupIDFromPath(w, r)
 	if !ok {
@@ -270,9 +231,6 @@ func (a *App) getGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, g)
 }
 
-// inviteToGroup handles POST /api/groups/{id}/invite {"user_id": 7}. Any
-// member can invite anyone who is not a member and not already invited.
-// The invitee gets a group_invite notification.
 func (a *App) inviteToGroup(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.memberGroupID(w, r, "only members can invite people to this group")
 	if !ok {
@@ -339,11 +297,6 @@ func (a *App) inviteToGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]int64{"id": inviteID, "group_id": groupID, "user_id": body.UserID})
 }
 
-// answerGroupInvite handles POST /api/group-invites/{inviteId}/accept and
-// /decline. The invitation is looked up together with the logged-in user
-// as invitee, so nobody can answer someone else's: that is a 404, like an
-// unknown id. Either answer deletes the invitation and its notification;
-// accepting also clears my own join request to the same group.
 func (a *App) answerGroupInvite(accept bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		inviteID, err := strconv.ParseInt(r.PathValue("inviteId"), 10, 64)
@@ -390,10 +343,6 @@ func (a *App) answerGroupInvite(accept bool) http.HandlerFunc {
 	}
 }
 
-// join makes userID a member of groupID inside tx and clears whatever else
-// was pending between them: a join request (and the creator's notification
-// about it) and an invitation (and userID's notification about it). The
-// group's members are told live (group_changed) once tx commits.
 func join(tx *sql.Tx, n *notifier, groupID, userID int64) error {
 	res, err := tx.Exec(`INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)`, groupID, userID)
 	if err != nil {
@@ -429,8 +378,6 @@ func join(tx *sql.Tx, n *notifier, groupID, userID int64) error {
 	}
 }
 
-// requestToJoin handles POST /api/groups/{id}/request: a non-member asks to
-// join. The group's creator gets a group_join_request notification.
 func (a *App) requestToJoin(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.groupIDFromPath(w, r)
 	if !ok {
@@ -490,8 +437,6 @@ func (a *App) requestToJoin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]int64{"id": requestID, "group_id": groupID})
 }
 
-// cancelJoinRequest handles DELETE /api/groups/{id}/request: I withdraw my
-// pending request, and it leaves the creator's bell.
 func (a *App) cancelJoinRequest(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.groupIDFromPath(w, r)
 	if !ok {
@@ -531,15 +476,12 @@ func (a *App) cancelJoinRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// joinRequest is one pending request to join a group.
 type joinRequest struct {
 	ID        int64              `json:"id"`
 	User      models.UserSummary `json:"user"`
 	CreatedAt string             `json:"created_at"`
 }
 
-// listJoinRequests handles GET /api/groups/{id}/requests: the pending
-// requests, oldest first. Only the group's creator may see them.
 func (a *App) listJoinRequests(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.groupIDFromPath(w, r)
 	if !ok {
@@ -582,10 +524,6 @@ func (a *App) listJoinRequests(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, requests)
 }
 
-// answerJoinRequest handles POST /api/group-requests/{requestId}/accept and
-// /decline. Only the group's creator may answer (403 for anyone else).
-// Either answer deletes the request and the creator's notification about
-// it; accepting adds the member and tells them.
 func (a *App) answerJoinRequest(accept bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID, err := strconv.ParseInt(r.PathValue("requestId"), 10, 64)
@@ -619,8 +557,6 @@ func (a *App) answerJoinRequest(accept bool) http.HandlerFunc {
 
 		var n notifier
 		if accept {
-			// join deletes the request and its notification, and any
-			// invitation the requester had in the meantime.
 			err = join(tx, &n, groupID, requesterID)
 			if err == nil {
 				err = n.add(tx, requesterID, me, notifGroupRequestAccepted, &groupID)
@@ -644,9 +580,6 @@ func (a *App) answerJoinRequest(accept bool) http.HandlerFunc {
 	}
 }
 
-// groupPosts handles GET /api/groups/{id}/posts?before={postId}: the
-// group's posts, newest first, 20 per page. Members only (403 otherwise);
-// postVisibleSQL applies the same rule again inside the query.
 func (a *App) groupPosts(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.memberGroupID(w, r, "only members can see this group's posts")
 	if !ok {
@@ -666,9 +599,6 @@ func (a *App) groupPosts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, posts)
 }
 
-// createGroupPost handles POST /api/groups/{id}/posts (multipart): content
-// and/or an image. Members only. A group post has no privacy choice: its
-// group decides who sees it, so it is stored as 'public' with group_id set.
 func (a *App) createGroupPost(w http.ResponseWriter, r *http.Request) {
 	defer removeFormFiles(r)
 	groupID, ok := a.memberGroupID(w, r, "only members can post in this group")

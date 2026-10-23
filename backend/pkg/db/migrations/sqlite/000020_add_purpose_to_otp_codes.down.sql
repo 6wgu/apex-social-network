@@ -1,4 +1,3 @@
--- Back to one code per subject: only the verification codes are kept.
 CREATE TABLE otp_codes_old (
     subject      TEXT     PRIMARY KEY,
     code_hash    TEXT     NOT NULL,

@@ -1,4 +1,3 @@
-// Package handlers contains the HTTP API: routing and one file per feature.
 package handlers
 
 import (
@@ -16,36 +15,25 @@ import (
 	"social-network/pkg/ws"
 )
 
-// App carries the shared dependencies every handler needs.
 type App struct {
-	DB        *sql.DB
-	UploadDir string
-	Hub       *ws.Hub
-	Mailer    *mail.Mailer
-	OTP       *otp.Service
-	// RequireVerified locks every signed-in route except GET and DELETE
-	// /api/me, changing the email, the email code routes and logout until
-	// the user has verified their email (403).
+	DB              *sql.DB
+	UploadDir       string
+	Hub             *ws.Hub
+	Mailer          *mail.Mailer
+	OTP             *otp.Service
 	RequireVerified bool
-	// Now is the clock of the password reset limits and tokens (time.Now
-	// when nil).
-	Now func() time.Time
+	Now             func() time.Time
 
-	emailLocks     [16]sync.Mutex // see lockEmail
-	addressLocks   [16]sync.Mutex // see lockAddress
-	forgotRequests requestLog     // see forgotPassword
-	mailing        sync.WaitGroup // emails being sent in the background
+	emailLocks     [16]sync.Mutex
+	addressLocks   [16]sync.Mutex
+	forgotRequests requestLog
+	mailing        sync.WaitGroup
 }
 
-// Routes registers every endpoint on a standard library ServeMux.
-// New features add their routes here, following docs/api.md.
 func (a *App) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
-	// Frames browsers send over /ws (chat messages) are handled here too.
 	a.Hub.SetHandler(a.handleSocketEvent)
 	auth := middleware.RequireAuth(a.DB)
-	// session: a valid session is enough. protected: the user must also have
-	// verified their email, when RequireVerified is on.
 	session := func(h http.HandlerFunc) http.Handler { return auth(h) }
 	gate := func(h http.Handler) http.Handler {
 		if a.RequireVerified {
@@ -55,9 +43,6 @@ func (a *App) Routes() *http.ServeMux {
 	}
 	protected := func(h http.HandlerFunc) http.Handler { return gate(h) }
 
-	// Public: the only routes that work without a session. Logout is public
-	// so it can always clear the cookie, even an expired or unknown one.
-	// The password reset routes ignore any session (password.go).
 	mux.HandleFunc("GET /api/health", a.health)
 	mux.HandleFunc("POST /api/register", a.register)
 	mux.HandleFunc("POST /api/login", a.login)
@@ -67,7 +52,6 @@ func (a *App) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/password/verify-code", a.checkResetCode)
 	mux.HandleFunc("POST /api/password/reset", a.resetPassword)
 
-	// Everything below needs a valid session cookie (401 otherwise).
 	mux.Handle("GET /ws", protected(a.serveWS))
 	mux.Handle("GET /api/me", session(a.me))
 	mux.Handle("DELETE /api/me", session(a.deleteMe))
@@ -122,18 +106,14 @@ func (a *App) Routes() *http.ServeMux {
 	mux.Handle("POST /api/groups/{id}/events", protected(a.createEvent))
 	mux.Handle("POST /api/events/{id}/respond", protected(a.respondToEvent))
 	mux.Handle("GET /uploads/", gate(a.uploads()))
-	mux.Handle("GET /uploads", gate(a.uploads())) // 404, not a redirect to the folder
+	mux.Handle("GET /uploads", gate(a.uploads()))
 
-	// Everything that matched no route above gets the JSON error shape instead
-	// of the default text response.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		a.noRoute(mux, w, r)
 	})
 	return mux
 }
 
-// noRoute answers a request that matched no route: 405 with an Allow header
-// when the path exists for other methods, 404 otherwise.
 func (a *App) noRoute(mux *http.ServeMux, w http.ResponseWriter, r *http.Request) {
 	var allowed []string
 	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
@@ -151,12 +131,6 @@ func (a *App) noRoute(mux *http.ServeMux, w http.ResponseWriter, r *http.Request
 	writeError(w, http.StatusNotFound, "not found")
 }
 
-// uploads serves the stored images. Files live flat in UploadDir, so any path
-// that is empty or has a separator is a directory request and gets a 404
-// instead of the file server's listing. A post's image follows the post's
-// privacy (canViewUpload): a viewer who may not see the post gets the same
-// 404 as for a missing file. middleware.SecurityHeaders adds nosniff, so
-// browsers do not guess a different type than the one we send.
 func (a *App) uploads() http.Handler {
 	files := http.StripPrefix("/uploads/", http.FileServer(http.Dir(a.UploadDir)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -178,20 +152,15 @@ func (a *App) uploads() http.Handler {
 			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
-		// Private images must not be kept by shared caches.
 		w.Header().Set("Cache-Control", "private, no-cache")
 		files.ServeHTTP(w, r)
 	})
 }
 
-// serveWS handles GET /ws: RequireAuth has checked the session cookie sent
-// with the upgrade request, so the connection belongs to that user.
 func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	a.Hub.Serve(w, r, currentUserID(r))
 }
 
-// health handles GET /api/health: 200 when the database answers, 503 when
-// it does not, so a load balancer or container check can tell the two apart.
 func (a *App) health(w http.ResponseWriter, r *http.Request) {
 	if err := a.DB.PingContext(r.Context()); err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable", "database": "unreachable"})

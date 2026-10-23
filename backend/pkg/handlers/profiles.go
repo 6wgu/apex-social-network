@@ -12,16 +12,11 @@ import (
 	"social-network/pkg/models"
 )
 
-// maxSearchResults caps GET /api/users. maxSearchLen caps its search text,
-// in characters; the search boxes stop at the same SEARCH_MAX_LENGTH
-// (frontend/lib/search.js), so change the two together.
 const (
 	maxSearchResults = 20
 	maxSearchLen     = 50
 )
 
-// fullProfile is what the owner, a follower, or anyone looking at a public
-// profile gets.
 type fullProfile struct {
 	User           models.User `json:"user"`
 	CanView        bool        `json:"can_view"`
@@ -30,19 +25,12 @@ type fullProfile struct {
 	FollowingCount int         `json:"following_count"`
 }
 
-// limitedProfile is all that a private profile shows to someone who does not
-// follow it. It is a separate type on purpose: it cannot carry the email,
-// birth date or about text even by accident.
 type limitedProfile struct {
 	User         models.UserSummary `json:"user"`
 	CanView      bool               `json:"can_view"`
 	FollowStatus string             `json:"follow_status"`
 }
 
-// CanViewProfile reports whether viewerID may see ownerID's full profile:
-// it is their own, it is public, or they follow it with an accepted request.
-// It returns sql.ErrNoRows when ownerID does not exist. Phase 2 uses the same
-// rule for followers lists and posts.
 func (a *App) CanViewProfile(viewerID, ownerID int64) (bool, error) {
 	var allowed bool
 	err := a.DB.QueryRow(`
@@ -54,7 +42,6 @@ func (a *App) CanViewProfile(viewerID, ownerID int64) (bool, error) {
 	return allowed, err
 }
 
-// followStatus describes viewer -> owner: "self", "following", "pending" or "none".
 func (a *App) followStatus(viewerID, ownerID int64) (string, error) {
 	if viewerID == ownerID {
 		return followSelf, nil
@@ -68,7 +55,6 @@ func (a *App) followStatus(viewerID, ownerID int64) (string, error) {
 	return apiFollowStatus(status), err
 }
 
-// getProfile handles GET /api/users/{id}.
 func (a *App) getProfile(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || ownerID <= 0 {
@@ -120,9 +106,6 @@ func (a *App) getProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
-// updateMe handles PATCH /api/me (multipart): any of nickname, about_me,
-// avatar, remove_avatar. A text field that is not sent keeps its value;
-// sending it empty clears it. remove_avatar=1 deletes the current picture.
 func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 	defer removeFormFiles(r)
 	if !parseForm(w, r) {
@@ -141,8 +124,6 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 			writeFieldErrors(w, http.StatusBadRequest, fieldErrors{"nickname": problem})
 			return
 		}
-		// Someone else's nickname, in any case, is taken; my own (even in
-		// another case) is not. Checked before the avatar is stored.
 		inUse, err := a.nicknameInUse(user.Nickname, user.ID)
 		if err != nil {
 			serverError(w, err)
@@ -163,8 +144,6 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		changed = true
 	}
 
-	// The file behind the current avatar is deleted once the row no longer
-	// points to it: after a replacement or a removal.
 	oldAvatar := user.AvatarPath
 	switch r.FormValue("remove_avatar") {
 	case "", "0":
@@ -203,7 +182,6 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 		user.Nickname, user.AboutMe, user.AvatarPath, user.ID)
 	if err != nil {
 		a.removeImage(newAvatar)
-		// Another request took the nickname since the check above.
 		if uniqueConflict(err) == "nickname" {
 			writeFieldErrors(w, http.StatusConflict, fieldErrors{"nickname": nicknameTaken})
 			return
@@ -217,10 +195,6 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-// updatePrivacy handles PATCH /api/me/privacy. There is no user ID in the
-// request: it always changes the profile of the session's owner. Going
-// public accepts every pending follow request in the same transaction, so
-// a public profile never has requests waiting.
 func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IsPublic *bool `json:"is_public"`
@@ -263,13 +237,8 @@ func (a *App) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-// likeEscaper makes user text literal inside a LIKE pattern (ESCAPE '\').
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-// searchUsers handles GET /api/users?search=: people whose first name, last
-// name, full name or nickname contains the text. An empty search lists users.
-// The text is trimmed and each run of spaces or newlines counts as one space,
-// as the search boxes send it; more than maxSearchLen characters is a 400.
 func (a *App) searchUsers(w http.ResponseWriter, r *http.Request) {
 	search := strings.Join(strings.Fields(r.URL.Query().Get("search")), " ")
 	if utf8.RuneCountInString(search) > maxSearchLen {

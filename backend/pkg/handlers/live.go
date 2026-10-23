@@ -2,12 +2,10 @@ package handlers
 
 import "log"
 
-// Live updates for posts. Each goes only to online users who may see the
-// post (the same postVisibleSQL rule as every read), so nothing leaks.
 const (
-	eventPostCreated    = "post_created"    // payload: postCreated; the page fetches the post itself
-	eventCommentCreated = "comment_created" // payload: comment
-	eventPostLikes      = "post_likes"      // payload: postLikes
+	eventPostCreated    = "post_created"
+	eventCommentCreated = "comment_created"
+	eventPostLikes      = "post_likes"
 )
 
 type postCreated struct {
@@ -21,9 +19,6 @@ type postLikes struct {
 	LikeCount int   `json:"like_count"`
 }
 
-// pushToViewers sends an event about postID to every online user who can
-// see that post, the actor's other tabs included. A failed check skips only
-// that user; everyone else still gets the event.
 func (a *App) pushToViewers(postID int64, eventType string, payload any) {
 	for _, id := range a.Hub.OnlineUsers() {
 		ok, err := a.CanViewPost(id, postID)

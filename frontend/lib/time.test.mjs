@@ -1,10 +1,8 @@
-// Run with: npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { parseTime, timeAgo } from "./time.js";
 
-// A time the given number of seconds ago, in the API's SQLite format.
 function secondsAgo(seconds) {
   return new Date(Date.now() - seconds * 1000).toISOString().slice(0, 19).replace("T", " ");
 }
@@ -26,6 +24,5 @@ test("timeAgo shows a date after a week", () => {
 });
 
 test("timeAgo treats a time slightly in the future as just now", () => {
-  // The server clock can be a little ahead of the browser's.
   assert.equal(timeAgo(secondsAgo(-30)), "just now");
 });

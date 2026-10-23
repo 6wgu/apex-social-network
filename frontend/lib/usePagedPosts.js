@@ -3,16 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
-const PAGE_SIZE = 20; // the backend's page size for /api/feed and /api/users/{id}/posts
+const PAGE_SIZE = 20;
 
-// Loads a newest-first list of posts page by page (?before={last id}).
-// url is the list endpoint; pass null to load nothing (e.g. a private profile).
 export default function usePagedPosts(url) {
   const [posts, setPosts] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const current = useRef(url); // ignores answers for a url we already left
+  const current = useRef(url);
 
   const fetchPage = useCallback(
     async (before) => {
@@ -41,8 +39,6 @@ export default function usePagedPosts(url) {
     fetchPage();
   }, [url, fetchPage]);
 
-  // Fetches the newest page again and puts any posts newer than the ones
-  // shown at the top. Resolves with how many were added.
   const postsRef = useRef(posts);
   postsRef.current = posts;
   const refreshTop = useCallback(async () => {
@@ -56,7 +52,7 @@ export default function usePagedPosts(url) {
       if (fresh.length) setPosts((old) => [...fresh, ...(old || [])]);
       return fresh.length;
     } catch {
-      return 0; // offline for a moment: the next round tries again
+      return 0;
     }
   }, [url]);
 

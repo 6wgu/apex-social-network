@@ -3,10 +3,6 @@
 import { createPortal } from "react-dom";
 import Modal from "@/components/Modal";
 
-// A "Are you sure?" dialog over a dimmed page. onConfirm runs when the red
-// button is clicked; onClose when the dialog is cancelled or dismissed.
-// Rendered in document.body so a scrolling or transformed parent (the feed)
-// can never clip it.
 export default function ConfirmDialog({ title, message, confirmLabel = "Delete", busy = false, onConfirm, onClose }) {
   return createPortal(
     <Modal title={title} onClose={busy ? () => {} : onClose}>

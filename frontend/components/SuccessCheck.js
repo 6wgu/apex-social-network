@@ -1,6 +1,3 @@
-// The tick at the top of a "done" card: the circle draws itself, then the
-// tick, then a ring pulses out. Text with the verify-done-text class fades
-// in after it.
 export default function SuccessCheck() {
   return (
     <div className="verify-success" aria-hidden="true">

@@ -1,6 +1,3 @@
-// Run with: npm test
-// These mirror backend/pkg/handlers/validation_test.go, so the page and the
-// server agree on every case. Keep the two in step.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -54,15 +51,15 @@ test("passwordProblem", () => {
 });
 
 test("birthDateProblem", () => {
-  const now = new Date(2026, 2, 1, 15); // 1 March 2026, local time
+  const now = new Date(2026, 2, 1, 15);
   const cases = {
     "": "date of birth is required",
     "2000-02-30": "date of birth must be a valid date (YYYY-MM-DD)",
     "01/01/2000": "date of birth must be a valid date (YYYY-MM-DD)",
     "2026-03-02": "date of birth can't be in the future",
-    "2019-03-01": "", // turns 7 today
+    "2019-03-01": "",
     "2019-03-02": "you must be at least 7 years old",
-    "1906-03-02": "", // 119 until tomorrow
+    "1906-03-02": "",
     "1905-03-01": "you must be 120 years old or younger",
   };
   for (const [dob, want] of Object.entries(cases)) assert.equal(birthDateProblem(dob, now), want, dob);

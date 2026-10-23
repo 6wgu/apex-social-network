@@ -8,8 +8,6 @@ import Icon from "@/components/Icon";
 import { FOLLOWS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
 
-// Pending follow requests sent to me (GET /api/follow-requests), answered
-// with the same endpoints as the bell. Collapsed until opened.
 export default function FollowRequests() {
   const [requests, setRequests] = useState(null);
   const [open, setOpen] = useState(false);
@@ -41,7 +39,7 @@ export default function FollowRequests() {
     try {
       await api(`/api/follow-requests/${userId}/${accept ? "accept" : "decline"}`, { method: "POST" });
     } catch (err) {
-      if (err.status !== 404) setError(err.message); // 404: already answered elsewhere
+      if (err.status !== 404) setError(err.message);
     }
     setBusy(null);
     setRequests((list) => list.filter((r) => r.user.id !== userId));

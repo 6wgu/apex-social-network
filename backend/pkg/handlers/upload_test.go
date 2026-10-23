@@ -14,7 +14,6 @@ import (
 	"testing"
 )
 
-// uploadRequest is a parsed multipart request with one file in the "image" field.
 func uploadRequest(t *testing.T, filename string, content []byte) *http.Request {
 	t.Helper()
 	var body bytes.Buffer
@@ -46,7 +45,6 @@ func pngBytes(t *testing.T) []byte {
 
 func TestSaveImageNamesTheFileByItsBytes(t *testing.T) {
 	a := &App{UploadDir: t.TempDir()}
-	// A PNG uploaded under a misleading name is still saved as .png.
 	path, err := a.saveImage(uploadRequest(t, "photo.txt", pngBytes(t)), "image")
 	if err != nil {
 		t.Fatal(err)

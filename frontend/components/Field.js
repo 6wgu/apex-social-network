@@ -3,10 +3,6 @@
 import { useState } from "react";
 import Icon from "@/components/Icon";
 
-// A labelled form field with an icon inside the input's left edge.
-// Pass the <input>/<textarea> as children; extra hint text goes in `hint`,
-// anything to show right under the input (a checklist) in `below`, and the
-// field's error message in `error`.
 export default function Field({ label, icon, hint, error, below, className = "", children, trailing }) {
   return (
     <label className={`field${error ? " has-error" : ""} ${className}`.trim()}>
@@ -27,7 +23,6 @@ export default function Field({ label, icon, hint, error, below, className = "",
   );
 }
 
-// A password input with a show / hide button. Everything else is passed to <input>.
 export function PasswordField({ label = "Password", hint, error, below, ...input }) {
   const [shown, setShown] = useState(false);
   return (

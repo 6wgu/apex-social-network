@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 
-// The footer of the public pages (home, log in, register). Signed in, the
-// side rail carries the "made with love" line instead, because the feed and
-// chat fill the screen.
 export default function Footer() {
   const { user, loading } = useAuth();
   if (loading || user) return null;

@@ -1,8 +1,3 @@
--- A code is for one purpose: verifying the email, or resetting the
--- password. Each (purpose, subject) has its own code, attempts and
--- cooldown, so a code sent for one purpose never works for the other.
--- SQLite cannot change a primary key in place, so the table is rebuilt;
--- every existing code is a verification code.
 CREATE TABLE otp_codes_new (
     purpose      TEXT     NOT NULL CHECK (purpose IN ('verify_email', 'reset_password')),
     subject      TEXT     NOT NULL,

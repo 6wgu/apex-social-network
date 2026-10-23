@@ -1,6 +1,3 @@
--- The token a correct password reset code is traded for. Only its SHA-256
--- hash is stored; it works once, until expires_at, and a user has at most
--- one.
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token_hash TEXT     PRIMARY KEY,
     user_id    INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,

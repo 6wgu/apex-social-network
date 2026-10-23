@@ -2,18 +2,11 @@ package handlers
 
 import "net/http"
 
-// likeState is the answer to a like or unlike: the post's new count and
-// whether the logged-in user now likes it.
 type likeState struct {
 	LikeCount int  `json:"like_count"`
 	LikedByMe bool `json:"liked_by_me"`
 }
 
-// likePost handles POST /api/posts/{id}/like and DELETE /api/posts/{id}/like.
-// Liking twice, or unliking a post you never liked, is not an error. A post
-// the user may not see is a 404, exactly like one that does not exist; for a
-// like that is checked again inside the INSERT, so it cannot change between
-// the check and the write.
 func (a *App) likePost(like bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		postID, ok := a.visiblePostID(w, r)

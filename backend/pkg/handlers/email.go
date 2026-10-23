@@ -20,8 +20,6 @@ func (a *App) sendWelcome(u models.User) {
 	}()
 }
 
-// sendPasswordChanged tells the user, at their address, that their
-// password was reset.
 func (a *App) sendPasswordChanged(userID int64) {
 	if a.Mailer == nil {
 		return

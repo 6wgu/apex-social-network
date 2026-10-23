@@ -29,10 +29,6 @@ function SectionHead({ icon, title, children }) {
   );
 }
 
-// /settings: your own profile details. Nickname, about me and the avatar are
-// saved together with PATCH /api/me; the privacy switch saves at once with
-// PATCH /api/me/privacy. Name, email and date of birth are set at sign-up
-// and cannot be changed through the API, so they are shown read-only.
 export default function SettingsPage() {
   const router = useRouter();
   const { user, setUser, logout } = useAuth();
@@ -42,8 +38,8 @@ export default function SettingsPage() {
   const [preview, setPreview] = useState("");
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [error, setError] = useState("");
-  const [nicknameServerError, setNicknameServerError] = useState(""); // the server's answer about the nickname (409)
-  const nicknameCheck = useNicknameCheck(nickname, user.nickname || ""); // my own nickname is never checked
+  const [nicknameServerError, setNicknameServerError] = useState("");
+  const nicknameCheck = useNicknameCheck(nickname, user.nickname || "");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
@@ -61,8 +57,6 @@ export default function SettingsPage() {
 
   const dirty = nickname !== (user.nickname || "") || aboutMe !== (user.about_me || "") || Boolean(file) || removeAvatar;
 
-  // A changed nickname must have the right format and be free; the unchanged
-  // one is mine and needs no check.
   const nicknameChanged = nickname.trim() !== (user.nickname || "");
   const nicknameError =
     sentence(nicknameServerError) ||
@@ -114,7 +108,6 @@ export default function SettingsPage() {
       setSaved(true);
       notify({ tone: "success", message: "Profile saved." });
     } catch (err) {
-      // A nickname problem (taken: 409, or its format) shows under the field.
       if (err.fields?.nickname) setNicknameServerError(err.fields.nickname);
       else setError(err.message);
     } finally {
@@ -134,7 +127,6 @@ export default function SettingsPage() {
     }
   }
 
-  // What the avatar will look like after saving.
   const shown = removeAvatar ? { ...user, avatar_path: "" } : user;
   const aboutLength = [...aboutMe].length;
 

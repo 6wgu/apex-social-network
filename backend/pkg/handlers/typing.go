@@ -5,18 +5,8 @@ import (
 	"social-network/pkg/ws"
 )
 
-// Typing indicator. A tab sends "typing" while its user writes in a chat
-// (the page throttles it to about one frame every 2 s); the server relays it
-// to the other side and stores nothing. It is allowed exactly when sending a
-// message would be: the follow rule for a private chat, membership for a
-// group chat. So a typing event never reaches someone the sender may not
-// message, and a non-member never learns anything about a group's chat.
-
-// eventTyping is the WebSocket type for typing, both ways.
 const eventTyping = "typing"
 
-// typingEvent is the server -> client payload: who is typing, and where.
-// Exactly one of RecipientID (private chat: me) and GroupID is set.
 type typingEvent struct {
 	User        models.UserSummary `json:"user"`
 	RecipientID int64              `json:"recipient_id,omitempty"`
@@ -25,12 +15,6 @@ type typingEvent struct {
 
 const errTypingPayload = `payload must be {"recipient_id": <user id>} or {"group_id": <group id>}`
 
-// sendTyping handles a typing frame:
-// {"type":"typing","request_id":"r1","payload":{"recipient_id":7}} or
-// {"type":"typing","request_id":"r1","payload":{"group_id":3}}.
-// The other party's tabs (private) or every other member's tabs (group) get
-// a typing event; the sender's own tabs get nothing, except the sending tab
-// which gets the same payload back as the answer when it sent a request_id.
 func (a *App) sendTyping(c *ws.Client, in ws.Incoming) {
 	var p struct {
 		RecipientID int64 `json:"recipient_id"`

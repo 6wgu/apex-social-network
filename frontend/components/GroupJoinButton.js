@@ -3,11 +3,6 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 
-// The way into a group for someone who is not a member yet, by my_status:
-// none      -> "Request to join"            the creator gets a request to answer
-// requested -> "Requested"                  click cancels the request
-// invited   -> "Accept invitation" / "Decline"
-// onChange() is called after a click so the page reloads the group.
 export default function GroupJoinButton({ group, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +13,6 @@ export default function GroupJoinButton({ group, onChange }) {
     try {
       await api(path, { method });
     } catch (err) {
-      // 409 / 404: the state changed elsewhere (another tab); reloading shows the truth.
       if (err.status !== 409 && err.status !== 404) setError(err.message);
     }
     await onChange();

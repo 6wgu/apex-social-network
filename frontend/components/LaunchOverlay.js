@@ -2,17 +2,6 @@
 
 import { CarSvg } from "@/components/RacingCursor";
 
-// Full-screen sign-in / sign-out animation, driven by `phase`.
-// Signing in:
-//   "wait"    the APEX mark sits in the middle while the request is running
-//   "morph"   the mark shrinks away and the car appears in its place
-//   "go"      the car launches off to the right, leaving speed lines behind
-// Signing out:
-//   "arrive"  the car races in from the left and brakes in the middle
-//   "park"    the car turns back into the APEX mark
-//   "bye"     the mark and the goodbye line stay a moment
-//   "fade"    the overlay fades away over the home page
-// Nothing renders when phase is null.
 export const MORPH_MS = 380;
 export const GO_MS = 720;
 

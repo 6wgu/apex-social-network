@@ -72,19 +72,15 @@ func main() {
 		return
 	}
 
-	// Sessions that expired while the server was down are useless; drop them.
 	if err := session.DeleteExpired(db); err != nil {
 		log.Fatalf("delete expired sessions: %v", err)
 	}
-	// COOKIE_SECURE=1 when the site is served over HTTPS; off for http://localhost.
 	session.SecureCookies = os.Getenv("COOKIE_SECURE") == "1"
 
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		log.Fatalf("create upload dir: %v", err)
 	}
 
-	// An empty database (first start) gets the demo accounts and their
-	// content. SEED_DEMO=0 turns this off.
 	if seed.Enabled(os.Getenv("SEED_DEMO")) {
 		seeded, err := seed.Run(db, uploadDir)
 		if err != nil {
@@ -116,12 +112,10 @@ func main() {
 	}
 
 	app := &handlers.App{DB: db, UploadDir: uploadDir, Hub: ws.NewHub(origins...), Mailer: mailer,
-		OTP: otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg)),
-		// Nothing but /api/me (reading it, changing the email, starting over),
-		// the email code and logout until the email is verified.
+		OTP:             otp.New(otp.SQLStore{DB: db}, mailer, otp.FromConfig(mailCfg)),
 		RequireVerified: true}
 	handler := middleware.Chain(app.Routes(),
-		middleware.SecurityHeaders, // outermost, so even a 500 from Recover carries them
+		middleware.SecurityHeaders,
 		middleware.Recover,
 		middleware.Logger,
 		middleware.CORS(origins...),
@@ -131,18 +125,14 @@ func main() {
 		Addr:              ":" + port,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       120 * time.Second, // long enough for a 50 MB image upload
-		WriteTimeout:      120 * time.Second, // and to send a 50 MB GIF to a slow viewer
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
 
-	// Stop on Ctrl+C or "docker stop": finish the requests in flight, then
-	// return so the deferred db.Close() runs.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Accounts left unverified for longer than handlers.UnverifiedAccountTTL
-	// are deleted now and then on a timer, so their emails are free again.
 	go app.CleanUpAbandonedAccounts(ctx)
 
 	serverErr := make(chan error, 1)

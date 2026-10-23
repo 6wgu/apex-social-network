@@ -2,10 +2,6 @@ package seed
 
 import "time"
 
-// The demo dataset. Names are made up and the addresses use example.com,
-// a domain reserved for documentation, so no real person is involved.
-// Rows refer to each other by key (e.g. "maya", "p-sunrise").
-
 const (
 	hour = time.Hour
 	day  = 24 * time.Hour
@@ -20,44 +16,38 @@ var users = []user{
 	{Key: "maya", Email: "maya@example.com", First: "Maya", Last: "Lind", Nickname: "maya", Birth: "1994-03-12",
 		About: "Runner and early riser ☕ I started the Trail Runners group.", Avatar: "seed-avatar-maya.png", Public: true},
 	{Key: "leo", Email: "leo@example.com", First: "Leo", Last: "Hart", Nickname: "leo", Birth: "1991-07-04",
-		About: "Weekend photographer 📷 Ask me about GIFs.", Avatar: "seed-avatar-leo.jpg", Public: true},
+		About: "Weekend photographer 📷 Ask me about GIFs.", Avatar: "seed-avatar-leo.png", Public: true},
 	{Key: "nora", Email: "nora@example.com", First: "Nora", Last: "Vale", Nickname: "nora", Birth: "1996-11-23",
 		About: "A new book every month 📚 My profile is private: follow me to see my posts.", Avatar: "seed-avatar-nora.png"},
 	{Key: "sam", Email: "sam@example.com", First: "Sam", Last: "Park", Nickname: "sam", Birth: "1993-01-30",
-		About: "Night owl 🦉 Board games and long walks.", Avatar: "seed-avatar-sam.jpg"},
+		About: "Night owl 🦉 Board games and long walks.", Avatar: "seed-avatar-sam.png"},
 	{Key: "iris", Email: "iris@example.com", First: "Iris", Last: "Cole", Nickname: "iris", Birth: "1998-05-17",
 		About: "Designer who collects colour palettes 🎨", Avatar: "seed-avatar-iris.png", Public: true},
 	{Key: "theo", Email: "theo@example.com", First: "Theo", Last: "Brandt", Nickname: "theo", Birth: "2000-09-08",
-		About: "New here 👋 I only follow Maya so far.", Avatar: "seed-avatar-theo.jpg", Public: true},
+		About: "New here 👋 I only follow Maya so far.", Avatar: "seed-avatar-theo.png", Public: true},
 }
 
-// follow: From follows To. Pending is a request still waiting for To (only
-// private profiles get requests).
 type follow struct {
 	From, To string
 	Pending  bool
 	Ago      time.Duration
 }
 
-// Who can chat: users with an accepted follow in either direction. Theo and
-// Nora, Theo and Sam, Iris and Nora have none, so they cannot message each
-// other.
 var follows = []follow{
 	{From: "leo", To: "maya", Ago: 20 * day},
 	{From: "maya", To: "leo", Ago: 20 * day},
 	{From: "iris", To: "maya", Ago: 18 * day},
-	{From: "maya", To: "nora", Ago: 15 * day}, // Nora is private: accepted request
+	{From: "maya", To: "nora", Ago: 15 * day},
 	{From: "nora", To: "maya", Ago: 15 * day},
-	{From: "leo", To: "nora", Ago: 12 * day}, // accepted request
+	{From: "leo", To: "nora", Ago: 12 * day},
 	{From: "iris", To: "leo", Ago: 10 * day},
-	{From: "leo", To: "sam", Ago: 9 * day}, // Sam is private: accepted request
+	{From: "leo", To: "sam", Ago: 9 * day},
 	{From: "sam", To: "leo", Ago: 9 * day},
 	{From: "theo", To: "maya", Ago: 3 * day},
-	{From: "sam", To: "nora", Pending: true, Ago: 5 * hour}, // Nora sees Accept / Decline
-	{From: "iris", To: "sam", Pending: true, Ago: 2 * hour}, // Sam sees Accept / Decline
+	{From: "sam", To: "nora", Pending: true, Ago: 5 * hour},
+	{From: "iris", To: "sam", Pending: true, Ago: 2 * hour},
 }
 
-// post: Viewers are the chosen followers of a private post.
 type post struct {
 	Key, Author, Privacy, Content, Image string
 	Viewers                              []string
@@ -87,9 +77,10 @@ var posts = []post{
 		Content: "Board game night at mine on Friday 🎲"},
 	{Key: "p-poll", Author: "iris", Privacy: "public", Ago: 3 * hour,
 		Content: "Coffee or tea? ☕🍵 Answer in the comments."},
+	{Key: "p-goat", Author: "leo", Privacy: "public", Ago: 45 * time.Minute,
+		Content: "Messi or Ronaldo? ⚽ Who's the GOAT? Tell me in the comments 👇", Image: "seed-football.jpg"},
 }
 
-// comment: every author can see the post it is on.
 type comment struct {
 	Post, Author, Content, Image string
 	Ago                          time.Duration
@@ -99,7 +90,7 @@ var comments = []comment{
 	{Post: "p-sunrise", Author: "leo", Content: "Great colours! 😍", Ago: 25 * hour},
 	{Post: "p-sunrise", Author: "iris", Content: "Next time I'm in 🏃‍♀️", Ago: 24 * hour},
 	{Post: "p-sunrise", Author: "theo", Content: "What time do you start?", Ago: 23 * hour},
-	{Post: "p-finish", Author: "maya", Content: "Ha, that's us! 🏁", Image: "seed-wave.gif", Ago: 19 * hour},
+	{Post: "p-finish", Author: "maya", Content: "Ha, that's us! 🏁", Image: "seed-runners.jpg", Ago: 19 * hour},
 	{Post: "p-palette", Author: "maya", Content: "Love the green 💚", Ago: 17 * hour},
 	{Post: "p-palette", Author: "leo", Content: "Can I get one in blue?", Ago: 16 * hour},
 	{Post: "p-route", Author: "leo", Content: "I'll bring the map", Image: "seed-route.png", Ago: 11 * hour},
@@ -108,9 +99,13 @@ var comments = []comment{
 	{Post: "p-poll", Author: "maya", Content: "Coffee, always ☕", Ago: 2 * hour},
 	{Post: "p-poll", Author: "theo", Content: "Tea 🍵", Ago: 2 * hour},
 	{Post: "p-poll", Author: "leo", Content: "Both!", Ago: 1 * hour},
+	{Post: "p-goat", Author: "maya", Content: "Messi, no question 🐐", Ago: 40 * time.Minute},
+	{Post: "p-goat", Author: "theo", Content: "Ronaldo! Nobody works harder 💪", Ago: 35 * time.Minute},
+	{Post: "p-goat", Author: "iris", Content: "Messi ✨ He makes it look so easy", Ago: 30 * time.Minute},
+	{Post: "p-goat", Author: "sam", Content: "Ronaldo, and those headers 🚀", Ago: 25 * time.Minute},
+	{Post: "p-goat", Author: "nora", Content: "I pick whoever has the better haircut 😂", Ago: 20 * time.Minute},
 }
 
-// like: the users who liked a post (each can see it).
 type like struct {
 	Post string
 	By   []string
@@ -126,12 +121,9 @@ var likes = []like{
 	{Post: "p-coffee", By: []string{"maya"}},
 	{Post: "p-surprise", By: []string{"leo"}},
 	{Post: "p-poll", By: []string{"maya", "leo", "theo"}},
+	{Post: "p-goat", By: []string{"maya", "iris", "theo", "sam"}},
 }
 
-// group: the creator is always a member. Members joined either through an
-// invitation or a join request the creator accepted (Via "request", which
-// also leaves a group_request_accepted notification). Invites and Requests
-// are still waiting for an answer.
 type group struct {
 	Key, Creator, Title, Description string
 	Ago                              time.Duration
@@ -156,11 +148,10 @@ type groupPost struct {
 	Comments               []comment
 }
 
-// event: every member except the creator gets a group_event notification.
 type event struct {
 	Title, Description string
-	In                 time.Duration // days from the moment of seeding
-	Hour               int           // on that day, UTC
+	In                 time.Duration
+	Hour               int
 	Going, NotGoing    []string
 }
 
@@ -176,13 +167,13 @@ var groups = []group{
 			{User: "leo", Via: "invite", Ago: 13 * day},
 			{User: "iris", Via: "invite", Ago: 12 * day},
 		},
-		Invites:  []invite{{From: "maya", To: "theo"}}, // Theo sees Accept / Decline
-		Requests: []string{"sam"},                      // Maya sees Sam's request
+		Invites:  []invite{{From: "maya", To: "theo"}},
+		Requests: []string{"sam"},
 		Posts: []groupPost{
 			{Author: "iris", Content: "Here's the route for the 10K 🗺️", Image: "seed-route-group.png", Ago: 30 * hour,
 				Comments: []comment{
 					{Author: "maya", Content: "Perfect, see you there!", Ago: 29 * hour},
-					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-wave-group.gif", Ago: 28 * hour},
+					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-snacks.jpg", Ago: 28 * hour},
 				}},
 			{Author: "leo", Content: "Who's coming to the 10K? 🏃‍♂️", Ago: 7 * hour,
 				Comments: []comment{{Author: "iris", Content: "Me! 🙋‍♀️", Ago: 6 * hour}}},
@@ -202,8 +193,8 @@ var groups = []group{
 			{User: "maya", Via: "request", Ago: 9 * day},
 			{User: "sam", Via: "invite", Ago: 8 * day},
 		},
-		Invites:  []invite{{From: "nora", To: "leo"}}, // Leo sees Accept / Decline
-		Requests: []string{"iris"},                    // Nora sees Iris's request
+		Invites:  []invite{{From: "nora", To: "leo"}},
+		Requests: []string{"iris"},
 		Posts: []groupPost{
 			{Author: "nora", Content: "This month: a short novel, about 200 pages 📖", Image: "seed-books-club.png", Ago: 9 * day,
 				Comments: []comment{{Author: "sam", Content: "Count me in!", Ago: 8 * day}}},
@@ -220,8 +211,6 @@ var groups = []group{
 		}},
 }
 
-// message: a private message. Unread ones show on the Chats badge. Every
-// pair has an accepted follow in at least one direction (the chat rule).
 type message struct {
 	From, To, Text string
 	Ago            time.Duration

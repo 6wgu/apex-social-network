@@ -14,8 +14,6 @@ import (
 
 const testOrigin = "http://localhost:3000"
 
-// newTestServer serves the hub at /ws?user=<id>, standing in for the session
-// check that RequireAuth does in the real app.
 func newTestServer(t *testing.T, h *Hub) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +24,6 @@ func newTestServer(t *testing.T, h *Hub) string {
 	return "ws" + strings.TrimPrefix(srv.URL, "http")
 }
 
-// dial opens a connection for userID and waits until the hub has it.
 func dial(t *testing.T, h *Hub, url string, userID int64) *websocket.Conn {
 	t.Helper()
 	before := h.Connections(userID)
@@ -50,7 +47,6 @@ func waitFor(t *testing.T, ok func() bool) {
 	t.Fatal("timed out waiting")
 }
 
-// read returns the next event on conn.
 func read(t *testing.T, conn *websocket.Conn) Event {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
@@ -61,7 +57,6 @@ func read(t *testing.T, conn *websocket.Conn) Event {
 	return ev
 }
 
-// nothingFor fails if an event arrives on conn within a short wait.
 func nothingFor(t *testing.T, conn *websocket.Conn) {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
@@ -90,7 +85,7 @@ func TestAllowIsATokenBucket(t *testing.T) {
 	if c.allow(now) {
 		t.Fatal("a frame over the burst was allowed")
 	}
-	if !c.allow(now.Add(500 * time.Millisecond)) { // 2 per second: one token back
+	if !c.allow(now.Add(500 * time.Millisecond)) {
 		t.Fatal("no token came back after half a second")
 	}
 	if c.allow(now.Add(500 * time.Millisecond)) {
@@ -163,7 +158,7 @@ func TestBadFramesGetAnErrorAndTheConnectionStays(t *testing.T) {
 
 func TestFramesOverTheRateLimitAreDropped(t *testing.T) {
 	h := NewHub(testOrigin)
-	h.SetRateLimit(0.001, 2) // a burst of 2, then practically nothing
+	h.SetRateLimit(0.001, 2)
 	h.SetHandler(func(c *Client, in Incoming) { h.Reply(c, "ok", in.RequestID, nil) })
 	url := newTestServer(t, h)
 	conn := dial(t, h, url, 1)

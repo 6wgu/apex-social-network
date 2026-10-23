@@ -1,11 +1,3 @@
-/* ==========================================================================
-   APEX: carbon, graphite and racing red, layered over globals.css.
-   globals.css keeps the base component structure; this file gives every
-   screen the APEX look: a full-height side rail, rounded graphite panels,
-   pill-shaped controls, and the racing details (starting lights, car cursor).
-   ========================================================================== */
-
-/* Space Grotesk and DM Sans (SIL Open Font License), served from /public/fonts */
 @font-face {
   font-family: "Space Grotesk";
   src: url("/fonts/space-grotesk-latin-wght-normal.woff2") format("woff2");
@@ -25,7 +17,6 @@
 :root {
   color-scheme: dark;
 
-  /* palette */
   --carbon: #0b0e14;
   --carbon-deep: #090c12;
   --graphite-0: #121722;
@@ -44,7 +35,6 @@
   --line: #303847;
   --line-soft: #232b39;
 
-  /* the original tokens, re-pointed */
   --bg: var(--carbon);
   --surface: var(--graphite-0);
   --text: var(--text-1);
@@ -62,7 +52,6 @@
   --font-display: "Space Grotesk", Bahnschrift, "Segoe UI", Tahoma, sans-serif;
   --font-body: "DM Sans", "Segoe UI", Tahoma, "Helvetica Neue", sans-serif;
 
-  /* type scale */
   --fs-hero: clamp(2.5rem, 5vw, 4.5rem);
   --fs-page: clamp(1.75rem, 3vw, 2.5rem);
   --fs-section: 1.25rem;
@@ -72,7 +61,6 @@
   --fs-meta: .75rem;
   --fs-micro: .6875rem;
 
-  /* 8px spacing rhythm */
   --space-1: 8px;
   --space-2: 16px;
   --space-3: 24px;
@@ -85,16 +73,13 @@
   --ease-mech: cubic-bezier(.7, 0, .3, 1);
   --shadow: 0 14px 34px rgba(0, 0, 0, .32);
 
-  /* a fine twill that only shows up close */
   --carbon-weave:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, .022) 0 2px, transparent 2px 4px),
     repeating-linear-gradient(-45deg, rgba(0, 0, 0, .32) 0 2px, transparent 2px 4px);
 
-  /* very fine material grain */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ---- base ---- */
 html {
   background: var(--carbon) var(--grain);
   scrollbar-color: #303847 transparent;
@@ -107,7 +92,7 @@ body:has(.landing) {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   line-height: 1.55;
-  overflow-wrap: break-word; /* a long word, link or email breaks instead of running out of its box */
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -141,7 +126,6 @@ h1, h2, h3,
 
 .icon { flex: none; }
 
-/* ---- buttons: pill shaped, racing red, with a speed-line sweep on hover ---- */
 .btn-primary,
 .btn-secondary,
 .btn-danger {
@@ -221,7 +205,6 @@ h1, h2, h3,
 
 .icon-btn:hover { border-color: #4a5468; background: var(--graphite-2); }
 
-/* ---- badges: notifications are a round red LED, messages a cyan square ---- */
 .badge { font-family: var(--font-display); letter-spacing: .02em; }
 
 .badge-notification {
@@ -258,7 +241,6 @@ h1, h2, h3,
 
 .count-badge-over { border-color: var(--red); color: var(--red-soft); }
 
-/* ---- brand ---- */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -285,7 +267,6 @@ h1, h2, h3,
 .brand-tag { color: var(--text-3); font-size: .5625rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
 .brand span { color: inherit; }
 
-/* ---- navbar, logged out: the top bar ---- */
 .navbar-guest {
   padding: 12px clamp(16px, 3vw, 32px);
   background: rgba(9, 12, 18, .94);
@@ -311,7 +292,6 @@ h1, h2, h3,
   text-transform: uppercase;
 }
 
-/* ---- navbar, logged in: the full-height side rail ---- */
 .navbar-app {
   position: fixed;
   inset: 0 auto 0 0;
@@ -417,7 +397,6 @@ h1, h2, h3,
 
 .navbar-app .bell { position: relative; }
 
-/* the notification panel opens beside the rail */
 .navbar-app .bell-panel {
   left: calc(100% + 18px);
   right: auto;
@@ -455,7 +434,6 @@ h1, h2, h3,
 .rail-logout { color: var(--red-soft); }
 .rail-logout:hover { background: rgba(255, 48, 69, .08); color: #ff9aa5; }
 
-/* collapsed rail: icons only */
 .navbar-app.is-collapsed { width: var(--rail-collapsed); }
 .navbar-app.is-collapsed .rail-head { flex-direction: column; padding: 4px 0; }
 .navbar-app.is-collapsed .brand-text,
@@ -466,7 +444,6 @@ h1, h2, h3,
 .navbar-app.is-collapsed .nav-item .badge { position: absolute; top: 4px; right: 8px; margin: 0; }
 .navbar-app.is-collapsed .rail-user { justify-content: center; padding: 8px 0; }
 
-/* ---- page container beside the rail ---- */
 .navbar-app + .container {
   max-width: none;
   margin: 0 0 0 var(--rail);
@@ -485,7 +462,6 @@ h1, h2, h3,
 .container { margin-top: 32px; }
 .navbar-app + .container > .verify-banner { max-width: 1180px; margin: 0 auto 16px; }
 
-/* new page content glides in from the left (layout and modals stay put) */
 @media (prefers-reduced-motion: no-preference) {
   .container > :not(.modal-backdrop):not(.verify-banner) {
     animation: apex-page-in .22s var(--ease) backwards;
@@ -497,7 +473,6 @@ h1, h2, h3,
   to { opacity: 1; transform: none; }
 }
 
-/* ---- cards ---- */
 .card {
   padding: var(--space-card);
   border: 1px solid var(--line-soft);
@@ -543,7 +518,6 @@ h1, h2, h3,
   text-transform: uppercase;
 }
 
-/* ---- forms ---- */
 .form label {
   gap: 8px;
   color: var(--text-2);
@@ -632,7 +606,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.75); }
 .checkbox { color: var(--text-2); font-size: var(--fs-secondary) !important; text-transform: none !important; letter-spacing: 0 !important; font-family: var(--font-body) !important; }
 .checkbox input, .viewer-picker input[type="checkbox"] { accent-color: var(--red); }
 
-/* labelled field with an icon inside the input (components/Field.js) */
 .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .field-label { color: var(--text-2); }
 .field-box { position: relative; display: flex; align-items: center; }
@@ -667,7 +640,6 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.75); }
 }
 
 .field-eye:hover { background: rgba(255, 255, 255, .05); color: var(--text-1); }
-/* Edge adds its own reveal button to password inputs; ours is .field-eye */
 input::-ms-reveal { display: none; }
 .form .field-box:has(.field-eye) input { padding-right: 48px; }
 
@@ -685,7 +657,6 @@ input::-ms-reveal { display: none; }
 .field-badge-alert { border: 1px solid rgba(255, 48, 69, .45); background: rgba(255, 48, 69, .12); color: var(--red-soft); }
 .field-badge-alert:hover { background: rgba(255, 48, 69, .22); color: #fff; }
 
-/* a field's own error (the .form-error look, smaller) and the live password checklist */
 .form label .field-error,
 .form label .field-ok,
 .form label .password-rules { font-family: var(--font-body); font-size: var(--fs-meta); font-weight: 400; letter-spacing: 0; text-transform: none; }
@@ -702,7 +673,6 @@ input::-ms-reveal { display: none; }
 .password-rule.is-met { color: var(--green); }
 .password-rule.is-missing { color: var(--red-soft); }
 
-/* ---- switches: a sliding dashboard toggle ---- */
 .switch { font-family: var(--font-body); font-size: var(--fs-secondary); font-weight: 600; }
 
 .switch-track {
@@ -736,7 +706,6 @@ input::-ms-reveal { display: none; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .switch input:disabled + .switch-track { opacity: .55; }
 
-/* ---- pills: the text always says the state, colour only supports it ---- */
 .pill {
   padding: 2px 9px;
   border: 1px solid var(--line);
@@ -751,7 +720,6 @@ input::-ms-reveal { display: none; }
 .pill-public { border-color: rgba(56, 229, 141, .4); background: rgba(56, 229, 141, .1); color: var(--green); }
 .pill-private { border-color: rgba(255, 48, 69, .4); background: rgba(255, 48, 69, .1); color: #ff8f9b; }
 
-/* ---- landing (logged out home) ---- */
 .landing { max-width: 1240px; color: var(--text-1); }
 .eyebrow, .pillar-number { font-family: var(--font-display); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .16em; }
 .preview-topline, .preview-status { font-family: var(--font-display); font-weight: 600; letter-spacing: .1em; }
@@ -798,7 +766,6 @@ input::-ms-reveal { display: none; }
 .pillar-number { color: var(--red); }
 .landing-pillars h2 { color: var(--text-1); font-family: var(--font-display); font-size: var(--fs-section); font-weight: 600; letter-spacing: -.015em; }
 
-/* ---- auth and verify: one centred card over a quiet trackside backdrop ---- */
 body::before,
 body:has(.auth-screen, .verify-card, .landing)::after {
   content: "";
@@ -817,7 +784,6 @@ body::before {
     linear-gradient(90deg, rgba(255, 255, 255, .02) 1px, transparent 1px) 0 0 / 64px 64px;
 }
 
-/* a faint chequered strip along the bottom edge */
 body:has(.auth-screen, .verify-card, .landing)::after {
   left: 0;
   right: 0;
@@ -879,7 +845,6 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 .auth-footer a { color: var(--text-1); font-weight: 700; }
 .auth-footer a:hover { color: var(--red); }
 
-/* "Forgot password?" right under the login password field */
 .auth-forgot { margin: -8px 0 0; font-size: var(--fs-meta); text-align: right; }
 .auth-forgot a { font-weight: 600; }
 
@@ -956,7 +921,6 @@ body:has(.auth-screen, .verify-card, .landing)::after {
   color: #ffd36b;
 }
 
-/* ---- home: the feed column, then the side column ---- */
 .navbar-app + .container:has(> .home-grid) {
   display: flex;
   flex-direction: column;
@@ -987,7 +951,7 @@ body:has(.auth-screen, .verify-card, .landing)::after {
   padding: 40px clamp(16px, 5vw, 96px) 120px;
   overflow-y: auto;
   scroll-snap-type: y proximity;
-  scroll-padding-bottom: 96px; /* keeps a comment form clear of the New Post button */
+  scroll-padding-bottom: 96px;
   scrollbar-width: none;
 }
 
@@ -1036,8 +1000,6 @@ body:has(.auth-screen, .verify-card, .landing)::after {
 
 .profile-page .new-post-btn { position: fixed; right: 32px; bottom: 32px; }
 
-/* the page scrolls on its own: room below the last post, and a focused
-   comment field stops above the button */
 html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .profile-page:has(> .new-post-btn) { padding-bottom: 56px; }
 
@@ -1073,7 +1035,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 
 .side-row:hover { background: rgba(255, 255, 255, .04); }
 .side-row-name { display: flex; flex-direction: column; min-width: 0; overflow: hidden; font-size: .875rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-/* the name or title in its own box: the ellipsis does not reach text straight inside a flex box */
 .side-row-title { overflow: hidden; text-overflow: ellipsis; }
 .side-row-meta { color: var(--text-3); font-size: var(--fs-micro); font-weight: 400; }
 
@@ -1104,7 +1065,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
   font: 700 .875rem var(--font-display);
 }
 
-/* ---- post cards ---- */
 .post-list { gap: 24px; }
 
 .post {
@@ -1181,7 +1141,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .more-comments, .chat-older { color: var(--red-soft); }
 .card .post { margin-top: 16px; box-shadow: none; }
 
-/* composer (inside the New Post dialog, and on group pages) */
 .modal .composer, .card .composer { margin-top: 0; padding: 0; border: 0; background: none; box-shadow: none; }
 .card .composer { margin-top: 16px; }
 .composer .avatar { border: 1px solid var(--line); }
@@ -1216,7 +1175,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .image-remove { background: rgba(9, 12, 18, .85); border: 1px solid var(--line); }
 .image-remove:hover { border-color: var(--red); }
 
-/* ---- profile ---- */
 .navbar-app + .container:has(> .profile-page) { padding: 0 0 64px; }
 
 .profile-hero {
@@ -1335,7 +1293,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .side-toggle[aria-expanded="true"] .side-toggle-chevron { transform: rotate(180deg); }
 .side-toggle-body { margin-top: 8px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--graphite-0); }
 .request-row { flex-wrap: wrap; }
-/* the name gets the whole line, Accept / Decline go under it */
 .request-row .side-row { flex-basis: 100%; }
 .request-row .request-actions { display: flex; gap: 6px; padding: 0 8px 8px 54px; }
 
@@ -1380,7 +1337,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .about-row-ok .about-row-label { color: var(--green); }
 .about-row-ok .about-row-icon { color: var(--green); }
 
-/* group header keeps its card, with the carbon driver-card treatment */
 .group-header {
   position: relative;
   overflow: hidden;
@@ -1406,7 +1362,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 
 .details dt { color: var(--text-3); font-family: var(--font-display); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 
-/* ---- tabs: sentence case with a red underline that slides in ---- */
 .tabs { gap: 28px; border-color: var(--line-soft); }
 
 .tabs button {
@@ -1440,7 +1395,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .follow-btn.follow-following:hover,
 .follow-btn.follow-pending:hover { border-color: var(--danger); color: var(--danger); }
 
-/* ---- settings ---- */
 .settings-top {
   display: flex;
   flex-wrap: wrap;
@@ -1572,7 +1526,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .danger-zone p { margin: 16px 20px 0; color: var(--text-2); font-size: var(--fs-secondary); }
 .danger-zone .btn-danger { width: calc(100% - 40px); margin: 14px 20px 20px; padding: 12px 18px; }
 
-/* ---- search ---- */
 .search-page { max-width: 920px !important; }
 .page-head h1 { margin: 0; font-size: var(--fs-page); letter-spacing: -.03em; }
 .page-head p { margin: 6px 0 24px; color: var(--text-2); }
@@ -1618,7 +1571,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .people-text strong, .people-text > .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-text .muted { font-size: var(--fs-secondary); }
 
-/* ---- groups ---- */
 .group-row { border-color: var(--line-soft); }
 
 .group-icon {
@@ -1660,7 +1612,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .event-date strong { color: var(--text-1); font-family: var(--font-display); }
 .event-body h3 { font-family: var(--font-display); font-size: var(--fs-card); font-weight: 600; letter-spacing: -.005em; }
 
-/* Going / Not going as one segmented control */
 .rsvp {
   display: inline-flex;
   gap: 2px;
@@ -1687,7 +1638,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 
 .invite-list li { border-color: var(--line-soft); }
 
-/* ---- notifications ---- */
 .bell-panel {
   border: 1px solid var(--line);
   border-top: 2px solid var(--red);
@@ -1720,7 +1670,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
   to { opacity: 1; transform: none; }
 }
 
-/* ---- modals ---- */
 .modal-backdrop { z-index: 40; background: rgba(3, 5, 9, .8); animation: apex-fade .18s ease; }
 
 .modal {
@@ -1751,7 +1700,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 
 .emoji-grid button:hover { background: rgba(255, 255, 255, .07); }
 
-/* ---- chats ---- */
 .navbar-app + .container:has(> .chat-layout) {
   display: flex;
   flex-direction: column;
@@ -1822,7 +1770,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
   font-size: var(--fs-secondary);
 }
 
-/* ---- racing lights: loading and typing ---- */
 .racing-lights {
   --lens: 9px;
   display: inline-flex;
@@ -1866,7 +1813,6 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 .racing-lights-start i:nth-child(4)::before { animation-name: apex-light-4; }
 .racing-lights-start i:nth-child(5)::before { animation-name: apex-light-5; }
 
-/* on one by one, hold, then all out together */
 @keyframes apex-light-1 { 0%, 4% { color: #232936; } 7%, 72% { color: var(--red); } 76%, 100% { color: #232936; } }
 @keyframes apex-light-2 { 0%, 16% { color: #232936; } 19%, 72% { color: var(--red); } 76%, 100% { color: #232936; } }
 @keyframes apex-light-3 { 0%, 28% { color: #232936; } 31%, 72% { color: var(--red); } 76%, 100% { color: #232936; } }
@@ -1902,13 +1848,11 @@ html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: 96px; }
 }
 
 .loading-state.muted:not(.center):not(.tab-placeholder):not(.bell-empty) { justify-content: flex-start; }
-/* the page-level loader sits in the middle of the window, not of the page */
 .loading-screen { position: fixed; inset: 0; z-index: 5; min-height: 0; margin: 0; pointer-events: none; flex-direction: column; gap: 16px; font-size: var(--fs-meta); text-transform: uppercase; }
 .loading-screen .racing-lights { --lens: 16px; gap: 5px; padding: 5px; border-radius: 9px; }
 .loading-screen .racing-lights i { border-radius: 6px; }
 .btn-primary .racing-lights { background: rgba(9, 12, 18, .85); border-color: rgba(0, 0, 0, .4); }
 
-/* ---- the racing car pointer (components/RacingCursor.js) ---- */
 html.apex-cursor,
 html.apex-cursor * { cursor: none !important; }
 
@@ -1949,7 +1893,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .apex-car.is-down .apex-car-body { transform: scale(.94); }
 .apex-car.is-hover .apex-car-rainlight { fill: #ff8a96; }
 
-/* ---- responsive ---- */
 @media (max-width: 1180px) {
   .home-grid { grid-template-columns: minmax(0, 1fr); }
   .home-side { display: none; }
@@ -1957,7 +1900,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .profile-side { order: -1; }
 }
 
-/* tablets and phones: the rail becomes a bottom bar, with a logo strip on top */
 @media (max-width: 900px) {
   .navbar-app,
   .navbar-app.is-collapsed {
@@ -2054,7 +1996,7 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .feed-reel { height: auto; padding: 16px 12px 72px; overflow: visible; gap: 24px; }
   .reel-arrows { display: none; }
   .new-post-btn, .profile-page .new-post-btn { position: fixed; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); }
-  html:has(.new-post-btn), html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: calc(192px + env(safe-area-inset-bottom)); } /* Send may wrap below the field */
+  html:has(.new-post-btn), html:has(.profile-page > .new-post-btn) { scroll-padding-bottom: calc(192px + env(safe-area-inset-bottom)); }
 
   .navbar-app + .container:has(> .profile-page) { padding: 56px 0 calc(96px + env(safe-area-inset-bottom)); }
   .navbar-app + .container:has(> .chat-layout) { padding: 68px 14px calc(80px + env(safe-area-inset-bottom)); }
@@ -2079,13 +2021,10 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .navbar-app .nav-item .nav-label { display: none; }
   .navbar-app .nav-item { min-height: 48px; }
   .navbar-app .nav-item .nav-icon { width: 22px; height: 22px; }
-  /* Going / Not going: one row across the whole card (under the 56px date
-     box and its 14px gap too), half each */
   .rsvp { display: flex; flex-wrap: nowrap; margin-left: -70px; }
   .rsvp-btn { flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 8px; white-space: nowrap; }
 }
 
-/* ---- reduced motion: no movement, lights shown steady ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;
@@ -2102,9 +2041,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .badge-notification { animation: none !important; }
 }
 
-/* ==========================================================================
-   Landing: lights out, a floating formula car, timing sectors.
-   ========================================================================== */
 .container:has(> .landing) { max-width: none; margin: 0; padding: 0; }
 .landing { max-width: 1360px; margin: 0 auto; padding: 40px clamp(20px, 5vw, 72px) 0; }
 
@@ -2131,7 +2067,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 
 @keyframes apex-lights-out-text { to { opacity: 1; color: var(--red); } }
 
-/* the start sequence, run once: on one by one, then all out */
 .racing-lights-once i::before { animation: 2.6s ease-in-out .2s 1 both; }
 .racing-lights-once i:nth-child(1)::before { animation-name: apex-light-1; }
 .racing-lights-once i:nth-child(2)::before { animation-name: apex-light-2; }
@@ -2154,7 +2089,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .landing-facts li { display: inline-flex; align-items: center; gap: 8px; }
 .landing-facts .icon { color: var(--red); }
 
-/* red and white kerb between sections */
 .kerb-strip {
   height: 14px;
   margin-top: 72px;
@@ -2164,7 +2098,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 
-/* sectors: the three things APEX does, in timing colours */
 .sectors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 72px; }
 .sector-s1 { --sector: var(--purple); }
 .sector-s2 { --sector: var(--green); }
@@ -2198,7 +2131,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .sector-card h2 { margin: 14px 0 8px; color: var(--text-1); font-size: var(--fs-section); }
 .sector-card p { margin: 0; color: var(--text-2); }
 
-/* the paddock: the feed preview */
 .paddock {
   display: grid;
   grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
@@ -2210,7 +2142,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .paddock-copy h2 { margin: 14px 0 12px; font-size: var(--fs-page); letter-spacing: -.03em; }
 .paddock-copy p { max-width: 440px; margin: 0 0 24px; color: var(--text-2); }
 
-/* finish: the closing call to action */
 .finish {
   display: flex;
   flex-direction: column;
@@ -2238,7 +2169,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .sectors { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* ---- landing hero: the floating formula car ---- */
 .hero-car {
   --len: clamp(320px, 40vw, 620px);
   position: relative;
@@ -2300,7 +2230,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   50% { transform: scale(.84); }
 }
 
-/* launches in when the lights go out, then floats */
 .hero-car-float { position: relative; animation: hero-car-in 1s cubic-bezier(.16, .84, .24, 1) 2s both, hero-float 5s ease-in-out 3s infinite; }
 
 @keyframes hero-car-in {
@@ -2314,7 +2243,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   50% { transform: translateY(-18px); }
 }
 
-/* nose to the right, tilted back as if seen from just above the track */
 .hero-car-pose { transform: perspective(1300px) rotateX(52deg) rotateZ(80deg); }
 
 .hero-car-pose svg {
@@ -2355,7 +2283,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .hero-car { --len: min(86vw, 460px); margin-top: 32px; }
 }
 
-/* ---- sign-in launch: the logo turns into the car, which takes off ---- */
 .launch {
   position: fixed;
   inset: 0;
@@ -2473,7 +2400,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 
 .launch-go .launch-word { opacity: 0; }
 
-/* ---- chat ---- */
 .chat-layout { gap: 20px; }
 .chat-list { padding: 18px 12px; }
 .chat-list-head { padding: 4px 8px 12px; }
@@ -2504,7 +2430,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   outline: none;
 }
 
-/* one line however long the query: echoQuery shortens it, the ellipsis covers narrow screens */
 .chat-filter-empty { margin: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-item { gap: 12px; padding: 10px; }
 .chat-item-top strong { font-size: var(--fs-body); }
@@ -2617,7 +2542,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .card.chat-main { padding: 0; }
 .navbar-app + .container > .verify-banner { width: 100%; }
 
-/* ---- likes ---- */
 .post-like.is-liked { color: var(--red); }
 .post-like.is-liked .icon path { fill: currentColor; }
 .post-like.is-liked .icon { animation: apex-like-pop .32s var(--ease); }
@@ -2630,7 +2554,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 .navbar-app + .container:has(> .home-grid) > .verify-banner,
 .navbar-app + .container:has(> .profile-page) > .verify-banner { width: auto; }
 
-/* ---- sign-out: the car races in, brakes, and turns back into the logo ---- */
 .launch-arrive .launch-logo,
 .launch-arrive .launch-word { opacity: 0; transform: scale(.25); }
 
@@ -2666,7 +2589,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
 
 @keyframes launch-out { to { opacity: 0; } }
 
-/* ---- footer: made with love ---- */
 .site-footer {
   position: relative;
   margin-top: 48px;
@@ -2731,7 +2653,6 @@ html.apex-cursor input[readonly] { cursor: default !important; }
   .made-with-love { width: 100%; margin: 0; }
 }
 
-/* ---- toasts (components/Toaster.js) ---- */
 .toaster {
   position: fixed;
   right: 24px;
@@ -2817,7 +2738,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 
 .toast-close:hover { background: rgba(255, 255, 255, .06); color: var(--text-1); }
 
-/* the time left, draining like a rev light */
 .toast-timer {
   position: absolute;
   left: 0;
@@ -2838,7 +2758,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
   .toaster { right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 
-/* ---- email verified: the tick draws itself ---- */
 .verify-card-done::before {
   background: linear-gradient(90deg, transparent, var(--green) 15%, var(--green) 85%, transparent);
   box-shadow: 0 0 18px rgba(56, 229, 141, .5);
@@ -2880,7 +2799,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 
 @keyframes verify-draw { to { stroke-dashoffset: 0; } }
 
-/* a little bounce once the tick lands */
 .verify-success { animation: verify-pop .4s var(--ease) .95s both; }
 
 @keyframes verify-pop {
@@ -2924,7 +2842,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
   100% { opacity: 0; transform: rotate(calc(var(--i) * 45deg)) translateY(-70px) scale(.3); }
 }
 
-/* the text follows the tick in */
 .verify-done-text { opacity: 0; animation: verify-text .4s var(--ease) 1s forwards; }
 .verify-home.verify-done-text { animation-delay: 1.15s; }
 
@@ -2941,7 +2858,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
   .verify-success, .verify-check-circle, .verify-check-tick, .verify-done-text { animation-delay: 0s !important; }
 }
 
-/* ---- register: a more compact card ---- */
 .auth-card-wide { max-width: 480px; padding: 30px 30px 22px; }
 .auth-card-wide .auth-heading { margin-bottom: 18px; }
 .auth-card-wide .auth-heading h1 { font-size: 1.5rem; margin-bottom: 4px; }
@@ -2957,7 +2873,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .auth-card-wide .auth-footer { margin-top: 16px; }
 .auth-screen:has(.auth-card-wide) { padding-top: 8px; }
 
-/* ---- finish: red, yellow 400 ms, green, reaction timer ---- */
 .start-seq { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 14px; }
 .finish .start-seq .racing-lights { margin-bottom: 0; }
 .racing-lights-static i::before { transition: color .08s linear, box-shadow .08s linear; }
@@ -2981,7 +2896,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .reaction-timer small { margin-left: 2px; font-size: .7em; color: var(--text-3); }
 .reaction-timer.is-stopped { border-color: rgba(56, 229, 141, .5); color: var(--green); }
 
-/* ---- landing: a sample post in the preview (visitors are not logged in) ---- */
 .sample-post { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: #121722; }
 .sample-head { display: flex; align-items: center; gap: 10px; }
 .sample-head strong { display: block; color: var(--text-1); font-weight: 600; }
@@ -3000,20 +2914,16 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .sample-bubble p { margin: 2px 0 0; color: var(--text-2); }
 .sample-bubble img { display: block; max-width: 160px; max-height: 120px; margin-top: 6px; border-radius: 8px; object-fit: cover; }
 
-/* chat list: "typing…" in place of the last message */
 .chat-item-typing { display: flex; align-items: center; gap: 8px; color: var(--text-1); font-style: italic; }
 
-/* chat list: the "New chat" button next to the title, and its dialog */
 .chat-list-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
 .chat-list-head .chat-list-title h1 { margin: 0; }
 .chat-new { margin-left: 0; }
 .new-chat-list { max-height: min(50vh, 420px); margin-top: 12px; overflow-y: auto; }
-/* the "New chat" button: a red action button like New Post */
 .chat-header-action.chat-new { border-color: transparent; background: var(--red); color: #fff; box-shadow: 0 8px 20px rgba(255, 48, 69, .35); transition: background .15s ease, transform .15s ease; }
 .chat-header-action.chat-new:hover { border-color: transparent; background: var(--red-hover, #e3263b); color: #fff; transform: translateY(-1px); }
 .chat-header-action.chat-new:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
-/* delete buttons (posts and comments) */
 .post-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .delete-btn {
   display: inline-flex;
@@ -3030,7 +2940,6 @@ a.toast-body:hover strong { color: var(--red-soft); }
 .delete-btn:hover { background: rgba(255, 48, 69, .12); color: var(--red-soft); }
 .comment-bubble .delete-btn { margin-left: 6px; padding: 3px; vertical-align: middle; }
 
-/* delete confirmation dialog */
 .confirm-dialog { padding-top: 16px; }
 .confirm-message { margin: 0 0 20px; color: var(--text-2); line-height: 1.6; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }

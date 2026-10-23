@@ -7,12 +7,9 @@ import (
 	"strconv"
 )
 
-// Live events for removals. They carry ids only, so they are sent to every
-// online user: the post is already gone, so its audience can no longer be
-// worked out, and an id reveals nothing.
 const (
-	eventPostDeleted    = "post_deleted"    // payload: postDeleted
-	eventCommentDeleted = "comment_deleted" // payload: commentDeleted
+	eventPostDeleted    = "post_deleted"
+	eventCommentDeleted = "comment_deleted"
 )
 
 type postDeleted struct {
@@ -39,10 +36,6 @@ func pathID(w http.ResponseWriter, r *http.Request, name, what string) (int64, b
 	return id, true
 }
 
-// deletePost handles DELETE /api/posts/{id}. Only the author can delete a
-// post. The post's comments, likes and viewers go with it (ON DELETE
-// CASCADE), and so do the image files of the post and of its comments.
-// Anyone else gets a 404 for a post they cannot see and a 403 for one they can.
 func (a *App) deletePost(w http.ResponseWriter, r *http.Request) {
 	postID, ok := pathID(w, r, "id", "post")
 	if !ok {
@@ -75,7 +68,6 @@ func (a *App) deletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Collect the comment images before the rows disappear.
 	images := []string{image}
 	rows, err := a.DB.Query(`SELECT image_path FROM comments WHERE post_id = ? AND image_path <> ''`, postID)
 	if err != nil {
@@ -108,8 +100,6 @@ func (a *App) deletePost(w http.ResponseWriter, r *http.Request) {
 	a.broadcast(eventPostDeleted, postDeleted{PostID: postID})
 }
 
-// deleteComment handles DELETE /api/posts/{id}/comments/{commentId}. The
-// comment's author can delete it, and so can the author of the post it is on.
 func (a *App) deleteComment(w http.ResponseWriter, r *http.Request) {
 	postID, ok := a.visiblePostID(w, r)
 	if !ok {

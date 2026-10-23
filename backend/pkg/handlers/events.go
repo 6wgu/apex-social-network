@@ -10,10 +10,6 @@ import (
 	"social-network/pkg/models"
 )
 
-// Group events: a title, a description and a date/time, and each member's
-// answer, going or not going, which they can change at any time. Events are
-// members-only, like everything inside a group.
-
 const (
 	maxEventTitleLen       = 100
 	maxEventDescriptionLen = 2000
@@ -21,17 +17,11 @@ const (
 	responseGoing    = "going"
 	responseNotGoing = "not_going"
 
-	// sqliteTime is the format SQLite uses for DATETIME columns; event_time
-	// is stored in it, in UTC.
 	sqliteTime = "2006-01-02 15:04:05"
 )
 
-// eventTimeLayouts are the event_time formats POST accepts. Browsers send
-// RFC 3339 with a zone (toISOString()); the forms without a zone, like the
-// value of an <input type="datetime-local">, are taken as UTC.
 var eventTimeLayouts = []string{time.RFC3339, "2006-01-02T15:04", "2006-01-02T15:04:05", sqliteTime}
 
-// event is the JSON shape of an event.
 type event struct {
 	ID            int64              `json:"id"`
 	GroupID       int64              `json:"group_id"`
@@ -41,13 +31,10 @@ type event struct {
 	Creator       models.UserSummary `json:"creator"`
 	GoingCount    int                `json:"going_count"`
 	NotGoingCount int                `json:"not_going_count"`
-	MyResponse    *string            `json:"my_response"` // null until I answer
+	MyResponse    *string            `json:"my_response"`
 	CreatedAt     string             `json:"created_at"`
 }
 
-// eventColumns selects an event (alias e) with its creator (alias u), as
-// seen by the viewer bound as ?1.
-// SQL constant: never built from user input; every value is a bound parameter.
 const eventColumns = `e.id, e.group_id, e.title, e.description,
 	strftime('%Y-%m-%d %H:%M:%S', e.event_time), strftime('%Y-%m-%d %H:%M:%S', e.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
@@ -55,7 +42,6 @@ const eventColumns = `e.id, e.group_id, e.title, e.description,
 	(SELECT COUNT(*) FROM event_responses r WHERE r.event_id = e.id AND r.response = 'not_going'),
 	(SELECT r.response FROM event_responses r WHERE r.event_id = e.id AND r.user_id = ?1)`
 
-// SQL constant: never built from user input; every value is a bound parameter.
 const eventFrom = `FROM events e JOIN users u ON u.id = e.creator_id`
 
 func scanEvent(row interface{ Scan(...any) error }) (event, error) {
@@ -75,8 +61,6 @@ func (a *App) eventByID(viewerID, eventID int64) (event, error) {
 	return scanEvent(a.DB.QueryRow(`SELECT `+eventColumns+` `+eventFrom+` WHERE e.id = ?2`, viewerID, eventID))
 }
 
-// parseEventTime reads an event time in one of eventTimeLayouts and returns
-// it in UTC.
 func parseEventTime(s string) (time.Time, bool) {
 	for _, layout := range eventTimeLayouts {
 		if t, err := time.Parse(layout, s); err == nil {
@@ -86,9 +70,6 @@ func parseEventTime(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// createEvent handles POST /api/groups/{id}/events
-// {"title","description","event_time"}. Members only. The time must be in
-// the future. Every other member gets a group_event notification.
 func (a *App) createEvent(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.memberGroupID(w, r, "only members can create events in this group")
 	if !ok {
@@ -147,7 +128,7 @@ func (a *App) createEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	var n notifier
 	for _, id := range members {
-		if err := n.add(tx, id, me, notifGroupEvent, &eventID); err != nil { // add skips me
+		if err := n.add(tx, id, me, notifGroupEvent, &eventID); err != nil {
 			serverError(w, err)
 			return
 		}
@@ -165,8 +146,6 @@ func (a *App) createEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, e)
 }
 
-// listEvents handles GET /api/groups/{id}/events: the group's events in
-// date order, soonest first. Members only (403 otherwise).
 func (a *App) listEvents(w http.ResponseWriter, r *http.Request) {
 	groupID, ok := a.memberGroupID(w, r, "only members can see this group's events")
 	if !ok {
@@ -195,10 +174,6 @@ func (a *App) listEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, events)
 }
 
-// respondToEvent handles POST /api/events/{id}/respond {"response":"going"}
-// or "not_going". Answering again replaces the earlier answer. An event that
-// has already happened can no longer be answered (400). An event of a group
-// I am not in is a 404, the same as one that does not exist.
 func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 	eventID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || eventID <= 0 {
@@ -215,11 +190,6 @@ func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "response must be going or not_going")
 		return
 	}
-	// The membership check and the "still in the future" check are part of
-	// the INSERT, so an answer is only stored for a member of the event's
-	// group, and only before the event happens. event_time and
-	// CURRENT_TIMESTAMP are both UTC "YYYY-MM-DD HH:MM:SS", so they compare
-	// correctly as text.
 	me := currentUserID(r)
 	res, err := a.DB.Exec(`INSERT INTO event_responses (event_id, user_id, response)
 		SELECT e.id, ?2, ?3 FROM events e
@@ -232,8 +202,6 @@ func (a *App) respondToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		// Nothing stored: tell a member that the event is over; anyone else
-		// gets the same 404 as for an unknown event.
 		var past bool
 		err := a.DB.QueryRow(`SELECT e.event_time <= CURRENT_TIMESTAMP FROM events e
 			WHERE e.id = ?1 AND EXISTS (SELECT 1 FROM group_members m WHERE m.group_id = e.group_id AND m.user_id = ?2)`,

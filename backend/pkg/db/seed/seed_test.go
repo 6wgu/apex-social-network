@@ -71,7 +71,6 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 	if count(t, db, `SELECT COUNT(*) FROM follows WHERE status = 'pending'`) == 0 {
 		t.Error("no pending follow request")
 	}
-	// Every image the database points at was copied into the upload folder.
 	rows, err := db.Query(`SELECT avatar_path FROM users UNION SELECT image_path FROM posts UNION SELECT image_path FROM comments`)
 	if err != nil {
 		t.Fatal(err)
@@ -88,9 +87,6 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 	}
 	rows.Close()
 
-	// Each image file belongs to one row only: the upload check looks at the
-	// first post or comment that uses a file, so a shared file would be
-	// hidden from viewers of the other row.
 	if n := count(t, db, `SELECT COUNT(*) FROM (SELECT p FROM (
 		SELECT avatar_path AS p FROM users WHERE avatar_path <> ''
 		UNION ALL SELECT image_path FROM posts WHERE image_path <> ''
@@ -99,8 +95,6 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 		t.Errorf("%d image files are used by more than one row", n)
 	}
 
-	// The data follows the app's own rules: a private post's viewers follow
-	// its author, and whoever commented on or liked a post can see it.
 	if n := count(t, db, `SELECT COUNT(*) FROM post_viewers v JOIN posts p ON p.id = v.post_id
 		WHERE NOT EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = v.user_id AND f.following_id = p.user_id AND f.status = 'accepted')`); n != 0 {
 		t.Errorf("%d private-post viewers do not follow the author", n)
@@ -114,7 +108,6 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 		}
 	}
 
-	// Groups, events and chats follow the same rules as the API.
 	for table, want := range map[string]int{"groups": len(groups), "events": 2, "group_invites": 2, "group_requests": 2, "messages": len(messages)} {
 		if n := count(t, db, `SELECT COUNT(*) FROM `+table); n != want {
 			t.Errorf("%s = %d, want %d", table, n, want)
@@ -143,18 +136,15 @@ func TestSeedRunsOnceAndResets(t *testing.T) {
 			t.Errorf("no %s notification", typ)
 		}
 	}
-	// A follow_request notification exists exactly for each pending follow.
 	if n := count(t, db, `SELECT COUNT(*) FROM notifications n WHERE n.type = 'follow_request' AND NOT EXISTS (
 		SELECT 1 FROM follows f WHERE f.follower_id = n.actor_id AND f.following_id = n.user_id AND f.status = 'pending')`); n != 0 {
 		t.Errorf("%d follow_request notifications without a pending follow", n)
 	}
 
-	// A second start does nothing.
 	if seeded, err := run(db, uploads, time.Now()); err != nil || seeded {
 		t.Fatalf("second run = %v, %v; want no-op", seeded, err)
 	}
 
-	// A real account survives the reset; the demo data and images do not.
 	if _, err := db.Exec(`INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth)
 		VALUES ('real@example.org', 'x', 'Real', 'Person', '1990-01-01')`); err != nil {
 		t.Fatal(err)

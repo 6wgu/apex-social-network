@@ -18,15 +18,10 @@ import (
 	"social-network/pkg/otp"
 )
 
-// Tests for "Forgot password?" (password.go). Run from backend/:
-// go test ./pkg/handlers
-
 const newPassword = "Brand-New-Pass2"
 
 var resetMail = regexp.MustCompile(`(?s)^\[console mode\] email to ([^:]+): .*password reset code is (\d{6})`)
 
-// resetCodes waits for the emails sent in the background and returns the
-// address and code of every reset code email, oldest first.
 func (e *testEnv) resetCodes() [][2]string {
 	e.app.mailing.Wait()
 	e.mu.Lock()
@@ -40,7 +35,6 @@ func (e *testEnv) resetCodes() [][2]string {
 	return out
 }
 
-// resetCode returns the newest reset code sent to the address.
 func (e *testEnv) resetCode(t *testing.T, email string) string {
 	t.Helper()
 	all := e.resetCodes()
@@ -53,7 +47,6 @@ func (e *testEnv) resetCode(t *testing.T, email string) string {
 	return ""
 }
 
-// mailsWith counts the emails, sent so far, whose log line has every part.
 func (e *testEnv) mailsWith(parts ...string) int {
 	e.app.mailing.Wait()
 	e.mu.Lock()
@@ -71,9 +64,6 @@ func (e *testEnv) mailsWith(parts ...string) int {
 	return n
 }
 
-// post sends a JSON body from the client address ip ("" for none, as
-// through the Next.js proxy) and returns the status, the raw body and the
-// headers.
 func (c *client) post(path, body, ip string) (int, string, http.Header) {
 	c.t.Helper()
 	req, err := http.NewRequest("POST", c.base+path, strings.NewReader(body))
@@ -103,7 +93,6 @@ func resetBody(token, password string) string {
 	return `{"token":"` + token + `","password":"` + password + `"}`
 }
 
-// wrongCode returns a code that is not code.
 func wrongCode(code string) string {
 	if code == "000000" {
 		return "111111"
@@ -111,8 +100,6 @@ func wrongCode(code string) string {
 	return "000000"
 }
 
-// verifiedUser registers a verified account and returns its logged-in
-// browser and id.
 func (e *testEnv) verifiedUser(t *testing.T, email string) (*client, int64) {
 	t.Helper()
 	c, id := e.register(t, email, nil)
@@ -120,7 +107,6 @@ func (e *testEnv) verifiedUser(t *testing.T, email string) (*client, int64) {
 	return c, id
 }
 
-// resetToken asks for a code for email and trades it for a token.
 func (e *testEnv) resetToken(t *testing.T, email string) string {
 	t.Helper()
 	c := e.client(t)
@@ -145,7 +131,6 @@ func (e *testEnv) login(t *testing.T, email, password string) (*client, int) {
 func TestForgotPasswordAnswersTheSameForAnUnknownEmail(t *testing.T) {
 	e := newTestEnv(t)
 	e.verifiedUser(t, "ada@example.com")
-	// Sending is slow; the answer must not wait for it.
 	e.slowMail.Store(int64(500 * time.Millisecond))
 	c := e.client(t)
 
@@ -171,14 +156,12 @@ func TestForgotPasswordAnswersTheSameForAnUnknownEmail(t *testing.T) {
 		t.Errorf("%d emails to the unknown address, want none", n)
 	}
 
-	// A wrong code answers alike too, attempts and all.
 	wrong := wrongCode(codes[0][1])
 	_, realWrong, _ := c.post("/api/password/verify-code", codeBody("ada@example.com", wrong), "")
 	_, unknownWrong, _ := c.post("/api/password/verify-code", codeBody("nobody@example.com", wrong), "")
 	if realWrong != unknownWrong || !strings.Contains(realWrong, `"attempts_left":4`) {
 		t.Fatalf("wrong code = %s for an account, %s for none; want the same, with 4 attempts left", realWrong, unknownWrong)
 	}
-	// So does the cooldown.
 	realStatus, realBody, _ = c.post("/api/password/forgot", forgotBody("ada@example.com"), "")
 	unknownStatus, unknownBody, _ = c.post("/api/password/forgot", forgotBody("nobody@example.com"), "")
 	if realStatus != http.StatusTooManyRequests || realStatus != unknownStatus || realBody != unknownBody {
@@ -219,7 +202,6 @@ func TestCorrectResetCodeGivesAToken(t *testing.T) {
 	if status != http.StatusOK || token == "" || body["expires_in"] != float64(15*60) {
 		t.Fatalf("verify-code = %d %v, want 200 with a token for 15 minutes", status, body)
 	}
-	// Only the token's hash is stored, and the code is spent.
 	if e.count(t, `SELECT COUNT(*) FROM password_reset_tokens WHERE token_hash = ?`, token) != 0 ||
 		e.count(t, `SELECT COUNT(*) FROM password_reset_tokens WHERE token_hash = ?`, hashToken(token)) != 1 {
 		t.Error("password_reset_tokens does not hold just the token's hash")
@@ -249,7 +231,6 @@ func TestWrongResetCodesCountAndLockOut(t *testing.T) {
 	if status != http.StatusBadRequest || body["reason"] != otp.TooMany {
 		t.Fatalf("fifth wrong code = %d %v, want 400 too_many", status, body)
 	}
-	// The code is gone: even the right one fails now.
 	status, body = c.json("POST", "/api/password/verify-code", codeBody("ada@example.com", code))
 	if status != http.StatusBadRequest || body["reason"] != otp.Missing {
 		t.Fatalf("right code after the lockout = %d %v, want 400 missing", status, body)
@@ -307,7 +288,6 @@ func TestVerificationAndResetCodesAreSeparate(t *testing.T) {
 	}
 	_, verifyCode := e.lastCode(t)
 
-	// With no reset code asked for, the verification code finds nothing.
 	status, body := c.json("POST", "/api/password/verify-code", codeBody("ada@example.com", verifyCode))
 	if status != http.StatusBadRequest || body["reason"] != otp.Missing {
 		t.Fatalf("verification code as a reset code = %d %v, want 400 missing", status, body)
@@ -325,7 +305,6 @@ func TestVerificationAndResetCodesAreSeparate(t *testing.T) {
 	if status != http.StatusBadRequest || body["reason"] != otp.Wrong {
 		t.Fatalf("reset code as a verification code = %d %v, want 400 wrong", status, body)
 	}
-	// Each still works for its own purpose.
 	if status, body := c.json("POST", "/api/password/verify-code", codeBody("ada@example.com", resetCode)); status != http.StatusOK {
 		t.Fatalf("reset code = %d %v, want 200", status, body)
 	}
@@ -349,7 +328,6 @@ func TestWeakNewPasswordIsRejected(t *testing.T) {
 			t.Errorf("reset to %q = %d %v, want 400 %q", password, status, body, want)
 		}
 	}
-	// The token was not spent on them.
 	if status, body := c.json("POST", "/api/password/reset", resetBody(token, newPassword)); status != http.StatusOK {
 		t.Fatalf("reset to a strong password = %d %v, want 200", status, body)
 	}
@@ -364,7 +342,6 @@ func TestResetChangesThePasswordAndEndsEverySession(t *testing.T) {
 	}
 	other, otherID := e.verifiedUser(t, "bob@example.com")
 
-	// A live connection of the user, which the reset must close.
 	dialer := websocket.Dialer{Jar: first.http.Jar}
 	conn, _, err := dialer.Dial("ws"+strings.TrimPrefix(e.url, "http")+"/ws", http.Header{"Origin": {"http://localhost:3000"}})
 	if err != nil {
@@ -378,7 +355,6 @@ func TestResetChangesThePasswordAndEndsEverySession(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	// A signed-in browser can use the routes too.
 	if status, body, _ := first.post("/api/password/forgot", forgotBody("ada@example.com"), ""); status != http.StatusOK {
 		t.Fatalf("forgot with a session = %d %s", status, body)
 	}
@@ -412,7 +388,6 @@ func TestResetChangesThePasswordAndEndsEverySession(t *testing.T) {
 	if n := e.mailsWith("ada@example.com", "Your APEX password was changed"); n != 1 {
 		t.Errorf("%d password changed emails, want 1", n)
 	}
-	// Nobody else was logged out.
 	if status, _ := other.json("GET", "/api/me", ""); status != http.StatusOK || e.count(t, `SELECT COUNT(*) FROM sessions WHERE user_id = ?`, otherID) != 1 {
 		t.Errorf("another user's session = %d, want it kept", status)
 	}
@@ -435,7 +410,6 @@ func TestForgotPasswordLimits(t *testing.T) {
 	e.verifiedUser(t, "ada@example.com")
 	c := e.client(t)
 
-	// One address: forgotLimit codes an hour, each after the cooldown.
 	for i := range forgotLimit {
 		if status, body, _ := c.post("/api/password/forgot", forgotBody("ada@example.com"), ""); status != http.StatusOK {
 			t.Fatalf("request %d = %d %s, want 200", i+1, status, body)
@@ -454,7 +428,6 @@ func TestForgotPasswordLimits(t *testing.T) {
 		t.Fatalf("request an hour later = %d %s, want 200", status, body)
 	}
 
-	// One client: forgotLimit requests an hour, whatever the addresses.
 	for i := range forgotLimit {
 		if status, body, _ := c.post("/api/password/forgot", forgotBody(fmt.Sprintf("x%d@example.com", i)), "203.0.113.7"); status != http.StatusOK {
 			t.Fatalf("client request %d = %d %s, want 200", i+1, status, body)
@@ -471,10 +444,10 @@ func TestForgotPasswordLimits(t *testing.T) {
 func TestClientIP(t *testing.T) {
 	for _, tc := range []struct{ remote, forwarded, want string }{
 		{"203.0.113.7:5000", "", "203.0.113.7"},
-		{"203.0.113.7:5000", "10.0.0.1", "203.0.113.7"}, // a public client cannot pick its address
+		{"203.0.113.7:5000", "10.0.0.1", "203.0.113.7"},
 		{"127.0.0.1:5000", "198.51.100.1, 198.51.100.2", "198.51.100.2"},
 		{"172.18.0.3:5000", "198.51.100.1", "198.51.100.1"},
-		{"[::1]:5000", "", ""}, // the proxy itself, without a client
+		{"[::1]:5000", "", ""},
 		{"127.0.0.1:5000", "not an ip", ""},
 	} {
 		r := httptest.NewRequest("POST", "/api/password/forgot", nil)
@@ -488,8 +461,6 @@ func TestClientIP(t *testing.T) {
 	}
 }
 
-// The reset code is printed in the backend log for the audit, in every mail
-// mode, but only for an address with an account.
 func TestResetCodeIsLogged(t *testing.T) {
 	e := newTestEnv(t)
 	e.verifiedUser(t, "ada@example.com")
@@ -500,7 +471,7 @@ func TestResetCodeIsLogged(t *testing.T) {
 	c := e.client(t)
 	c.post("/api/password/forgot", forgotBody("ada@example.com"), "")
 	c.post("/api/password/forgot", forgotBody("nobody@example.com"), "")
-	code := e.resetCode(t, "ada@example.com") // waits for the background send
+	code := e.resetCode(t, "ada@example.com")
 	if want := "reset code for ada@example.com: " + code; !strings.Contains(buf.String(), want) {
 		t.Errorf("log %q lacks %q", buf.String(), want)
 	}

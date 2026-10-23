@@ -15,8 +15,6 @@ import { Loading } from "@/components/RacingLights";
 import { notify } from "@/components/Toaster";
 import { useRealtime } from "@/components/RealtimeProvider";
 
-// The feed as a column of cards that snap into place, with up / down
-// buttons beside it. More posts load near the end.
 function FeedReel({ feed }) {
   const { posts, hasMore, loading, error, loadMore } = feed;
   const box = useRef(null);
@@ -80,7 +78,6 @@ function FeedReel({ feed }) {
   );
 }
 
-// Right column: people you can chat with, and groups you have not joined.
 function HomeSide() {
   const [friends, setFriends] = useState(null);
   const [groups, setGroups] = useState(null);
@@ -148,8 +145,6 @@ function HomeSide() {
   );
 }
 
-// The signed-in home: the feed (every post you may see, newest first), with
-// the New Post button, and the side column.
 function Feed() {
   const { user } = useAuth();
   const feed = usePagedPosts("/api/feed");
@@ -157,7 +152,6 @@ function Feed() {
     const added = await feed.refreshTop();
     if (added && !quiet) notify({ message: `${added} new ${added === 1 ? "post" : "posts"} in your feed` });
   };
-  // New posts arrive live; the timer catches any the socket missed.
   useRealtime((event) => {
     if (event.type === "post_created" && !event.payload.group_id) checkNew(event.payload.author_id === user?.id);
   });
@@ -174,7 +168,6 @@ function Feed() {
   );
 }
 
-// Home: the landing page when logged out, the feed when logged in.
 export default function Home() {
   const { user } = useAuth();
   return user ? <Feed /> : <Landing />;

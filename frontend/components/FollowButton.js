@@ -3,13 +3,6 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 
-// Follow / Requested / Following for someone else's profile.
-// none      -> "Follow"     click sends a request (or follows a public profile at once)
-// pending   -> "Requested"  click cancels the request
-// following -> "Following"  click unfollows
-// The label shows what a click will do when hovered or focused.
-// onChange() is called after a successful click so the page reloads the
-// profile (counts and what is visible depend on the new state).
 export default function FollowButton({ userId, status, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +13,6 @@ export default function FollowButton({ userId, status, onChange }) {
     try {
       await api(`/api/users/${userId}/follow`, { method: status === "none" ? "POST" : "DELETE" });
     } catch (err) {
-      // 409 / 404: the state changed elsewhere (another tab); reloading shows the truth.
       if (err.status !== 409 && err.status !== 404) setError(err.message);
     }
     await onChange();

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 
-// A list of UserSummary rows linking to each profile.
 export default function UserList({ users, empty, meId }) {
   if (users.length === 0) return <p className="muted tab-placeholder">{empty}</p>;
   return (

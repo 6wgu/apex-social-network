@@ -2,31 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// A miniature formula car that replaces the mouse pointer on desktop. It is
-// decoration only: pointer-events are off, the hotspot is the tip of the nose
-// (exactly where the real pointer is), and text fields get the native I-beam
-// back. It is skipped on touch devices, with reduced motion, and when the
-// user switches it off (CursorToggle, stored in localStorage).
-//
-// Movement runs in one requestAnimationFrame loop that writes styles
-// directly, so moving the mouse never re-renders React. The loop stops itself
-// when the car is still and starts again on the next mouse move.
-
 const PREF_KEY = "apex-cursor";
 const PREF_EVENT = "apex-cursor-pref";
 
 const VB_W = 60;
 const VB_H = 140;
-const HEIGHT = 46; // px on screen
+const HEIGHT = 46;
 const SCALE = HEIGHT / VB_H;
 const WIDTH = VB_W * SCALE;
-const NOSE_X = 30 * SCALE; // the hotspot, in px from the car's top-left corner
+const NOSE_X = 30 * SCALE;
 const NOSE_Y = 2 * SCALE;
-const TAIL = 134 * SCALE; // nose to rear wing
-const WING_HALF = 20 * SCALE; // rear wing endplates, from the centre line
-const REST_ANGLE = -32; // nose up and to the left, like a normal arrow pointer
+const TAIL = 134 * SCALE;
+const WING_HALF = 20 * SCALE;
+const REST_ANGLE = -32;
 const TRAIL_MS = 260;
-const TRAIL_SPEED = 7; // px per frame before the slipstream shows
+const TRAIL_SPEED = 7;
 
 const TEXT_FIELDS =
   'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, select, [contenteditable=""], [contenteditable="true"]';
@@ -44,7 +34,6 @@ function writePref(on) {
   try {
     localStorage.setItem(PREF_KEY, on ? "on" : "off");
   } catch {
-    // Storage blocked: the choice lasts for this page only.
   }
   window.dispatchEvent(new CustomEvent(PREF_EVENT, { detail: on }));
 }
@@ -58,7 +47,6 @@ export default function RacingCursor() {
   const canvas = useRef(null);
   const [enabled, setEnabled] = useState(false);
 
-  // Decide whether the car is shown, and follow later changes.
   useEffect(() => {
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -103,7 +91,7 @@ export default function RacingCursor() {
     let steer = 0;
     let visible = false;
     let raf = 0;
-    const trail = []; // { lx, ly, rx, ry, t } rear wing endplates over time
+    const trail = [];
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -126,7 +114,6 @@ export default function RacingCursor() {
       vy = vy * 0.7 + dy * 0.3;
       const speed = Math.hypot(vx, vy);
 
-      // Point the nose where the mouse is going; turn by the shortest way.
       if (speed > 1.2) heading = (Math.atan2(vy, vx) * 180) / Math.PI + 90;
       const diff = ((heading - angle + 540) % 360) - 180;
       angle += diff * 0.2;
@@ -136,7 +123,6 @@ export default function RacingCursor() {
       wheelL.setAttribute("transform", `rotate(${steer.toFixed(1)} 10 34)`);
       wheelR.setAttribute("transform", `rotate(${steer.toFixed(1)} 50 34)`);
 
-      // Slipstream from the rear wing endplates, only while moving fast.
       if (visible && speed > TRAIL_SPEED) {
         const rad = ((angle - 90) * Math.PI) / 180;
         const fx = Math.cos(rad);
@@ -188,7 +174,7 @@ export default function RacingCursor() {
     }
 
     function onOut(e) {
-      if (e.relatedTarget) return; // still inside the page
+      if (e.relatedTarget) return;
       visible = false;
       el.classList.remove("is-visible");
     }
@@ -237,8 +223,6 @@ export default function RacingCursor() {
   );
 }
 
-// The Settings row for the car pointer. Where there is no mouse or trackpad
-// the car never appears, so the row says so instead of offering a switch.
 export function CursorSetting() {
   const [on, setOn] = useState(null);
   const [supported, setSupported] = useState(true);
@@ -276,7 +260,6 @@ export function CursorSetting() {
   );
 }
 
-// Top-down car, nose up. viewBox 0 0 60 140; the nose tip is at (30, 2).
 export function CarSvg({ p = "apx", width = WIDTH, height = HEIGHT }) {
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width={width} height={height} focusable="false" aria-hidden="true">
@@ -311,33 +294,27 @@ export function CarSvg({ p = "apx", width = WIDTH, height = HEIGHT }) {
         </linearGradient>
       </defs>
 
-      {/* suspension, under the bodywork */}
       <g stroke="#AEB7C6" strokeWidth="1.3" strokeLinecap="round">
         <path d="M15 29 25 36M15 39 25 43M45 29 35 36M45 39 35 43" />
         <path d="M16 104 24 99M16 114 24 110M44 104 36 99M44 114 36 110" />
       </g>
 
-      {/* front tyres, steered by the cursor loop */}
       <g data-wheel="l">
         <Tire x={4} y={23} w={12} h={22} p={p} />
       </g>
       <g data-wheel="r">
         <Tire x={44} y={23} w={12} h={22} p={p} />
       </g>
-      {/* rear tyres */}
       <Tire x={2} y={96} w={15} h={26} p={p} />
       <Tire x={43} y={96} w={15} h={26} p={p} />
 
-      {/* floor */}
       <path d="M18 48h24l5.5 48-2.5 22H15l-2.5-22Z" fill="#07090D" />
 
-      {/* sidepods with inlets and undercuts */}
       <path d="M20 56c-6 2-8 10-8 18l1 18c1 6 7 10 11 12h12c4-2 10-6 11-12l1-18c0-8-2-16-8-18Z" fill={`url(#${p}-body)`} />
       <path d="M13.6 65c0-5 3-8 7.4-8.4L22 65ZM46.4 65c0-5-3-8-7.4-8.4L38 65Z" fill="#05070B" />
       <path d="M12.6 78h2.6l1 16-2.8-2.6ZM47.4 78h-2.6l-1 16 2.8-2.6Z" fill="#0B0E14" />
       <path d="M15.4 67c.2-3.4 1.7-6 3.6-7.2V88l-3.4-3.6Z" fill="#fff" opacity=".12" />
 
-      {/* front wing: endplates, main plane, red flap with a white edge */}
       <rect x="2" y="6" width="3" height="13" rx="1" fill="#0B0E14" stroke="#3A4456" strokeWidth=".5" />
       <rect x="55" y="6" width="3" height="13" rx="1" fill="#0B0E14" stroke="#3A4456" strokeWidth=".5" />
       <path d="M4 12h52v5c-17 2.6-35 2.6-52 0Z" fill={`url(#${p}-carbon)`} />
@@ -346,34 +323,28 @@ export function CarSvg({ p = "apx", width = WIDTH, height = HEIGHT }) {
       <rect x="26.6" y="10" width="1.1" height="8" fill="#0B0E14" />
       <rect x="32.3" y="10" width="1.1" height="8" fill="#0B0E14" />
 
-      {/* nose and monocoque */}
       <path d="M30 3c2.4 0 3.4 3 3.6 7L35 40l1.5 14h-13L25 40l1.4-30c.2-4 1.2-7 3.6-7Z" fill={`url(#${p}-body)`} />
       <path d="M29.2 7h1.6l.6 33h-2.8Z" fill="#F5F7FA" opacity=".92" />
       <path d="M27.4 4.2Q30 1.6 32.6 4.2l.2 2.8h-5.6Z" fill="#0B0E14" />
       <path d="M27.2 11h.8l.5 29h-2Z" fill="#fff" opacity=".2" />
 
-      {/* engine cover with the white spine and airbox */}
       <path d="M23.5 54c-1.5 8-1.5 16 .5 26l3 30h6l3-30c2-10 2-18 .5-26Z" fill={`url(#${p}-body)`} />
       <path d="M29.3 72h1.4l.5 36h-2.4Z" fill="#F5F7FA" opacity=".85" />
       <ellipse cx="30" cy="70.6" rx="3" ry="2" fill="#05070B" stroke="#FF6B79" strokeWidth=".5" />
 
-      {/* mirrors */}
       <path d="M24 50.5h-4.5M36 50.5h4.5" stroke="#0B0E14" strokeWidth=".9" />
       <rect x="18" y="49.4" width="3.4" height="2" rx=".6" fill="#0B0E14" stroke="#3A4456" strokeWidth=".4" />
       <rect x="38.6" y="49.4" width="3.4" height="2" rx=".6" fill="#0B0E14" stroke="#3A4456" strokeWidth=".4" />
 
-      {/* cockpit, driver, halo */}
       <path d="M25 52c0-5 2-7 5-7s5 2 5 7l.4 14c-1.4 2-9.4 2-10.8 0Z" fill="#05070B" stroke="#fff" strokeOpacity=".14" strokeWidth=".5" />
       <circle cx="30" cy="58.4" r="4.2" fill={`url(#${p}-helmet)`} />
       <path d="M26.7 56.6Q30 53.8 33.3 56.6l-.4 1.4Q30 56 27.1 58Z" fill="#0B0E14" />
       <rect x="29.45" y="58.6" width="1.1" height="3.8" rx=".5" fill="#FF3045" />
       <path d="M24.4 62c-.4-9.6 1.6-13.4 5.6-13.4s6 3.8 5.6 13.4M30 48.6V43" fill="none" stroke={`url(#${p}-halo)`} strokeWidth="1.6" strokeLinecap="round" />
 
-      {/* diffuser with strakes */}
       <path d="M16 116h28l2 10H14Z" fill="#05070B" />
       <path d="M20 117v8M25 117v8.6M30 117v8.6M35 117v8.6M40 117v8" stroke="#303847" strokeWidth=".8" />
 
-      {/* rear wing: pylon, endplates, main plane, DRS flap, rain light */}
       <rect x="29" y="108" width="2" height="16" fill="#0B0E14" />
       <rect x="8" y="120" width="2.6" height="17" rx=".8" fill="#0B0E14" stroke="#3A4456" strokeWidth=".5" />
       <rect x="49.4" y="120" width="2.6" height="17" rx=".8" fill="#0B0E14" stroke="#3A4456" strokeWidth=".5" />

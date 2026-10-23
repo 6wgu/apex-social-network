@@ -1,8 +1,6 @@
 import PostCard from "@/components/PostCard";
 import { Loading } from "@/components/RacingLights";
 
-// A list of PostCards with loading, empty, error and "Load more" states.
-// feed is what usePagedPosts returns.
 export default function PostList({ feed, empty }) {
   const { posts, hasMore, loading, error, loadMore } = feed;
   return (

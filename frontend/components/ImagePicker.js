@@ -3,10 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_ACCEPT, imageProblem } from "@/lib/images";
 
-// "Add image / GIF" button with a preview and a remove button. The parent
-// owns the File (value / onChange); reset it to null to clear the picker.
-// A file the backend would refuse is not taken: onError gets the reason
-// (and "" once a good file is chosen), for the form's own error line.
 export default function ImagePicker({ value, onChange, onError, label = "Photo / GIF", compact = false }) {
   const input = useRef(null);
   const [preview, setPreview] = useState("");
@@ -44,7 +40,6 @@ export default function ImagePicker({ value, onChange, onError, label = "Photo /
       )}
       {preview && (
         <div className="image-preview">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Selected image" />
           <button type="button" className="image-remove" onClick={() => onChange(null)} aria-label="Remove image">
             ✕

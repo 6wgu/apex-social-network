@@ -1,6 +1,3 @@
--- Pending invitations. Any member can invite; only the invitee can accept
--- or decline, and either answer deletes the row. One invitation per user
--- and group at a time.
 CREATE TABLE IF NOT EXISTS group_invites (
     id         INTEGER  PRIMARY KEY AUTOINCREMENT,
     group_id   INTEGER  NOT NULL REFERENCES groups(id) ON DELETE CASCADE,

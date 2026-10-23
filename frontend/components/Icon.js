@@ -1,4 +1,3 @@
-// Line icons on a 24×24 grid, drawn with currentColor (stroke only).
 const PATHS = {
   home: "M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5.5h4V20",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm5-2 4.5 4.5",

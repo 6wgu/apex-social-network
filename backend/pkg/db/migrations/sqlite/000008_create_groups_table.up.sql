@@ -1,7 +1,3 @@
--- Groups. Every logged-in user can browse them (title, description,
--- creator, member count); what happens inside a group (members, posts,
--- events) is for its members only. The creator is also a row in
--- group_members, added together with the group.
 CREATE TABLE IF NOT EXISTS groups (
     id          INTEGER  PRIMARY KEY AUTOINCREMENT,
     creator_id  INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,

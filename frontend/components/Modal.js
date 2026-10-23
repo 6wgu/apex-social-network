@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-// A dialog over a dimmed page. It closes on Escape or a click on the
-// backdrop, and moves the focus to its first field when it opens.
 export default function Modal({ title, onClose, children }) {
   const panel = useRef(null);
   const close = useRef(onClose);

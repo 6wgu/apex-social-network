@@ -6,14 +6,11 @@ import { api } from "@/lib/api";
 import { formatEventTime, parseTime } from "@/lib/time";
 import { Loading } from "@/components/RacingLights";
 
-// The value an <input type="datetime-local"> uses for a Date, in local time.
 function localInputValue(date) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-// Form for POST /api/groups/{id}/events. The browser's local date and time
-// is sent as UTC (toISOString), so everyone sees it in their own zone.
 function EventForm({ groupId, onCreated, onCancel }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -79,8 +76,6 @@ function EventForm({ groupId, onCreated, onCancel }) {
   );
 }
 
-// One event with its Going / Not going buttons and counts. Answering again
-// changes the answer; the server returns the event with fresh counts.
 function EventCard({ event, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -142,8 +137,6 @@ function EventCard({ event, onChange }) {
   );
 }
 
-// The Events tab of a group: create form, then upcoming and past events.
-// reloadKey changes when the page learns of a new event (live notification).
 export default function GroupEvents({ groupId, reloadKey }) {
   const [events, setEvents] = useState(null);
   const [error, setError] = useState("");

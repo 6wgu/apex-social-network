@@ -10,9 +10,6 @@ import Icon from "@/components/Icon";
 import { Loading } from "@/components/RacingLights";
 import SearchInput from "@/components/SearchInput";
 
-// /search: people search (GET /api/users?search=). An empty box lists users,
-// loaded once; typing searches once it pauses (useSearchQuery), and only the
-// answer for the latest query is shown.
 export default function SearchPage() {
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");

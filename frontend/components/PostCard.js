@@ -13,7 +13,7 @@ import { useRealtime } from "@/components/RealtimeProvider";
 import { useAuth } from "@/components/AuthProvider";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
-const COMMENTS_PAGE = 50; // the backend's page size for comments
+const COMMENTS_PAGE = 50;
 
 function Author({ user, time, privacy }) {
   return (
@@ -42,9 +42,6 @@ function Author({ user, time, privacy }) {
   );
 }
 
-// The comments under a post: loaded when opened, oldest first, with a form
-// to add one (text and/or image). The backend answers 404 for a post the
-// user may not see, so there is no client-side permission logic here.
 function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
   const { user } = useAuth();
   const [comments, setComments] = useState(null);
@@ -71,9 +68,7 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
     load();
   }, [load]);
 
-  // Adds a comment once, whether it came from our own form or live.
   const append = (c) => setComments((old) => (old && old.some((x) => x.id === c.id) ? old : [...(old || []), c]));
-  // Drops a comment once, whether we deleted it or someone else did.
   const commentsRef = useRef(comments);
   commentsRef.current = comments;
   const drop = (commentId) => {
@@ -87,7 +82,7 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
     if (event.type === "comment_deleted" && event.payload.post_id === postId) drop(event.payload.comment_id);
   });
 
-  const [toDelete, setToDelete] = useState(null); // the comment waiting for confirmation
+  const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   async function confirmRemove() {
     setDeleting(true);
@@ -144,7 +139,6 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
               )}
               {c.content && <p className="post-text">{c.content}</p>}
               {c.image_path && (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img className="comment-image" src={c.image_path} alt="Comment image" loading="lazy" />
               )}
             </div>
@@ -184,15 +178,11 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
   );
 }
 
-// The ♥ button: updates at once, then settles on the server's answer
-// (or goes back if the request fails).
 function LikeButton({ post }) {
   const [liked, setLiked] = useState(Boolean(post.liked_by_me));
   const [count, setCount] = useState(post.like_count || 0);
   const [busy, setBusy] = useState(false);
 
-  // Someone else liked or unliked: take the new count (our own click
-  // settles on the server's answer instead).
   useRealtime((event) => {
     if (event.type === "post_likes" && event.payload.post_id === post.id && !busy) setCount(event.payload.like_count);
   });
@@ -229,12 +219,9 @@ function LikeButton({ post }) {
   );
 }
 
-// One post: author, time, privacy icon, text, image, likes and comments.
-// A group post has no privacy icon: its group decides who sees it.
 export default function PostCard({ post }) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(post.comment_count);
-  // Each new comment counts once, from the form or from the live push.
   const seen = useRef(new Set());
   const counted = (c) => {
     if (seen.current.has(c.id)) return;
@@ -281,7 +268,6 @@ export default function PostCard({ post }) {
       </header>
       {post.content && <p className="post-text">{post.content}</p>}
       {post.image_path && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img className="post-image" src={post.image_path} alt="Post image" loading="lazy" />
       )}
       <footer className="post-foot">

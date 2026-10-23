@@ -18,17 +18,12 @@ import { useRealtime, useRealtimeConnected, useRealtimeSend } from "@/components
 import SearchInput from "@/components/SearchInput";
 
 const NOT_ALLOWED = "You can only message people you follow or who follow you.";
-const TYPING_SHOWN = 4000; // ms: as in ChatWindow, "typing…" goes away when no new typing event came for this long
+const TYPING_SHOWN = 4000;
 
 function name(u) {
   return `${u.first_name} ${u.last_name}`;
 }
 
-// /chats: my private conversations on the left, the open one on the right
-// (?user=ID opens a chat, e.g. from a profile's Message button). On a phone
-// it shows the list or the chat, with a back button.
-// "New chat": everyone I may message (I follow them or they follow me),
-// with a search, so a chat can start here without visiting a profile.
 function NewChatDialog({ people, onPick, onClose }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -79,9 +74,9 @@ function Chats() {
   const [conversations, setConversations] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [error, setError] = useState("");
-  const [stranger, setStranger] = useState(null); // ?user= someone with no conversation and not a contact
-  const [filter, setFilter] = useState(""); // narrows the list by name, in the browser only
-  const [picking, setPicking] = useState(false); // the "New chat" dialog is open
+  const [stranger, setStranger] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [picking, setPicking] = useState(false);
   const filterQuery = useSearchQuery(filter);
   const query = filterQuery.toLowerCase();
 
@@ -97,7 +92,6 @@ function Chats() {
 
   useEffect(load, [load]);
   useAutoRefresh(load, 30000);
-  // Reconnected: the list may have missed messages.
   useEffect(() => {
     if (connected) load();
   }, [connected, load]);
@@ -107,8 +101,6 @@ function Chats() {
     api(`/api/messages/${otherId}/read`, { method: "POST" }).catch(() => {});
   }, []);
 
-  // Who is typing to me right now (user id -> timer), so the list shows
-  // "typing…" even when that chat is not the one open.
   const [typing, setTyping] = useState(() => new Set());
   const typingTimers = useRef(new Map());
   const stopTyping = useCallback((userId) => {
@@ -129,7 +121,6 @@ function Chats() {
   useRealtime((event) => {
     if (event.type === "typing") {
       const p = event.payload;
-      // Only private chats with me; my own tab's echo has a request_id.
       if (event.request_id || !p?.user || p.recipient_id !== me.id) return;
       const who = p.user.id;
       setTyping((old) => (old.has(who) ? old : new Set(old).add(who)));
@@ -144,12 +135,12 @@ function Chats() {
     if (event.type !== "private_message") return;
     const m = event.payload;
     const otherId = m.sender.id === me.id ? m.recipient_id : m.sender.id;
-    if (m.sender.id !== me.id) stopTyping(m.sender.id); // their message is here: no longer typing
+    if (m.sender.id !== me.id) stopTyping(m.sender.id);
     setConversations((list) => {
       if (!list) return list;
       const existing = list.find((c) => c.user.id === otherId);
       if (!existing) {
-        load(); // a new conversation: fetch it with the other user's details
+        load();
         return list;
       }
       const fromThem = m.sender.id !== me.id;
@@ -171,8 +162,6 @@ function Chats() {
     [contacts, conversations]
   );
 
-  // ?user= someone who is neither a conversation nor a contact: load their
-  // name so the page can say why chatting is not possible.
   useEffect(() => {
     setStranger(null);
     if (!selectedId || !conversations || selectedConv || selectedContact) return;

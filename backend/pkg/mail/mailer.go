@@ -36,7 +36,6 @@ type Message struct {
 	Attachments []Attachment
 }
 
-// smtpTimeout bounds a whole SMTP conversation, from connecting to QUIT.
 const smtpTimeout = time.Minute
 
 type Mailer struct {
@@ -134,9 +133,6 @@ func (m *Mailer) withClient(fn func(*smtp.Client) error) error {
 	if err != nil {
 		return err
 	}
-	// The dial timeout only covers connecting. A server that stops answering
-	// later would hang the request (and the user's email lock) for good, so
-	// the whole conversation gets one deadline.
 	if err := conn.SetDeadline(time.Now().Add(smtpTimeout)); err != nil {
 		conn.Close()
 		return err
@@ -204,8 +200,6 @@ func Build(cfg Config, msg Message) ([]byte, error) {
 		writeBase64(w, []byte(part.body))
 	}
 	altW.Close()
-	// Inline images (with a CID) go next to the HTML in multipart/related,
-	// so mail clients show them in the message and not as attachments.
 	body := alt.Bytes()
 	bodyType := fmt.Sprintf("multipart/alternative; boundary=%q", altW.Boundary())
 	var inline, attached []Attachment

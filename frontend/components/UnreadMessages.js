@@ -8,12 +8,6 @@ import useAutoRefresh from "@/lib/useAutoRefresh";
 
 const UnreadContext = createContext({ unread: 0, refresh: () => {} });
 
-// The number of unread private messages, for the chat badge. It is kept
-// apart from the notification count on purpose: new messages and new
-// notifications look different. It is loaded from the API, goes up live when
-// someone else's message arrives, and is loaded again after every
-// (re)connect and whenever a conversation is marked read (messages_read), so
-// nothing missed while offline is lost.
 export default function UnreadMessagesProvider({ children }) {
   const { user } = useAuth();
   const connected = useRealtimeConnected();
@@ -39,7 +33,6 @@ export default function UnreadMessagesProvider({ children }) {
 
   useAutoRefresh(refresh, 20000, Boolean(user?.is_verified));
 
-  // A reconnect may have missed messages: count again.
   useEffect(() => {
     if (connected) refresh();
   }, [connected, refresh]);
@@ -55,7 +48,6 @@ export default function UnreadMessagesProvider({ children }) {
   return <UnreadContext.Provider value={{ unread, refresh }}>{children}</UnreadContext.Provider>;
 }
 
-/** { unread, refresh } for the chat badge and the chat page. */
 export function useUnreadMessages() {
   return useContext(UnreadContext);
 }

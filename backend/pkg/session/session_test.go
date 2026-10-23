@@ -12,7 +12,6 @@ import (
 	"social-network/pkg/db/sqlite"
 )
 
-// newTestDB returns a migrated database holding one user, and that user's ID.
 func newTestDB(t *testing.T) (*sql.DB, int64) {
 	t.Helper()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "test.db"))

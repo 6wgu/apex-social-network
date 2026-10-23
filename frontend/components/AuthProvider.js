@@ -6,8 +6,6 @@ import { api, PUBLIC_PAGES } from "@/lib/api";
 import { Loading } from "@/components/RacingLights";
 import LaunchOverlay, { MORPH_MS } from "@/components/LaunchOverlay";
 
-// The sign-out animation: the car drives in and parks, turns back into the
-// logo, says goodbye, and the overlay fades once the home page is showing.
 const ARRIVE_MS = 650;
 const BYE_MS = 700;
 const FADE_MS = 350;
@@ -15,18 +13,13 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const AuthContext = createContext({ user: null, loading: true, setUser() {}, logout() {}, leave() {} });
 
-/** useAuth() → { user, loading, setUser, logout, leave }. user is null when logged out. */
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-// Loads the current user once (GET /api/me) and keeps it for every page.
-// The backend is still what protects the data: this only decides which page
-// the browser shows.
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Where AuthGate takes the page after leave(), until it gets there.
   const [exitTo, setExitTo] = useState(null);
   const pathname = usePathname();
 
@@ -48,10 +41,6 @@ export default function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, [updateUser]);
 
-  // leave(path) forgets the user, whose session the server has already
-  // ended, and has AuthGate replace the page with path. Forgetting the user
-  // first keeps AuthGate from sending the page anywhere else on the way
-  // (a user who is not verified yet would be sent back to /verify).
   const leave = useCallback(
     (path) => {
       setExitTo(path);
@@ -64,11 +53,9 @@ export default function AuthProvider({ children }) {
     if (exitTo === pathname) setExitTo(null);
   }, [exitTo, pathname]);
 
-  const [farewell, setFarewell] = useState(null); // sign-out animation phase
+  const [farewell, setFarewell] = useState(null);
   const leaving = useRef(false);
 
-  // logout() plays the sign-out animation; logout({ quiet: true }) skips it
-  // (used when the session ended on its own).
   const logout = useCallback(
     async (options) => {
       if (leaving.current) return;
@@ -82,14 +69,10 @@ export default function AuthProvider({ children }) {
         setFarewell("bye");
         await pause(BYE_MS);
       }
-      // Sign out after the animation, so the page underneath never meets a
-      // closed session halfway through it.
       await api("/api/logout", { method: "POST", redirectOn401: false }).catch(() => {
-        // Already logged out on the server: nothing left to undo.
       });
       leave("/");
       if (animate) {
-        // The home page shows under the car, then the overlay fades.
         await pause(450);
         setFarewell("fade");
         await pause(FADE_MS);
@@ -108,19 +91,12 @@ export default function AuthProvider({ children }) {
   );
 }
 
-// Wraps the page content: logged-out visitors are sent to /login (or where
-// leave() said), and logged-in users who open /login or /register are sent
-// home. Nothing is rendered until we know which case applies, so a page
-// never flashes. Every redirect replaces the current history entry instead
-// of adding one, so redirects never pile up entries for Back to get through.
 export function AuthGate({ children }) {
   const { user, loading, exitTo } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const isLandingPage = pathname === "/";
   const isPublicPage = PUBLIC_PAGES.includes(pathname) && !isLandingPage;
-  // Signed in but not verified yet: the code page is the only page there is
-  // (the backend answers 403 everywhere else too).
   const mustVerify = Boolean(user) && !user.is_verified;
   const allowed =
     !loading && (mustVerify ? pathname === "/verify" : isLandingPage || (isPublicPage ? !user : Boolean(user)));

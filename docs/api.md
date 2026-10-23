@@ -37,13 +37,13 @@ only by pull request, and tell both sides.
 
 ---
 
-## Health (Phase 0)
+## Health
 
 | Method | Path | Response |
 |---|---|---|
 | GET | `/api/health` | `200 {"status":"ok","database":"ok"}`, or `503 {"status":"unavailable","database":"unreachable"}` when the database does not answer |
 
-## Auth (Phase 1)
+## Auth
 
 | Method | Path | Body | Response |
 |---|---|---|---|
@@ -142,7 +142,7 @@ All four need a session, and the code always belongs to the logged-in user: ther
 
 **Reset.** The password gets the register rules (`password needs …`) and a new bcrypt hash. In one transaction the token is used up, the password changes, the account becomes verified (the code proved the address; an unverified account is verified from now on) and **every session of the user is deleted**, so every browser is logged out (`401`). Then their open `/ws` connections are closed and they get a "Your APEX password was changed" email. The page then shows "Password changed" with a button to the login page, which has the email filled in; there is no automatic login. Logged-in users opening `/forgot-password` are sent home, like `/login`.
 
-## Profiles and users (Phase 1)
+## Profiles and users
 
 | Method | Path | Body | Response |
 |---|---|---|---|
@@ -168,7 +168,7 @@ Otherwise (private and not following) only basic info is returned:
 { "user": UserSummary, "can_view": false, "follow_status": "none" | "pending" }
 ```
 
-## Followers (Phase 2)
+## Followers
 
 A row in `follows` means *follower → following*. Its `status` is `pending` until a private user accepts, and `accepted` after that. A public user is followed with `accepted` straight away. Declining, cancelling and unfollowing delete the row, so the same pair can start over at any time. The API calls the states `none`, `pending`, `following` and `self`.
 
@@ -184,7 +184,7 @@ A row in `follows` means *follower → following*. Its `status` is `pending` unt
 
 `PATCH /api/me/privacy` with `{"is_public": true}` also accepts every pending request to you, in the same transaction.
 
-## Posts and comments (Phase 2)
+## Posts and comments
 
 | Method | Path | Body | Response |
 |---|---|---|---|
@@ -210,7 +210,7 @@ Who can see a post (`CanViewPost`). The rule is a single SQL condition, `postVis
 
 **Images.** `GET /uploads/{name}` checks whether the file belongs to a post or to a comment on a post. If it does, it applies that post's `CanViewPost`, and someone who may not see the post gets the same `404` as for a missing file. Any other stored image (an avatar) is served to every logged-in user. Post images are sent with `Cache-Control: private, no-cache`.
 
-## Groups and events (Phase 3)
+## Groups and events
 
 Every logged-in user can browse groups and see a group's title, description, creator and member count. Everything inside a group (members, posts, comments, images, events) is for members only, checked in the backend on every endpoint. There are two ways in: an **invitation** from any member, which only the invitee can answer, or a **join request**, which only the group's creator can answer. Invitations and requests exist only while pending; answering deletes them. Joining either way also deletes the other one. Members are never removed (there is no leave or kick).
 
@@ -250,9 +250,9 @@ Every logged-in user can browse groups and see a group's title, description, cre
 
 Comments on group posts use the normal `/api/posts/{id}/comments` endpoints, and group post images the normal `/uploads/` path: both follow the post, so a non-member gets `404`, exactly as for a missing post.
 
-`IsGroupMember(user, group)` in `pkg/handlers/groups.go` is the membership check; group chat (Phase 4) uses it too.
+`IsGroupMember(user, group)` in `pkg/handlers/groups.go` is the membership check; group chat uses it too.
 
-## Notifications (Phase 2 to 4)
+## Notifications
 
 Every query is limited to the logged-in user's own rows: someone else's notification id behaves exactly like an unknown one (`404`).
 
@@ -295,7 +295,7 @@ Over the WebSocket (`/ws`), the recipient's open tabs get:
 
 Pushes are sent only after the database transaction has committed. A user with no open tab gets nothing pushed; `GET /api/notifications` shows everything on the next page load.
 
-## Private messages (Phase 4)
+## Private messages
 
 Two users may write to each other while **at least one of them follows the other with an accepted follow**. A pending request is not enough. The rule is checked inside the `INSERT` of every message, so an unfollow blocks the very next message. Messages already exchanged stay readable by both. Messages are sent over the WebSocket (`private_message`, see below) and read over REST.
 
@@ -323,7 +323,7 @@ Content: trimmed, then 1 to 2000 **characters** (counted as Unicode code points,
 
 Offline recipients: every message is stored. Someone who was offline sees the conversation, the unread counts and the history on their next login. Nothing is queued in memory.
 
-## Group chat (Phase 4)
+## Group chat
 
 Every group has one chat room. **Only members can send or read**, and membership is checked inside the `INSERT` of every message. The recipients of a message are read from `group_members` right after it is stored: the table is the only source of truth, there are no chat rooms kept in memory. A member sees the **whole history**, including messages from before they joined (the same as group posts). Messages are sent over the WebSocket (`group_message`) and read over REST.
 

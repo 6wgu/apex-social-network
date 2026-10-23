@@ -12,7 +12,6 @@ import { GROUPS_CHANGED } from "@/components/NotificationBell";
 import { useRealtime } from "@/components/RealtimeProvider";
 import SearchInput from "@/components/SearchInput";
 
-// Form for POST /api/groups. On success it opens the new group.
 function CreateGroup({ onClose }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -63,8 +62,6 @@ function CreateGroup({ onClose }) {
   );
 }
 
-// One group in a list: initial, title, description, member count, creator,
-// and the action that fits my status.
 function GroupRow({ group, onChange }) {
   const href = `/groups/${group.id}`;
   return (
@@ -110,8 +107,6 @@ function Section({ title, groups, empty, onChange }) {
   );
 }
 
-// /groups: every group (GET /api/groups), split into my invitations, my
-// groups, and the rest to discover, with a filter and "Create group".
 export default function GroupsPage() {
   const [groups, setGroups] = useState(null);
   const [error, setError] = useState("");
@@ -133,7 +128,6 @@ export default function GroupsPage() {
   useEffect(() => {
     load();
   }, [load]);
-  // Invitations and accepted requests arrive in the bell; keep the lists current.
   useEffect(() => {
     window.addEventListener(GROUPS_CHANGED, load);
     return () => window.removeEventListener(GROUPS_CHANGED, load);

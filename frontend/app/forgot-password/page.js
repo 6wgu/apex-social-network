@@ -9,10 +9,8 @@ import Field, { PasswordField } from "@/components/Field";
 import PasswordRules from "@/components/PasswordRules";
 import SuccessCheck from "@/components/SuccessCheck";
 
-// The resend cooldown (OTP_RESEND_SECONDS), as on the verify page.
 const RESEND_SECONDS = 60;
 
-// The seconds a 429 asks to wait.
 const secondsToWait = (err) => Number(err.body?.retry_after) || RESEND_SECONDS;
 
 const normalize = (email) => email.trim().toLowerCase();
@@ -22,28 +20,22 @@ function confirmProblem(password, confirm) {
   return confirm === password ? "" : "the passwords don't match";
 }
 
-// "Forgot password?": the email, then the code sent to it, then a new
-// password. The steps are states of this one page, not separate pages, so
-// Back leaves the flow instead of stepping through it (or looping). The
-// server answers the same for every address, so the page never says
-// whether an account exists.
 export default function ForgotPasswordPage() {
-  const [step, setStep] = useState("email"); // email, code, password, done
+  const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
-  const [sentTo, setSentTo] = useState(""); // the address of the code step
+  const [sentTo, setSentTo] = useState("");
   const [code, setCode] = useState("");
-  const [token, setToken] = useState(""); // from a correct code, for the reset
+  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [attempted, setAttempted] = useState(false); // pressed "Change password" once
-  const [errors, setErrors] = useState({}); // field -> problem, shown under that field
-  const [error, setError] = useState(""); // a problem that belongs to no field
+  const [attempted, setAttempted] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sending, setSending] = useState(false); // a resend under way
+  const [sending, setSending] = useState(false);
   const [wait, setWait] = useState(0);
 
-  // The email typed on the login page, if any.
   useEffect(() => {
     const handed = takeEmail();
     if (handed) setEmail(handed);
@@ -77,7 +69,6 @@ export default function ForgotPasswordPage() {
       setStep("code");
     } catch (err) {
       if (err.status === 429 && address === sentTo && secondsToWait(err) <= RESEND_SECONDS) {
-        // Back from "Change email" with the same address: its code is still good.
         setWait(secondsToWait(err));
         setInfo("A code was sent a moment ago. Check your inbox.");
         setErrors({});
@@ -132,7 +123,6 @@ export default function ForgotPasswordPage() {
       setErrors({});
       setStep("password");
     } catch (err) {
-      // "wrong code, 3 attempts left", or expired / used up: ask for a new one.
       setErrors({ code: err.message });
       setCode("");
     } finally {
@@ -158,7 +148,6 @@ export default function ForgotPasswordPage() {
       setStep("done");
     } catch (err) {
       if (err.body?.reason === "invalid_token") {
-        // Too late (or already used): start again from the email.
         setToken("");
         setErrors({});
         setEmail(sentTo);
@@ -268,7 +257,6 @@ export default function ForgotPasswordPage() {
             <p>Every device signed in to your account will be signed out.</p>
           </div>
           <form onSubmit={changePassword} className="form auth-form" noValidate>
-            {/* Lets a password manager save the new password for this account. */}
             <input type="email" name="username" autoComplete="username" value={sentTo} readOnly hidden />
             <PasswordField
               label="New password"

@@ -1,12 +1,3 @@
-// Package ws keeps the live WebSocket connections of logged-in users, lets
-// the rest of the backend push JSON events to them, and hands the frames
-// browsers send (chat messages) to a handler set with SetHandler.
-//
-// Every connection gets two goroutines: readLoop owns reading (and notices
-// when the browser goes away) and writeLoop owns writing, because a
-// gorilla/websocket connection supports one reader and one writer at a time.
-// Other code never touches a connection directly; it puts bytes on the
-// client's send channel through the Hub.
 package ws
 
 import (
@@ -21,77 +12,46 @@ import (
 )
 
 const (
-	// writeWait is how long one write may take before the connection is dropped.
-	writeWait = 10 * time.Second
-	// pongWait is how long we wait for any frame (a pong at least) from the browser.
-	pongWait = 60 * time.Second
-	// pingPeriod must be shorter than pongWait so a healthy browser always answers in time.
-	pingPeriod = 30 * time.Second
-	// MaxFrameSize caps a frame sent by the browser. The largest valid frame
-	// is a 2000-character message (at most 8000 bytes of UTF-8) plus its
-	// envelope. A bigger frame closes the connection with code 1009
-	// ("message too big"); the page reconnects.
-	MaxFrameSize = 16 << 10
-	// DefaultRateLimit is how many frames per second one connection may
-	// send, with bursts of up to DefaultRateBurst. Frames over the limit
-	// are answered with an error event and dropped; the connection stays
-	// open. SetRateLimit changes it.
+	writeWait        = 10 * time.Second
+	pongWait         = 60 * time.Second
+	pingPeriod       = 30 * time.Second
+	MaxFrameSize     = 16 << 10
 	DefaultRateLimit = 10
 	DefaultRateBurst = 10
-	// sendBuffer is how many events may queue up for one slow connection.
-	sendBuffer = 32
+	sendBuffer       = 32
 )
 
-// Event is the envelope of every frame the server sends:
-// {"type": "...", "payload": {...}}, plus "request_id" when it answers a
-// frame the browser sent with one (so the page knows which send it was).
 type Event struct {
 	Type      string `json:"type"`
 	RequestID string `json:"request_id,omitempty"`
 	Payload   any    `json:"payload"`
 }
 
-// Incoming is a frame a browser sent: {"type", "request_id", "payload"}.
-// request_id is optional and chosen by the browser; it is echoed back in the
-// answer (the stored message, or an error).
 type Incoming struct {
 	Type      string          `json:"type"`
 	RequestID string          `json:"request_id"`
 	Payload   json.RawMessage `json:"payload"`
 }
 
-// Handler processes one incoming frame from c. It runs on c's reader
-// goroutine, so frames from one tab are handled in order, one at a time.
 type Handler func(c *Client, in Incoming)
 
-// EventError is the type of the event sent back when a frame is rejected;
-// its payload is ErrorPayload.
 const EventError = "error"
 
-// ErrorPayload says why a frame was rejected. For is the type of the
-// rejected frame, when it could be read.
 type ErrorPayload struct {
 	Message string `json:"message"`
 	For     string `json:"for,omitempty"`
 }
 
-// Client is one open connection (one browser tab) of one user. Handlers get
-// it with each incoming frame, to answer that tab (Hub.Reply) or skip it
-// (Hub.SendToUserExcept).
 type Client struct {
 	hub    *Hub
 	userID int64
 	conn   *websocket.Conn
 	send   chan []byte
 
-	// Rate limiting (token bucket), only touched by readLoop.
 	tokens   float64
 	lastSeen time.Time
 }
 
-// allow reports whether one more frame fits in the rate limit at now:
-// the hub's rate of tokens per second is added, up to its burst, and every
-// frame takes one.
 func (c *Client) allow(now time.Time) bool {
 	rate, burst := c.hub.rateLimit, c.hub.rateBurst
 	if c.lastSeen.IsZero() {
@@ -110,21 +70,16 @@ func (c *Client) allow(now time.Time) bool {
 	return true
 }
 
-// Hub tracks every open connection, grouped by user, so one user with
-// several tabs gets each event in every tab.
 type Hub struct {
 	upgrader  websocket.Upgrader
 	handler   Handler
-	rateLimit float64 // frames per second per connection
+	rateLimit float64
 	rateBurst float64
 
 	mu      sync.Mutex
 	clients map[int64]map[*Client]bool
 }
 
-// ParseOrigins splits a comma-separated FRONTEND_ORIGIN value such as
-// "http://localhost:3000, http://127.0.0.1:3000" into its origins, dropping
-// blanks and any trailing slash.
 func ParseOrigins(list string) []string {
 	var origins []string
 	for _, o := range strings.Split(list, ",") {
@@ -135,12 +90,6 @@ func ParseOrigins(list string) []string {
 	return origins
 }
 
-// NewHub returns a hub that accepts upgrades from browsers on one of
-// allowedOrigins (the frontend, e.g. http://localhost:3000). Only exact
-// matches pass; there is no wildcard. The Next.js proxy forwards the
-// browser's Origin header unchanged, so these are the origins to allow.
-// Requests without an Origin header are not from a browser page (curl,
-// tests) and are allowed: the session cookie is still required.
 func NewHub(allowedOrigins ...string) *Hub {
 	allowed := map[string]bool{}
 	for _, o := range allowedOrigins {
@@ -158,50 +107,34 @@ func NewHub(allowedOrigins ...string) *Hub {
 	return h
 }
 
-// Serve upgrades the request to a WebSocket for userID and runs the
-// connection until it closes. The caller must already have checked the
-// session (GET /ws is behind RequireAuth).
 func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, userID int64) {
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		// Upgrade has already written the error response (e.g. 403 for a bad origin).
 		log.Printf("ws upgrade for user %d: %v", userID, err)
 		return
 	}
 	c := &Client{hub: h, userID: userID, conn: conn, send: make(chan []byte, sendBuffer)}
 	h.register(c)
 	go c.writeLoop()
-	c.readLoop() // returns when the connection is gone
+	c.readLoop()
 }
 
-// SetRateLimit sets how many frames per second each connection may send,
-// and the burst allowed. Call it before connections are served.
 func (h *Hub) SetRateLimit(perSecond, burst float64) {
 	h.rateLimit, h.rateBurst = perSecond, burst
 }
 
-// SetHandler sets the function that processes frames sent by browsers.
-// Call it once, before connections are served.
 func (h *Hub) SetHandler(fn Handler) {
 	h.handler = fn
 }
 
-// UserID is the user this connection belongs to (from the session that
-// opened it).
 func (c *Client) UserID() int64 {
 	return c.userID
 }
 
-// SendToUser delivers an event to every open connection of userID. It never
-// blocks: a connection whose buffer is full is too slow and gets closed, and
-// a user with no connection simply misses the push (the data is in the
-// database, so the page reloads it).
 func (h *Hub) SendToUser(userID int64, eventType string, payload any) {
 	h.SendToUserExcept(userID, nil, eventType, payload)
 }
 
-// SendToUserExcept is SendToUser without the connection except (the tab
-// that sent the frame being answered, which gets Reply instead).
 func (h *Hub) SendToUserExcept(userID int64, except *Client, eventType string, payload any) {
 	data, ok := marshal(Event{Type: eventType, Payload: payload})
 	if !ok {
@@ -216,7 +149,6 @@ func (h *Hub) SendToUserExcept(userID int64, except *Client, eventType string, p
 	}
 }
 
-// Reply sends an event to the single connection c, echoing requestID.
 func (h *Hub) Reply(c *Client, eventType, requestID string, payload any) {
 	data, ok := marshal(Event{Type: eventType, RequestID: requestID, Payload: payload})
 	if !ok {
@@ -224,12 +156,11 @@ func (h *Hub) Reply(c *Client, eventType, requestID string, payload any) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.clients[c.userID][c] { // a connection already gone gets nothing
+	if h.clients[c.userID][c] {
 		h.enqueueLocked(c, data)
 	}
 }
 
-// ReplyError rejects a frame from c with an error event.
 func (h *Hub) ReplyError(c *Client, in Incoming, message string) {
 	h.Reply(c, EventError, in.RequestID, ErrorPayload{Message: message, For: in.Type})
 }
@@ -243,9 +174,6 @@ func marshal(ev Event) ([]byte, bool) {
 	return data, true
 }
 
-// enqueueLocked queues data for c without blocking; a connection whose
-// buffer is full is too slow and gets closed. h.mu must be held, which
-// guarantees c.send is still open.
 func (h *Hub) enqueueLocked(c *Client, data []byte) {
 	select {
 	case c.send <- data:
@@ -254,10 +182,6 @@ func (h *Hub) enqueueLocked(c *Client, data []byte) {
 	}
 }
 
-// CloseUser closes every open connection of userID, e.g. on logout, so a tab
-// that is still open stops receiving that user's events. Each writeLoop sends
-// a close frame and closes its socket. A tab whose session is still valid
-// (another browser) simply reconnects.
 func (h *Hub) CloseUser(userID int64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -266,8 +190,6 @@ func (h *Hub) CloseUser(userID int64) {
 	}
 }
 
-// OnlineUsers returns the ids of every user with at least one open
-// connection, in no particular order.
 func (h *Hub) OnlineUsers() []int64 {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -278,7 +200,6 @@ func (h *Hub) OnlineUsers() []int64 {
 	return ids
 }
 
-// Connections returns how many connections userID has open (used by tests).
 func (h *Hub) Connections(userID int64) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -300,9 +221,6 @@ func (h *Hub) unregister(c *Client) {
 	h.removeLocked(c)
 }
 
-// removeLocked drops c from the hub and closes its send channel, which tells
-// writeLoop to close the connection. h.mu must be held. It is safe to call
-// twice for the same client.
 func (h *Hub) removeLocked(c *Client) {
 	conns, ok := h.clients[c.userID]
 	if !ok || !conns[c] {
@@ -315,13 +233,6 @@ func (h *Hub) removeLocked(c *Client) {
 	close(c.send)
 }
 
-// readLoop reads until the browser disconnects or stops answering pings,
-// and hands every frame to the hub's handler. A frame that is not a JSON
-// envelope, or that goes over the rate limit, is answered with an error
-// event; the connection stays open. A frame over MaxFrameSize makes
-// gorilla/websocket close the connection with code 1009. Whatever happens,
-// the deferred unregister removes the client, so a vanished tab never
-// blocks or crashes the hub.
 func (c *Client) readLoop() {
 	defer func() {
 		c.hub.unregister(c)
@@ -358,8 +269,6 @@ func (c *Client) readLoop() {
 	}
 }
 
-// writeLoop sends queued events and a ping every pingPeriod. It closes the
-// connection when the hub closes the send channel or a write fails.
 func (c *Client) writeLoop() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {

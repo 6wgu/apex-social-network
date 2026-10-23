@@ -19,9 +19,6 @@ type Content struct {
 	LogoCID    string
 }
 
-// The APEX look: carbon black, racing red, white text. Email clients ignore
-// web fonts and most CSS, so everything is inline and the logo is a PNG
-// sent inside the message (cid:), not a link.
 const (
 	logoCID = "apex-logo"
 	fonts   = `'Space Grotesk','DM Sans','Segoe UI',Helvetica,sans-serif`
@@ -30,7 +27,6 @@ const (
 //go:embed apex-logo.png
 var logoPNG []byte
 
-// withLogo attaches the logo the template points at.
 func withLogo(m Message) Message {
 	m.Attachments = append(m.Attachments, Attachment{Filename: "apex-logo.png", Content: logoPNG, ContentType: "image/png", CID: logoCID})
 	return m
@@ -65,7 +61,7 @@ type cardData struct {
 	Content
 	Code, Name string
 	TTL        int
-	Action     string // what the code is for: "verify your email"
+	Action     string
 }
 
 func render(d cardData) string {
@@ -103,8 +99,6 @@ func CodeEmail(appName, name, code string, ttlMinutes int) Message {
 	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes, Action: "verify your email"})})
 }
 
-// ResetCodeEmail carries the code of "Forgot password?". Unlike the
-// verification code, it stays out of the subject, which the mailer logs.
 func ResetCodeEmail(appName, name, code string, ttlMinutes int) Message {
 	text := fmt.Sprintf("Your %s password reset code is %s.\nIt expires in %d minutes.\n\nIf you didn't ask for this, ignore this email.", appName, code, ttlMinutes)
 	if name != "" {
@@ -115,7 +109,6 @@ func ResetCodeEmail(appName, name, code string, ttlMinutes int) Message {
 	return withLogo(Message{Subject: c.Subject, Text: text, HTML: render(cardData{Content: c, Code: code, Name: name, TTL: ttlMinutes, Action: "reset your password"})})
 }
 
-// PasswordChangedEmail tells the owner that a password reset went through.
 func PasswordChangedEmail(appName, name string) Message {
 	return MessageEmail(Content{
 		Subject:  "Your " + appName + " password was changed",

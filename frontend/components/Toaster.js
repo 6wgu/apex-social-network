@@ -5,21 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 
 const EVENT = "apex-notify";
-const LIFETIME = 5000; // ms a toast stays before it closes on its own
-const MAX = 4; // toasts shown at once; the oldest goes first
+const LIFETIME = 5000;
+const MAX = 4;
 
 let nextId = 0;
 
-/**
- * notify("Saved") or notify({ title, message, href, tone, duration })
- * Shows a toast from anywhere in the app (no hook or context needed).
- *   title     bold first line (optional)
- *   message   the text
- *   href      makes the toast a link (e.g. to the post or profile)
- *   tone      "info" (default), "success" or "error"
- *   duration  ms before it closes on its own; 0 keeps it until closed
- * Returns the toast's id.
- */
 export function notify(input) {
   const toast = typeof input === "string" ? { message: input } : { ...input };
   toast.id = ++nextId;
@@ -61,7 +51,6 @@ function Toast({ toast, onClose }) {
   );
 
   return (
-    // Hovering pauses the timer, so a toast never vanishes while being read.
     <li
       className={`toast toast-${tone}${leaving ? " is-leaving" : ""}`}
       onMouseEnter={() => clearTimeout(timer.current)}
@@ -82,7 +71,6 @@ function Toast({ toast, onClose }) {
   );
 }
 
-// Renders the toasts sent with notify(). Mounted once, in the root layout.
 export default function Toaster() {
   const [toasts, setToasts] = useState([]);
 

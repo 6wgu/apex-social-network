@@ -14,19 +14,11 @@ import (
 	"social-network/pkg/session"
 )
 
-// dummyHash is a bcrypt hash (same cost as real ones) of a password nobody
-// has. Login compares against it when the email is unknown, so an unknown
-// email takes as long to reject as a wrong password and response times do
-// not reveal which emails have accounts.
 const dummyHash = "$2a$10$ao.LYsoUHM3TPEfBMuDpQ.rXm.NuBqHqcsLoXoGzgpPRZdOxuUMna"
 
-// userColumns is the column list every query that fills a models.User selects.
-// created_at is formatted so it reads like SQLite's own datetime strings.
-// SQL constant: never built from user input; every value is a bound parameter.
 const userColumns = `id, email, first_name, last_name, date_of_birth, avatar_path,
 	nickname, about_me, is_public, is_verified, strftime('%Y-%m-%d %H:%M:%S', created_at)`
 
-// scanUser reads one row selected with userColumns.
 func scanUser(row interface{ Scan(...any) error }) (models.User, error) {
 	var u models.User
 	err := row.Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.DateOfBirth, &u.AvatarPath,
@@ -34,18 +26,15 @@ func scanUser(row interface{ Scan(...any) error }) (models.User, error) {
 	return u, err
 }
 
-// userByID loads a user. It returns sql.ErrNoRows when there is none.
 func (a *App) userByID(id int64) (models.User, error) {
 	return scanUser(a.DB.QueryRow(`SELECT `+userColumns+` FROM users WHERE id = ?`, id))
 }
 
-// currentUserID returns the ID RequireAuth stored for this request.
 func currentUserID(r *http.Request) int64 {
 	id, _ := middleware.UserID(r)
 	return id
 }
 
-// startSession logs the user in on this response: new session row plus cookie.
 func (a *App) startSession(w http.ResponseWriter, userID int64) error {
 	id, expires, err := session.Create(a.DB, userID)
 	if err != nil {
@@ -55,10 +44,6 @@ func (a *App) startSession(w http.ResponseWriter, userID int64) error {
 	return nil
 }
 
-// register handles POST /api/register (multipart). Every field is checked
-// (validation.go) and all the problems come back together in one 400, as
-// {"error", "fields": {"<field>": "<problem>"}}, so the page can show each
-// one next to its field.
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	defer removeFormFiles(r)
 	if !parseForm(w, r) {
@@ -70,9 +55,6 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for a taken email or nickname before storing the avatar, so a
-	// rejected registration leaves no file behind. The unique indexes still
-	// catch two registrations racing each other (see the INSERT below).
 	taken := fieldErrors{}
 	var exists bool
 	if err := a.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)`, reg.Email).Scan(&exists); err != nil {
@@ -143,7 +125,6 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, user)
 }
 
-// login handles POST /api/login.
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Email    string `json:"email"`
@@ -165,9 +146,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	// The same message, and the same bcrypt work, for an unknown email and a
-	// wrong password, so neither the response nor its timing reveals which
-	// emails have accounts.
 	unknown := errors.Is(err, sql.ErrNoRows)
 	if unknown {
 		hash = dummyHash
@@ -177,7 +155,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Logging in is a convenient moment to clear out dead sessions.
 	if err := session.DeleteExpired(a.DB); err != nil {
 		serverError(w, err)
 		return
@@ -194,11 +171,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-// logout handles POST /api/logout. It is a public route on purpose: with an
-// expired or unknown cookie it still answers 204 and clears the cookie, so the
-// browser never keeps a dead one. A valid session row is deleted, so the
-// cookie is useless even if someone kept a copy of it, and the user's open
-// WebSockets are closed so no tab keeps receiving their events.
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	session.ClearCookie(w)
 	if c, err := r.Cookie(session.CookieName); err == nil {
@@ -218,7 +190,6 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// me handles GET /api/me.
 func (a *App) me(w http.ResponseWriter, r *http.Request) {
 	user, err := a.userByID(currentUserID(r))
 	if err != nil {

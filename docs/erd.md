@@ -1,20 +1,20 @@
 # Database ERD
 
 Every table is created by a numbered migration in
-`backend/pkg/db/migrations/sqlite`. Every table of Phases 0 to 4 exists, including `messages` (private
-chat) and `group_messages` (group chat).
+`backend/pkg/db/migrations/sqlite`, including `messages` (private chat) and
+`group_messages` (group chat).
 
-| Table | Migration added in |
+| Table | Feature (migration) |
 |---|---|
-| users, sessions | Phase 0 |
-| follows | Phase 1 (migration 000003: the table only, so private profiles can check it. The follow endpoints are Phase 2) |
-| posts, post_viewers | Phase 2 (migrations 000005, 000006) |
-| comments | Phase 2 (migration 000007) |
-| notifications | Phase 2 (migration 000004) |
-| groups, group_members, group_invites, group_requests, events, event_responses | Phase 3 (migrations 000008 to 000013) |
-| posts.group_id | Phase 3 (migration 000014: `ALTER TABLE posts ADD COLUMN`, so no merged migration is edited) |
-| messages | Phase 4 (migration 000015) |
-| group_messages | Phase 4 (migration 000016) |
+| users, sessions | Accounts and sessions (migrations 000001, 000002) |
+| follows | Followers and private profiles (migration 000003) |
+| notifications | Notifications (migration 000004) |
+| posts, post_viewers | Posts and post privacy (migrations 000005, 000006) |
+| comments | Comments (migration 000007) |
+| groups, group_members, group_invites, group_requests, events, event_responses | Groups and events (migrations 000008 to 000013) |
+| posts.group_id | Group posts (migration 000014: `ALTER TABLE posts ADD COLUMN`) |
+| messages | Private messages (migration 000015) |
+| group_messages | Group chat (migration 000016) |
 | otp_codes, users.is_verified | Email verification (migration 000017) |
 | post_likes | Likes on posts (migration 000018) |
 | idx_users_nickname (unique) | Unique nicknames (migration 000019) |
@@ -23,8 +23,8 @@ chat) and `group_messages` (group chat).
 
 A keys-only picture of the same diagram: [erd.webp](erd.webp).
 
-**Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
-week-2 spec. There is no separate `follow_requests` table. Accepting a request
+**Follow requests** are rows in `follows` with `status = 'pending'`.
+There is no separate `follow_requests` table. Accepting a request
 flips the row to `accepted`. Declining or cancelling deletes the row, so the
 user can request again.
 
@@ -165,7 +165,7 @@ erDiagram
         INTEGER id PK
         INTEGER user_id FK "recipient"
         INTEGER actor_id FK "who caused it; rows are deleted with that user (CASCADE)"
-        TEXT type "checked in Go, no CHECK, so Phase 3 can add types"
+        TEXT type "checked in Go, no CHECK, so new types need no migration"
         INTEGER ref_id "NULL for follow types; group id, or event id for group_event"
         INTEGER is_read
         DATETIME created_at

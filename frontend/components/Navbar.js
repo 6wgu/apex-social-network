@@ -18,7 +18,6 @@ const links = [
   { href: "/chats", label: "Chat", icon: "chat" },
 ];
 
-// The APEX wordmark: a forward-leaning A with speed lines.
 function Brand({ tagline = false }) {
   return (
     <Link href="/" className="brand" aria-label="APEX home">
@@ -38,10 +37,6 @@ function isActive(pathname, href) {
   return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }
 
-// Logged out: a top bar that points to the other auth page.
-// Logged in: the side rail (a bottom bar on phones). Notifications and
-// messages never look alike: the bell's badge is red and round, unread
-// private messages show as a red, square badge on Chat.
 export default function Navbar() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
@@ -52,7 +47,6 @@ export default function Navbar() {
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
     } catch {
-      // Storage blocked: the rail starts open.
     }
   }, []);
 
@@ -61,13 +55,11 @@ export default function Navbar() {
       try {
         localStorage.setItem(COLLAPSE_KEY, c ? "0" : "1");
       } catch {
-        // Not remembered, still toggled.
       }
       return !c;
     });
   }
 
-  // Signed in but not verified: no menu yet, only a way out.
   if (user && !user.is_verified) {
     return (
       <header className="navbar navbar-guest">

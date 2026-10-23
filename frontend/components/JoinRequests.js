@@ -7,10 +7,6 @@ import { timeAgo } from "@/lib/time";
 import Avatar from "@/components/Avatar";
 import { Loading } from "@/components/RacingLights";
 
-// The creator's panel of pending join requests (GET /api/groups/{id}/requests)
-// with Accept / Decline. Only the creator sees this tab, and the server
-// answers 403 to anyone else anyway. onAnswered() lets the page reload the
-// member list and count.
 export default function JoinRequests({ groupId, reloadKey, onAnswered }) {
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState("");
@@ -37,7 +33,6 @@ export default function JoinRequests({ groupId, reloadKey, onAnswered }) {
     try {
       await api(`/api/group-requests/${request.id}/${accept ? "accept" : "decline"}`, { method: "POST" });
     } catch (err) {
-      // 404: already answered, or cancelled by the requester.
       if (err.status !== 404) {
         setError(err.message);
         setBusy(null);

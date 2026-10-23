@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// A small, built-in grid of common emojis (no extra package). Picking one
-// calls onPick(emoji); the message box inserts it at the cursor.
 const EMOJIS = [
   "😀", "😂", "🥲", "😊", "😍", "😘", "😎", "🤔", "😴", "😭",
   "😡", "😱", "🥳", "🤗", "🙄", "😅", "👍", "👎", "👏", "🙏",
@@ -16,7 +14,6 @@ export default function EmojiPicker({ onPick }) {
   const [open, setOpen] = useState(false);
   const wrapper = useRef(null);
 
-  // Close on a click outside or on Escape.
   useEffect(() => {
     if (!open) return;
     const onClick = (e) => wrapper.current && !wrapper.current.contains(e.target) && setOpen(false);

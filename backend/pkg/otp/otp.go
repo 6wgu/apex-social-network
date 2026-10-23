@@ -30,9 +30,6 @@ type Record struct {
 	LastSentAt time.Time
 }
 
-// Purpose says what a code is for. Each purpose and subject has its own
-// code, attempts and cooldown, so a code sent to verify an email can never
-// reset a password, and the other way round.
 type Purpose string
 
 const (
@@ -121,9 +118,6 @@ func (s *Service) Send(p Purpose, subject, email, name string) (Result, error) {
 	return res, nil
 }
 
-// Issue is Send without the email: it stores a new code and returns it, or
-// reports the cooldown. A code nobody is sent still answers Verify like a
-// real one, so a caller can hide whether anyone got a code.
 func (s *Service) Issue(p Purpose, subject string) (string, Result, error) {
 	now := s.opt.Now()
 	old, err := s.store.Get(p, subject)
@@ -146,7 +140,6 @@ func (s *Service) Issue(p Purpose, subject string) (string, Result, error) {
 	return code, Result{OK: true}, nil
 }
 
-// Deliver emails a code from Issue in the message for its purpose.
 func (s *Service) Deliver(p Purpose, code, email, name string) error {
 	ttl := int(s.opt.TTL / time.Minute)
 	msg := mail.CodeEmail(s.sender.FromName(), name, code, ttl)

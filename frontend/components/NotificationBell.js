@@ -11,16 +11,11 @@ import { notify } from "@/components/Toaster";
 import { Loading } from "@/components/RacingLights";
 import { useRealtime, useRealtimeConnected } from "@/components/RealtimeProvider";
 
-// Tell open pages (e.g. a profile showing follower counts, or a group's
-// member list) that something changed because of an answer given in the bell.
 export const FOLLOWS_CHANGED = "follows-changed";
 export const GROUPS_CHANGED = "groups-changed";
 
-// The types that are answered with Accept / Decline right in the bell.
 const ANSWERABLE = ["follow_request", "group_invite", "group_join_request"];
 
-// What a notification says and where clicking it goes. target (bold, after
-// the text) is the group's title; detail is an extra line.
 function describe(n) {
   const name = n.actor ? `${n.actor.first_name} ${n.actor.last_name}` : "Someone";
   const profile = n.actor ? `/profile/${n.actor.id}` : "#";
@@ -52,9 +47,6 @@ function describe(n) {
   }
 }
 
-// Sends Accept / Decline for an answerable notification. The notification
-// only names the user and the group, so for the group types the id to
-// answer is looked up first. A 404 means it was already answered.
 async function sendAnswer(n, accept) {
   const verb = accept ? "accept" : "decline";
   if (n.type === "follow_request") {
@@ -71,16 +63,12 @@ async function sendAnswer(n, accept) {
   }
 }
 
-// The bell in the navbar: unread badge, dropdown list, Accept / Decline on
-// follow requests, group invitations and join requests. It loads from the API and then stays current through
-// the WebSocket (notification / notification_removed events). After a
-// reconnect it reloads, because events sent while offline are not replayed.
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(null); // id of the notification being answered
+  const [busy, setBusy] = useState(null);
   const connected = useRealtimeConnected();
   const wrapper = useRef(null);
   const countRequest = useRef(0);
@@ -105,7 +93,6 @@ export default function NotificationBell() {
   }, [refreshCount]);
 
   useEffect(load, [load]);
-  // Stay current without a reload, even if a live event was missed.
   useAutoRefresh(load);
   useEffect(() => {
     if (connected) load();
@@ -123,7 +110,6 @@ export default function NotificationBell() {
     }
   });
 
-  // Close on a click outside or on Escape.
   useEffect(() => {
     if (!open) return;
     const onClick = (e) => wrapper.current && !wrapper.current.contains(e.target) && setOpen(false);
@@ -160,15 +146,12 @@ export default function NotificationBell() {
     try {
       await sendAnswer(n, accept);
     } catch (err) {
-      // 404: already answered (another tab, or the requester cancelled).
       if (err.status !== 404) {
         setError(err.message);
         setBusy(null);
         return;
       }
     }
-    // The server deletes the notification and pushes notification_removed;
-    // drop it here too so the list updates even without the WebSocket.
     setItems((list) => list.filter((x) => x.id !== n.id));
     refreshCount();
     setBusy(null);

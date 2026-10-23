@@ -11,12 +11,8 @@ import (
 	"social-network/pkg/session"
 )
 
-// userIDKey is the context key for the logged-in user's ID.
 type userIDKey struct{}
 
-// RequireAuth lets a request through only when it carries a valid session
-// cookie, and stores the user's ID in the request context. Anything else gets
-// a 401 in the API's JSON error shape.
 func RequireAuth(db *sql.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,8 +31,6 @@ func RequireAuth(db *sql.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// UserID returns the logged-in user's ID. It is only meaningful inside a
-// handler wrapped by RequireAuth; ok is false anywhere else.
 func UserID(r *http.Request) (id int64, ok bool) {
 	id, ok = r.Context().Value(userIDKey{}).(int64)
 	return id, ok

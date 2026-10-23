@@ -13,11 +13,6 @@ export const PRIVACY = {
   private: { icon: "lock", label: "Private", hint: "Only the followers you choose" },
 };
 
-// Form for POST /api/posts: text, image/GIF with preview, privacy, and, for
-// Private only, a picker of the followers who may see the post. The server
-// checks everything again (e.g. that chosen users really follow you).
-// With groupId it posts to that group instead (POST /api/groups/{id}/posts):
-// a group post has no privacy choice, its group's members see it.
 export default function PostComposer({ onCreated, groupId }) {
   const { user } = useAuth();
   const [content, setContent] = useState("");
@@ -28,7 +23,6 @@ export default function PostComposer({ onCreated, groupId }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // The follower list is only needed once Private is picked.
   useEffect(() => {
     if (privacy !== "private" || followers) return;
     api(`/api/users/${user.id}/followers`)

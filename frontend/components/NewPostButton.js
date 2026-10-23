@@ -6,8 +6,6 @@ import Modal from "@/components/Modal";
 import PostComposer from "@/components/PostComposer";
 import { notify } from "@/components/Toaster";
 
-// The floating "New Post" button: opens the usual composer in a dialog and
-// hands the created post to onCreated (so the list shows it at once).
 export default function NewPostButton({ onCreated, groupId }) {
   const [open, setOpen] = useState(false);
   return (

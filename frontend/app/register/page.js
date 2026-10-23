@@ -30,19 +30,18 @@ export default function RegisterPage() {
   const formRef = useRef(null);
   const [avatar, setAvatar] = useState(null);
   const [preview, setPreview] = useState("");
-  const [password, setPassword] = useState(""); // a copy of the password input, for the checklist
-  const [nickname, setNickname] = useState(""); // a copy of the nickname input, for the availability check
+  const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const nicknameCheck = useNicknameCheck(nickname);
-  const [errors, setErrors] = useState({}); // field -> problem, shown under that field
-  const [attempted, setAttempted] = useState(false); // the user has pressed the button once
-  const [limits, setLimits] = useState(null); // { min, max } for the date picker, from today's date
-  const [error, setError] = useState(""); // a problem that belongs to no field
+  const [errors, setErrors] = useState({});
+  const [attempted, setAttempted] = useState(false);
+  const [limits, setLimits] = useState(null);
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [phase, setPhase] = useState(null); // the launch animation, see LaunchOverlay
+  const [phase, setPhase] = useState(null);
 
   useEffect(() => setLimits(birthDateLimits()), []);
 
-  // Show the chosen picture before it is uploaded.
   useEffect(() => {
     if (!avatar) {
       setPreview("");
@@ -53,7 +52,6 @@ export default function RegisterPage() {
     return () => URL.revokeObjectURL(url);
   }, [avatar]);
 
-  // The form's text fields, trimmed and with the email lowercased.
   function values() {
     const form = new FormData(formRef.current);
     return normalizeRegistration(Object.fromEntries(REGISTRATION_FIELDS.map((f) => [f, String(form.get(f) ?? "")])));
@@ -66,15 +64,11 @@ export default function RegisterPage() {
     if (field && field !== "avatar") formRef.current.elements.namedItem(field)?.focus();
   }
 
-  // An error already shown follows the input, so it goes away as soon as
-  // the field is fixed.
   function onFieldChange(e) {
     const field = e.target.name;
     if (REGISTRATION_FIELDS.includes(field) && errors[field]) setFieldError(field, registrationProblem(field, values()));
   }
 
-  // Leaving a field shows what is wrong with it; an empty one waits for the
-  // first submit.
   function onFieldBlur(e) {
     const field = e.target.name;
     if (!REGISTRATION_FIELDS.includes(field)) return;
@@ -99,11 +93,10 @@ export default function RegisterPage() {
     setBusy(true);
     const form = new FormData(formRef.current);
     for (const [field, value] of Object.entries(v)) form.set(field, value);
-    if (!avatar) form.delete("avatar"); // an empty file input still sends a part
+    if (!avatar) form.delete("avatar");
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!calm) setPhase("wait");
     try {
-      // The server checks everything again; its problems come back per field.
       const user = await api("/api/register", { method: "POST", body: form, redirectOn401: false });
       if (!calm) {
         setPhase("morph");
@@ -111,7 +104,6 @@ export default function RegisterPage() {
         setPhase("go");
         await pause(GO_MS);
       }
-      // Setting the user makes AuthGate send us on (home, or verification).
       setUser(user);
     } catch (err) {
       setPhase(null);
@@ -140,8 +132,6 @@ export default function RegisterPage() {
 
   const shown = (field) => sentence(errors[field]);
   const invalid = (field) => (errors[field] ? true : undefined);
-  // The nickname's own error comes first (format, or the server's 409);
-  // otherwise the live check says whether it is taken or available.
   const nicknameError = shown("nickname") || (nicknameCheck.status === "taken" ? NICKNAME_TAKEN : "");
   const nicknameFree = !nicknameError && nicknameCheck.status === "available";
 
@@ -201,7 +191,6 @@ export default function RegisterPage() {
               <label className={`avatar-drop${preview ? " has-image" : ""}`} title="Choose an avatar">
                 <input name="avatar" type="file" accept={IMAGE_ACCEPT} onChange={chooseAvatar} className="visually-hidden" />
                 {preview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={preview} alt="Chosen avatar" />
                 ) : (
                   <>

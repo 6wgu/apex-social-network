@@ -1,11 +1,9 @@
-// Run with: npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { IMAGE_ACCEPT, MAX_IMAGE_MB, imageProblem } from "./images.js";
 
 const MB = 1024 * 1024;
-// imageProblem only reads a File's name, type and size.
 const file = (name, type, size = 1000) => ({ name, type, size });
 
 test("JPEG, PNG, GIF and WebP files pass", () => {
@@ -24,8 +22,8 @@ test("other files are refused by type or by name", () => {
   const wrong = "must be a JPEG, PNG, GIF or WebP file";
   assert.equal(imageProblem(file("notes.txt", "text/plain")), wrong);
   assert.equal(imageProblem(file("photo.svg", "image/svg+xml")), wrong);
-  assert.equal(imageProblem(file("photo.png.exe", "image/png")), wrong); // the name must end like an image
-  assert.equal(imageProblem(file("photo.png", "")), wrong); // the browser could not tell the type
+  assert.equal(imageProblem(file("photo.png.exe", "image/png")), wrong);
+  assert.equal(imageProblem(file("photo.png", "")), wrong);
 });
 
 test("the size limit matches the backend's", () => {

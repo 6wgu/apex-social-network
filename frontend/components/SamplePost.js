@@ -1,14 +1,10 @@
 import Icon from "@/components/Icon";
 
-// A sample post for the landing page's preview, where visitors are not
-// logged in and cannot load real posts. It mirrors one of the demo posts
-// (Maya's sunrise run); its images are in public/landing/.
 const REPLIES = [
-  { name: "Leo Hart", avatar: "/landing/sample-leo.jpg", text: "Great colours! 😍" },
+  { name: "Leo Hart", avatar: "/landing/sample-leo.png", text: "Great colours! 😍" },
   { name: "Iris Cole", avatar: "/landing/sample-iris.png", text: "Next time I'm in 🏃‍♀️" },
 ];
 
-/* eslint-disable @next/next/no-img-element */
 export default function SamplePost() {
   return (
     <article className="sample-post">
@@ -20,7 +16,7 @@ export default function SamplePost() {
         </div>
       </header>
       <p className="sample-text">Sunrise loop done before work 🌅 7 km and happy legs.</p>
-      <img className="sample-image" src="/landing/sample-sunrise.jpg" alt="A sunrise over hills" width={480} height={300} loading="lazy" />
+      <img className="sample-image" src="/landing/sample-sunrise.jpg" alt="A runner on a hilltop at sunrise" width={480} height={300} loading="lazy" />
       <footer className="sample-foot">
         <span className="sample-like">
           <Icon name="heart" size={16} /> 4

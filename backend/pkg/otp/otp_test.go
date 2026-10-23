@@ -9,7 +9,6 @@ import (
 	"social-network/pkg/mail"
 )
 
-// fakeSender keeps the last code it was asked to send.
 type fakeSender struct {
 	code string
 	sent int
@@ -29,7 +28,6 @@ func (s *fakeSender) Send(m mail.Message) error {
 
 func (s *fakeSender) FromName() string { return "APEX" }
 
-// newTestService returns a service on a memory store and a clock the test moves.
 func newTestService() (*Service, *fakeSender, *time.Time) {
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	sender := &fakeSender{}
@@ -53,7 +51,6 @@ func TestSendThenVerify(t *testing.T) {
 	if res, err := svc.Verify(VerifyEmail, "user:1", " "+sender.code+" "); err != nil || !res.OK {
 		t.Fatalf("Verify = %+v, %v", res, err)
 	}
-	// A code works once.
 	if res, _ := svc.Verify(VerifyEmail, "user:1", sender.code); res.Reason != Missing {
 		t.Fatalf("second Verify reason = %q, want %q", res.Reason, Missing)
 	}
@@ -89,7 +86,6 @@ func TestWrongCodesRunOut(t *testing.T) {
 	if res, _ := svc.Verify(VerifyEmail, "user:1", wrong); res.Reason != TooMany {
 		t.Fatalf("last Verify reason = %q, want %q", res.Reason, TooMany)
 	}
-	// The code is gone, so even the right one fails now.
 	if res, _ := svc.Verify(VerifyEmail, "user:1", sender.code); res.Reason != Missing {
 		t.Fatalf("Verify after lockout reason = %q, want %q", res.Reason, Missing)
 	}
@@ -110,7 +106,6 @@ func TestFailedSendLeavesNoCode(t *testing.T) {
 	if _, err := svc.Send(VerifyEmail, "user:1", "a@example.com", ""); err == nil {
 		t.Fatal("Send succeeded with a failing sender")
 	}
-	// No cooldown either: the user can try again straight away.
 	sender.fail = false
 	if res, _ := svc.Send(VerifyEmail, "user:1", "a@example.com", ""); !res.OK {
 		t.Fatalf("retry Send = %+v", res)
@@ -126,8 +121,6 @@ func TestCancel(t *testing.T) {
 	}
 }
 
-// A code is only good for the purpose it was made for, and each purpose has
-// its own code and cooldown for the same subject.
 func TestPurposesAreSeparate(t *testing.T) {
 	svc, sender, _ := newTestService()
 	svc.Send(VerifyEmail, "user:1", "a@example.com", "")

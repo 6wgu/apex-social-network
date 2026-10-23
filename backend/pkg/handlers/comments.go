@@ -17,7 +17,6 @@ const (
 	commentsPerPage = 50
 )
 
-// comment is the JSON shape of a comment.
 type comment struct {
 	ID        int64              `json:"id"`
 	PostID    int64              `json:"post_id"`
@@ -27,11 +26,9 @@ type comment struct {
 	CreatedAt string             `json:"created_at"`
 }
 
-// SQL constant: never built from user input; every value is a bound parameter.
 const commentColumns = `c.id, c.post_id, c.content, c.image_path, strftime('%Y-%m-%d %H:%M:%S', c.created_at),
 	u.id, u.first_name, u.last_name, u.nickname, u.avatar_path`
 
-// SQL constant: never built from user input; every value is a bound parameter.
 const commentFrom = `FROM comments c JOIN users u ON u.id = c.user_id`
 
 func scanComment(row interface{ Scan(...any) error }) (comment, error) {
@@ -42,9 +39,6 @@ func scanComment(row interface{ Scan(...any) error }) (comment, error) {
 	return c, err
 }
 
-// visiblePostID reads {id} from the path and checks that the logged-in user
-// may see that post. Otherwise it writes a 404 (the same for a hidden post
-// and a missing one) and returns false.
 func (a *App) visiblePostID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	postID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || postID <= 0 {
@@ -63,9 +57,6 @@ func (a *App) visiblePostID(w http.ResponseWriter, r *http.Request) (int64, bool
 	return postID, true
 }
 
-// listComments handles GET /api/posts/{id}/comments?after={commentId}: the
-// post's comments oldest first, 50 per page. Only users who can see the
-// post can read them.
 func (a *App) listComments(w http.ResponseWriter, r *http.Request) {
 	postID, ok := a.visiblePostID(w, r)
 	if !ok {
@@ -104,8 +95,6 @@ func (a *App) listComments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, comments)
 }
 
-// createComment handles POST /api/posts/{id}/comments (multipart): content
-// and/or an image. Only users who can see the post can comment on it.
 func (a *App) createComment(w http.ResponseWriter, r *http.Request) {
 	defer removeFormFiles(r)
 	postID, ok := a.visiblePostID(w, r)
@@ -135,9 +124,6 @@ func (a *App) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The post may have been deleted, or the author may have gone private,
-	// while the image uploaded: check again in the same statement as the
-	// insert, so a comment is never stored on a post the user cannot see.
 	me := currentUserID(r)
 	res, err := a.DB.Exec(`INSERT INTO comments (post_id, user_id, content, image_path)
 		SELECT p.id, ?1, ?3, ?4 FROM posts p WHERE p.id = ?2 AND `+postVisibleSQL, me, postID, content, image)

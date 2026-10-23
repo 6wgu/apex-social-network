@@ -9,43 +9,23 @@ import (
 	"unicode/utf8"
 )
 
-// Validation of the register form and the profile fields. The frontend
-// checks the same rules (frontend/lib/validation.js) so the user sees a
-// problem at once; these are the ones that count, because a request can
-// skip the page.
-
-// Age limits for the date of birth, in whole years. A birthday not reached
-// yet this year does not count. Change them here and MIN_AGE / MAX_AGE in
-// frontend/lib/validation.js together.
 const (
 	MinAge = 7
 	MaxAge = 120
 )
 
 const (
-	maxEmailLen    = 254 // the longest address SMTP can carry
-	maxEmailLocal  = 64  // characters before the "@"
-	maxEmailLabel  = 63  // characters between two dots of the domain
+	maxEmailLen    = 254
+	maxEmailLocal  = 64
+	maxEmailLabel  = 63
 	minPasswordLen = 8
-	maxPasswordLen = 72 // bcrypt ignores everything after 72 bytes
+	maxPasswordLen = 72
 	maxNameLen     = 50
 	maxNicknameLen = 30
 	maxAboutLen    = 500
 	dateLayout     = "2006-01-02"
 )
 
-// validEmail reports whether email is a plain address like
-// name@example.com. The caller trims and lowercases it first. net/mail
-// alone accepts too much (display names, quoted local parts, a domain
-// without a dot), so the rules are spelled out here:
-//   - at most 254 characters, and exactly one "@"
-//   - the local part (before the "@") is 1 to 64 characters of letters,
-//     digits and . _ % + -, with no dot at its start or end and no two dots
-//     in a row. It may start with a digit: 123ahmed@gmail.com is valid.
-//   - the domain is two or more labels joined by single dots; each label is
-//     1 to 63 letters, digits or hyphens and does not start or end with a
-//     hyphen
-//   - the last label (the TLD) is at least 2 letters and letters only
 func validEmail(email string) bool {
 	if utf8.RuneCountInString(email) > maxEmailLen {
 		return false
@@ -93,7 +73,6 @@ func validEmail(email string) bool {
 func isASCIILetter(c rune) bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') }
 func isASCIIDigit(c rune) bool  { return c >= '0' && c <= '9' }
 
-// emailProblem returns what is wrong with a trimmed, lowercased email, or "".
 func emailProblem(email string) string {
 	switch {
 	case email == "":
@@ -106,9 +85,6 @@ func emailProblem(email string) string {
 	return ""
 }
 
-// passwordRules are the strength rules for a new password, in the order a
-// 400 lists the missing ones. Only register checks them: login never does,
-// so accounts made before the rules existed can still sign in.
 var passwordRules = []struct {
 	missing string
 	met     func(string) bool
@@ -117,7 +93,6 @@ var passwordRules = []struct {
 	{"an uppercase letter", containsRune(unicode.IsUpper)},
 	{"a lowercase letter", containsRune(unicode.IsLower)},
 	{"a number", containsRune(unicode.IsDigit)},
-	// Punctuation and symbols: ! @ # $ % ^ & * - _ + = ? and the like.
 	{"a special character", containsRune(func(r rune) bool { return unicode.IsPunct(r) || unicode.IsSymbol(r) })},
 }
 
@@ -125,9 +100,6 @@ func containsRune(match func(rune) bool) func(string) bool {
 	return func(s string) bool { return strings.IndexFunc(s, match) >= 0 }
 }
 
-// passwordProblem returns what a new password is missing, or "". Every
-// missing rule is named, e.g. "password needs an uppercase letter and a
-// number".
 func passwordProblem(password string) string {
 	if password == "" {
 		return "password is required"
@@ -147,7 +119,6 @@ func passwordProblem(password string) string {
 	return ""
 }
 
-// joinWithAnd turns ["a", "b", "c"] into "a, b and c".
 func joinWithAnd(items []string) string {
 	if len(items) == 1 {
 		return items[0]
@@ -155,8 +126,6 @@ func joinWithAnd(items []string) string {
 	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
-// birthDateProblem checks a YYYY-MM-DD date of birth on the calendar day of
-// now: a real date, not in the future, and an age from MinAge to MaxAge.
 func birthDateProblem(dob string, now time.Time) string {
 	if dob == "" {
 		return "date of birth is required"
@@ -177,10 +146,6 @@ func birthDateProblem(dob string, now time.Time) string {
 	return ""
 }
 
-// ageOn is the age in whole years on the day on of someone born on born:
-// the difference in years, minus one while that year's birthday has not
-// come yet. Someone born on 29 February gets a year older on 1 March in
-// other years.
 func ageOn(born, on time.Time) int {
 	age := on.Year() - born.Year()
 	if on.Month() < born.Month() || (on.Month() == born.Month() && on.Day() < born.Day()) {
@@ -189,7 +154,6 @@ func ageOn(born, on time.Time) int {
 	return age
 }
 
-// nameProblem checks a required name field; label is how messages call it.
 func nameProblem(name, label string) string {
 	switch {
 	case name == "":
@@ -200,7 +164,6 @@ func nameProblem(name, label string) string {
 	return ""
 }
 
-// validateNickname and validateAbout are shared by register and edit profile.
 func validateNickname(s string) string {
 	if utf8.RuneCountInString(s) > maxNicknameLen {
 		return fmt.Sprintf("nickname must be %d characters or fewer", maxNicknameLen)
@@ -231,8 +194,6 @@ func validateAbout(s string) string {
 	return ""
 }
 
-// registration is the text of a register form: trimmed, with the email
-// lowercased. The password is kept exactly as typed.
 type registration struct {
 	Email, Password, FirstName, LastName, DateOfBirth, Nickname, AboutMe string
 }
@@ -250,15 +211,10 @@ func readRegistration(r *http.Request) registration {
 	}
 }
 
-// fieldErrors maps a form field to what is wrong with it.
 type fieldErrors map[string]string
 
-// registerFieldOrder is the order fields appear on the register page; the
-// first field with a problem gives the response its "error" text.
 var registerFieldOrder = []string{"first_name", "last_name", "email", "password", "date_of_birth", "nickname", "about_me", "avatar"}
 
-// problems checks every field of reg on the day of now and returns all
-// the problems at once (empty when the form is fine).
 func (reg registration) problems(now time.Time) fieldErrors {
 	errs := fieldErrors{}
 	for field, problem := range map[string]string{
@@ -277,9 +233,6 @@ func (reg registration) problems(now time.Time) fieldErrors {
 	return errs
 }
 
-// writeFieldErrors answers with status and
-// {"error": <first problem>, "fields": {"<field>": "<problem>", ...}}, so a
-// client that only reads "error" still gets a message.
 func writeFieldErrors(w http.ResponseWriter, status int, errs fieldErrors) {
 	first := ""
 	for _, field := range registerFieldOrder {

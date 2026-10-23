@@ -21,7 +21,6 @@ import usePagedPosts from "@/lib/usePagedPosts";
 
 const TABS = ["Posts", "Followers", "Following"];
 
-// "2000-01-01" -> "January 1, 2000" (a calendar date, so no time zone shift).
 function formatBirthday(date) {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
@@ -45,10 +44,6 @@ function AboutRow({ icon, label, children, tone }) {
   );
 }
 
-// /profile/{id}, or /profile/me for the logged-in user.
-// What a private profile reveals is decided by the backend: for a profile we
-// may not see, GET /api/users/{id} simply does not contain the private fields,
-// and the followers/following lists answer 403.
 export default function ProfilePage() {
   const params = useParams();
   const { user: me, setUser } = useAuth();
@@ -58,10 +53,9 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState(TABS[0]);
   const [saving, setSaving] = useState(false);
-  const [list, setList] = useState(null); // users in the Followers / Following tab
+  const [list, setList] = useState(null);
   const [listError, setListError] = useState("");
 
-  // Loads (or reloads) the profile without blanking the page.
   const load = useCallback(
     () =>
       api(`/api/users/${encodeURIComponent(id)}`)
@@ -81,16 +75,12 @@ export default function ProfilePage() {
   }, [load]);
 
   const canView = profile?.can_view;
-  // The Posts tab; nothing is requested for a profile we may not see.
   const posts = usePagedPosts(canView && tab === "Posts" ? `/api/users/${encodeURIComponent(id)}/posts` : null);
-  // A new post by this person shows up at once.
   useRealtime((event) => {
     if (event.type === "post_created" && !event.payload.group_id && String(event.payload.author_id) === String(id)) posts.refreshTop();
   });
   const listKind = tab === "Followers" ? "followers" : tab === "Following" ? "following" : null;
 
-  // The Followers / Following tab content. Reloads whenever the profile does
-  // (e.g. after following), so the list and the counts always agree.
   useEffect(() => {
     setList(null);
     setListError("");
@@ -100,8 +90,6 @@ export default function ProfilePage() {
       .catch((err) => setListError(err.status === 403 ? "This list is private." : err.message));
   }, [id, listKind, canView, profile]);
 
-  // Keep counts and visibility current when follows change elsewhere:
-  // a request accepted from the bell, or a live notification about this profile.
   useEffect(() => {
     window.addEventListener(FOLLOWS_CHANGED, load);
     return () => window.removeEventListener(FOLLOWS_CHANGED, load);
@@ -116,13 +104,13 @@ export default function ProfilePage() {
   });
 
   async function togglePrivacy(e) {
-    const isPublic = !e.target.checked; // the switch is on for a private profile
+    const isPublic = !e.target.checked;
     setSaving(true);
     setError("");
     try {
       const updated = await api("/api/me/privacy", { method: "PATCH", body: { is_public: isPublic } });
       setUser(updated);
-      await load(); // going public accepts pending requests, so counts can change
+      await load();
     } catch (err) {
       setError(err.message);
     } finally {

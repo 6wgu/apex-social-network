@@ -6,15 +6,6 @@ import { nicknameProblem } from "@/lib/validation";
 
 const DEBOUNCE_MS = 400;
 
-// Asks GET /api/nicknames/available about a nickname once the user stops
-// typing for 400 ms, or at once through checkNow() (when the field loses
-// focus). Typing is never blocked. status is one of:
-//   "idle"       nothing to say: empty, a bad format (the page shows that
-//                itself), the user's own nickname (`own`, in any case), or the
-//                check failed (the server checks again on save)
-//   "checking"   a request is on its way
-//   "available" / "taken"
-// Only the answer for the value currently in the field counts.
 export default function useNicknameCheck(nickname, own = "") {
   const value = nickname.trim();
   const needed = value !== "" && !nicknameProblem(value) && value.toLowerCase() !== own.trim().toLowerCase();

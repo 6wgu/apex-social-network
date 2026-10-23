@@ -10,26 +10,16 @@ const RealtimeContext = createContext({
   send: () => Promise.reject(new Error("not connected")),
 });
 
-const SEND_TIMEOUT = 10000; // ms to wait for the server's answer to a frame
+const SEND_TIMEOUT = 10000;
 
-// Opens one WebSocket to /ws per tab while a user is logged in, and
-// reconnects with a growing delay (1 s, 2 s, 4 s … up to 30 s) when it drops,
-// unless the session is gone, in which case it logs out.
-// The Next.js server proxies /ws to the backend, so the session cookie and
-// the page's Origin go with the upgrade request.
-//
-// Components listen with useRealtime(handler); every event is
-// { type, payload } as described in docs/api.md. useRealtimeSend() returns
-// send(type, payload), which resolves with the server's answer to that
-// frame (matched by request_id) or rejects with its error.
 export default function RealtimeProvider({ children }) {
   const { user, logout } = useAuth();
-  const userId = user?.is_verified ? user.id : null; // the socket is for verified users only
+  const userId = user?.is_verified ? user.id : null;
   const logoutRef = useRef(logout);
   logoutRef.current = logout;
   const listeners = useRef(new Set());
   const socketRef = useRef(null);
-  const pending = useRef(new Map()); // request_id -> { resolve, reject, timer }
+  const pending = useRef(new Map());
   const nextId = useRef(0);
   const [connected, setConnected] = useState(false);
 
@@ -40,7 +30,6 @@ export default function RealtimeProvider({ children }) {
     let attempt = 0;
     let stopped = false;
 
-    // Every frame still waiting for an answer fails when the socket goes.
     function failPending(reason) {
       pending.current.forEach(({ reject, timer }) => {
         clearTimeout(timer);
@@ -64,7 +53,6 @@ export default function RealtimeProvider({ children }) {
         } catch {
           return;
         }
-        // An answer to a frame this tab sent: settle its promise.
         const waiting = event.request_id && pending.current.get(event.request_id);
         if (waiting) {
           pending.current.delete(event.request_id);
@@ -75,15 +63,9 @@ export default function RealtimeProvider({ children }) {
         listeners.current.forEach((fn) => fn(event));
       };
       socket.onclose = () => {
-        // A socket closed by the cleanup below is done with: the cleanup has
-        // already reset everything, and its close event, which comes later,
-        // must not mark the next socket offline or fail that socket's frames.
         if (stopped) return;
         setConnected(false);
         failPending("connection lost, please try again");
-        // The socket also closes when the session ends (logout in another
-        // tab, or expiry): ask the API before retrying. A 401 means there is
-        // nothing to reconnect to, so log out instead of retrying forever.
         api("/api/me", { redirectOn401: false })
           .then(() => {
             if (!stopped) retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
@@ -95,7 +77,6 @@ export default function RealtimeProvider({ children }) {
               logoutRef.current({ quiet: true });
               return;
             }
-            // Backend unreachable: keep retrying with the growing delay.
             retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
           });
       };
@@ -136,17 +117,14 @@ export default function RealtimeProvider({ children }) {
   return <RealtimeContext.Provider value={{ connected, subscribe, send }}>{children}</RealtimeContext.Provider>;
 }
 
-/** True while the WebSocket is open. Use it to reload data after a reconnect. */
 export function useRealtimeConnected() {
   return useContext(RealtimeContext).connected;
 }
 
-/** send(type, payload) -> Promise of the server's answer (see RealtimeProvider). */
 export function useRealtimeSend() {
   return useContext(RealtimeContext).send;
 }
 
-/** Calls handler(event) for every WebSocket event while the component is mounted. */
 export function useRealtime(handler) {
   const { subscribe } = useContext(RealtimeContext);
   const latest = useRef(handler);

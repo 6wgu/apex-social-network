@@ -1,4 +1,3 @@
-// Package middleware holds the http.Handler wrappers applied around the router.
 package middleware
 
 import (
@@ -12,7 +11,6 @@ import (
 	"time"
 )
 
-// Chain applies middlewares so the first one listed is the outermost.
 func Chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(mws) - 1; i >= 0; i-- {
 		h = mws[i](h)
@@ -20,8 +18,6 @@ func Chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler 
 	return h
 }
 
-// statusRecorder captures the status code for logging. It keeps Hijack working
-// so WebSocket upgrades still pass through the logger.
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
@@ -40,7 +36,6 @@ func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return h.Hijack()
 }
 
-// Logger prints method, path, status and duration for every request.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -50,14 +45,10 @@ func Logger(next http.Handler) http.Handler {
 	})
 }
 
-// Recover turns a panic in a handler into a 500 instead of killing the server.
 func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				// http.ErrAbortHandler is how a handler cuts a response off on
-				// purpose; net/http expects to see it and drops the connection
-				// quietly, so it is passed on instead of becoming a 500.
 				if err == http.ErrAbortHandler {
 					panic(err)
 				}
@@ -71,9 +62,6 @@ func Recover(next http.Handler) http.Handler {
 	})
 }
 
-// CORS allows the frontend origins to call the API with cookies. With the
-// Next.js proxy the browser sees one origin, so this only matters when the
-// frontend calls the backend port directly (e.g. local dev).
 func CORS(allowedOrigins ...string) func(http.Handler) http.Handler {
 	allowed := map[string]bool{}
 	for _, o := range allowedOrigins {

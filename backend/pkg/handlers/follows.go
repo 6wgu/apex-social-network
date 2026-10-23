@@ -11,12 +11,6 @@ import (
 	"social-network/pkg/models"
 )
 
-// A row in follows means follower_id -> following_id. status is 'pending'
-// until a private user accepts, 'accepted' afterwards; public users are
-// followed with 'accepted' straight away. Declining, cancelling and
-// unfollowing delete the row, so the same pair can start over.
-
-// Follow states as the API shows them (viewer -> profile owner).
 const (
 	followNone      = "none"
 	followPending   = "pending"
@@ -24,7 +18,6 @@ const (
 	followSelf      = "self"
 )
 
-// apiFollowStatus turns a follows.status value into the API word.
 func apiFollowStatus(dbStatus string) string {
 	if dbStatus == "accepted" {
 		return followFollowing
@@ -32,8 +25,6 @@ func apiFollowStatus(dbStatus string) string {
 	return dbStatus
 }
 
-// userIDFromPath reads {name} from the path. It writes a 404 and returns
-// false when it is not a positive integer or no such user exists.
 func (a *App) userIDFromPath(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
 	if err != nil || id <= 0 {
@@ -52,8 +43,6 @@ func (a *App) userIDFromPath(w http.ResponseWriter, r *http.Request, name string
 	return id, true
 }
 
-// follow handles POST /api/users/{id}/follow. A public target is followed
-// at once; a private one gets a pending request.
 func (a *App) follow(w http.ResponseWriter, r *http.Request) {
 	targetID, ok := a.userIDFromPath(w, r, "id")
 	if !ok {
@@ -65,9 +54,6 @@ func (a *App) follow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reading is_public and inserting happen in one transaction, so a
-	// privacy change cannot slip in between (transactions take the write
-	// lock up front, see sqlite.go).
 	tx, err := a.DB.Begin()
 	if err != nil {
 		serverError(w, err)
@@ -104,7 +90,6 @@ func (a *App) follow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A private target gets a request to answer; a public one is just told.
 	var n notifier
 	if status == "pending" {
 		err = n.add(tx, targetID, me, notifFollowRequest, nil)
@@ -123,8 +108,6 @@ func (a *App) follow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"follow_status": apiFollowStatus(status)})
 }
 
-// unfollow handles DELETE /api/users/{id}/follow: it stops following, or
-// cancels a request that is still pending.
 func (a *App) unfollow(w http.ResponseWriter, r *http.Request) {
 	targetID, ok := a.userIDFromPath(w, r, "id")
 	if !ok {
@@ -147,7 +130,6 @@ func (a *App) unfollow(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	// A cancelled request disappears from the target's bell.
 	var n notifier
 	if status == "pending" {
 		if err := n.remove(tx, targetID, me, notifFollowRequest); err != nil {
@@ -163,14 +145,11 @@ func (a *App) unfollow(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// followRequest is one incoming pending request.
 type followRequest struct {
 	User      models.UserSummary `json:"user"`
 	CreatedAt string             `json:"created_at"`
 }
 
-// listFollowRequests handles GET /api/follow-requests: requests sent to me
-// that I have not answered, oldest first.
 func (a *App) listFollowRequests(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.DB.Query(`
 		SELECT u.id, u.first_name, u.last_name, u.nickname, u.avatar_path,
@@ -200,9 +179,6 @@ func (a *App) listFollowRequests(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, requests)
 }
 
-// answerFollowRequest handles POST /api/follow-requests/{userId}/accept and
-// /decline. Only the pending request from {userId} to the logged-in user is
-// touched, so nobody can answer a request addressed to someone else.
 func (a *App) answerFollowRequest(accept bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requesterID, err := strconv.ParseInt(r.PathValue("userId"), 10, 64)
@@ -230,8 +206,6 @@ func (a *App) answerFollowRequest(accept bool) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "follow request not found")
 			return
 		}
-		// The request is answered: it leaves my bell either way, and the
-		// requester hears about an acceptance.
 		var n notifier
 		err = n.remove(tx, me, requesterID, notifFollowRequest)
 		if err == nil && accept {
@@ -250,10 +224,6 @@ func (a *App) answerFollowRequest(accept bool) http.HandlerFunc {
 	}
 }
 
-// listFollows handles GET /api/users/{id}/followers (followers = true) and
-// /following. Only accepted follows are listed. A private profile's lists
-// are shown to its owner and accepted followers only (403 otherwise),
-// the same rule as the profile itself.
 func (a *App) listFollows(followers bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID, ok := a.userIDFromPath(w, r, "id")
@@ -269,7 +239,6 @@ func (a *App) listFollows(followers bool) http.HandlerFunc {
 			writeError(w, http.StatusForbidden, "this profile is private")
 			return
 		}
-		// Followers: the users on the follower side of rows pointing at the owner.
 		query := `
 			SELECT u.id, u.first_name, u.last_name, u.nickname, u.avatar_path
 			FROM follows f JOIN users u ON u.id = f.follower_id
@@ -291,8 +260,6 @@ func (a *App) listFollows(followers bool) http.HandlerFunc {
 	}
 }
 
-// userSummaries runs a query that selects id, first_name, last_name,
-// nickname, avatar_path and returns the rows (never nil).
 func (a *App) userSummaries(query string, args ...any) ([]models.UserSummary, error) {
 	rows, err := a.DB.Query(query, args...)
 	if err != nil {
@@ -310,10 +277,6 @@ func (a *App) userSummaries(query string, args ...any) ([]models.UserSummary, er
 	return users, rows.Err()
 }
 
-// acceptPendingRequests is used when a profile turns public: everyone still
-// waiting becomes a follower, inside the caller's transaction. Their
-// follow_request notifications are resolved and each requester is told,
-// exactly as if the user had accepted them one by one.
 func acceptPendingRequests(tx *sql.Tx, n *notifier, userID int64) error {
 	rows, err := tx.Query(`UPDATE follows SET status = 'accepted' WHERE following_id = ? AND status = 'pending' RETURNING follower_id`, userID)
 	if err != nil {

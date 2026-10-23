@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// The same cases are checked against frontend/lib/validation.js in
-// frontend/lib/validation.test.mjs; keep the two in step.
-
 func TestValidEmail(t *testing.T) {
 	good := []string{
 		"name@example.com",
@@ -71,9 +68,9 @@ func TestBirthDateProblem(t *testing.T) {
 		"2000-02-30": "date of birth must be a valid date (YYYY-MM-DD)",
 		"01/01/2000": "date of birth must be a valid date (YYYY-MM-DD)",
 		"2026-03-02": "date of birth can't be in the future",
-		"2019-03-01": "", // turns 7 today
+		"2019-03-01": "",
 		"2019-03-02": "you must be at least 7 years old",
-		"1906-03-02": "", // 119 until tomorrow
+		"1906-03-02": "",
 		"1905-03-01": "you must be 120 years old or younger",
 	}
 	for dob, want := range cases {
