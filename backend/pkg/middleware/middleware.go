@@ -55,6 +55,12 @@ func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
+				// http.ErrAbortHandler is how a handler cuts a response off on
+				// purpose; net/http expects to see it and drops the connection
+				// quietly, so it is passed on instead of becoming a 500.
+				if err == http.ErrAbortHandler {
+					panic(err)
+				}
 				log.Printf("panic: %v\n%s", err, debug.Stack())
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
