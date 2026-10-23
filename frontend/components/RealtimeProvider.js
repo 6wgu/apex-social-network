@@ -75,9 +75,12 @@ export default function RealtimeProvider({ children }) {
         listeners.current.forEach((fn) => fn(event));
       };
       socket.onclose = () => {
+        // A socket closed by the cleanup below is done with: the cleanup has
+        // already reset everything, and its close event, which comes later,
+        // must not mark the next socket offline or fail that socket's frames.
+        if (stopped) return;
         setConnected(false);
         failPending("connection lost, please try again");
-        if (stopped) return;
         // The socket also closes when the session ends (logout in another
         // tab, or expiry): ask the API before retrying. A 401 means there is
         // nothing to reconnect to, so log out instead of retrying forever.
