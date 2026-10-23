@@ -49,6 +49,8 @@ type testEnv struct {
 
 	mu    sync.Mutex
 	mails []string
+	// slowMail makes every email take this long to send (nanoseconds).
+	slowMail atomic.Int64
 }
 
 // codeStore is the real code store, with an optional pause before every
@@ -100,12 +102,13 @@ func newTestEnv(t *testing.T) *testEnv {
 	// No SMTP credentials: console mode, which hands every email to Log.
 	mailer := mail.New(mail.Config{FromName: "APEX"})
 	mailer.Log = func(format string, args ...any) {
+		time.Sleep(time.Duration(e.slowMail.Load()))
 		e.mu.Lock()
 		defer e.mu.Unlock()
 		e.mails = append(e.mails, fmt.Sprintf(format, args...))
 	}
 	e.app = &App{DB: db, UploadDir: uploads, Hub: ws.NewHub("http://localhost:3000"), Mailer: mailer,
-		OTP: otp.New(e.codes, mailer, otp.Options{Now: e.clock.Now}), RequireVerified: true}
+		OTP: otp.New(e.codes, mailer, otp.Options{Now: e.clock.Now}), RequireVerified: true, Now: e.clock.Now}
 	srv := httptest.NewServer(e.app.Routes())
 	t.Cleanup(srv.Close)
 	e.url = srv.URL
