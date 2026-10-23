@@ -7,6 +7,7 @@ import { emailProblem, sentence } from "@/lib/validation";
 import { useAuth } from "@/components/AuthProvider";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Field from "@/components/Field";
+import SuccessCheck from "@/components/SuccessCheck";
 
 // The seconds a 429 asks to wait (its message names them), or a minute.
 const secondsToWait = (err) => Number(err.message.match(/\d+/)?.[0] || 60);
@@ -217,17 +218,7 @@ export default function VerifyPage() {
     return (
       <div className="auth-screen">
         <section className="card auth-card verify-card verify-card-done">
-          {/* the circle draws itself, then the tick, then a ring pulses out */}
-          <div className="verify-success" aria-hidden="true">
-            <span className="verify-ring" />
-            {Array.from({ length: 8 }, (_, i) => (
-              <span key={i} className="verify-spark" style={{ "--i": i }} />
-            ))}
-            <svg className="verify-check" viewBox="0 0 64 64">
-              <circle className="verify-check-circle" cx="32" cy="32" r="29" />
-              <path className="verify-check-tick" d="M19 33.5 28 42.5 45.5 23" />
-            </svg>
-          </div>
+          <SuccessCheck />
           <div className="auth-heading verify-done-text">
             <h1>Email verified</h1>
             <p>{user.email} is confirmed. You are all set.</p>
