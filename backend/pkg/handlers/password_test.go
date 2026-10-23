@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -482,5 +485,26 @@ func TestClientIP(t *testing.T) {
 		if got := clientIP(r); got != tc.want {
 			t.Errorf("clientIP(%s, X-Forwarded-For %q) = %q, want %q", tc.remote, tc.forwarded, got, tc.want)
 		}
+	}
+}
+
+// The reset code is printed in the backend log for the audit, in every mail
+// mode, but only for an address with an account.
+func TestResetCodeIsLogged(t *testing.T) {
+	e := newTestEnv(t)
+	e.verifiedUser(t, "ada@example.com")
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	c := e.client(t)
+	c.post("/api/password/forgot", forgotBody("ada@example.com"), "")
+	c.post("/api/password/forgot", forgotBody("nobody@example.com"), "")
+	code := e.resetCode(t, "ada@example.com") // waits for the background send
+	if want := "reset code for ada@example.com: " + code; !strings.Contains(buf.String(), want) {
+		t.Errorf("log %q lacks %q", buf.String(), want)
+	}
+	if strings.Contains(buf.String(), "nobody@example.com") {
+		t.Errorf("log mentions the unknown address: %q", buf.String())
 	}
 }

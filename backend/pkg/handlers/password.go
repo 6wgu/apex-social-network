@@ -125,6 +125,9 @@ func (a *App) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		// Sending takes seconds. Waiting for it would make an answer about
 		// an existing account slower than one about a missing account.
 		a.mailing.Go(func() {
+			// On purpose, in every mail mode, like the verification code:
+			// the code can be read from the log during an audit.
+			log.Printf("reset code for %s: %s", email, code)
 			if err := a.OTP.Deliver(otp.ResetPassword, code, email, name); err != nil {
 				log.Printf("password reset code for user %d: %v", userID, err)
 			}
