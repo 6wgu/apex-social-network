@@ -227,14 +227,9 @@ func (a *App) push(n *notifier) {
 // notifications, newest first, 50 per page. Pass the last id of a page as
 // before to get the next one.
 func (a *App) listNotifications(w http.ResponseWriter, r *http.Request) {
-	before := int64(1<<63 - 1)
-	if v := r.URL.Query().Get("before"); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			writeError(w, http.StatusBadRequest, "before must be a notification id")
-			return
-		}
-		before = id
+	before, ok := beforeParam(w, r)
+	if !ok {
+		return
 	}
 	rows, err := a.DB.Query(`SELECT `+notificationColumns+` `+notificationFrom+`
 		WHERE n.user_id = ? AND n.id < ?
