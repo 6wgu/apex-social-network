@@ -127,3 +127,118 @@ var likes = []like{
 	{Post: "p-surprise", By: []string{"leo"}},
 	{Post: "p-poll", By: []string{"maya", "leo", "theo"}},
 }
+
+// group: the creator is always a member. Members joined either through an
+// invitation or a join request the creator accepted (Via "request", which
+// also leaves a group_request_accepted notification). Invites and Requests
+// are still waiting for an answer.
+type group struct {
+	Key, Creator, Title, Description string
+	Ago                              time.Duration
+	Members                          []member
+	Invites                          []invite
+	Requests                         []string
+	Posts                            []groupPost
+	Events                           []event
+	Chat                             []chatLine
+}
+
+type member struct {
+	User, Via string
+	Ago       time.Duration
+}
+
+type invite struct{ From, To string }
+
+type groupPost struct {
+	Author, Content, Image string
+	Ago                    time.Duration
+	Comments               []comment
+}
+
+// event: every member except the creator gets a group_event notification.
+type event struct {
+	Title, Description string
+	In                 time.Duration // from the moment of seeding
+	Going, NotGoing    []string
+}
+
+type chatLine struct {
+	From, Text string
+	Ago        time.Duration
+}
+
+var groups = []group{
+	{Key: "g-trail", Creator: "maya", Title: "Trail Runners", Ago: 14 * day,
+		Description: "Weekend runs around the city. All paces welcome 🏃",
+		Members: []member{
+			{User: "leo", Via: "invite", Ago: 13 * day},
+			{User: "iris", Via: "invite", Ago: 12 * day},
+		},
+		Invites:  []invite{{From: "maya", To: "theo"}}, // Theo sees Accept / Decline
+		Requests: []string{"sam"},                      // Maya sees Sam's request
+		Posts: []groupPost{
+			{Author: "iris", Content: "Here's the route for Saturday 🗺️", Image: "seed-route.png", Ago: 30 * hour,
+				Comments: []comment{
+					{Author: "maya", Content: "Perfect, see you there!", Ago: 29 * hour},
+					{Author: "leo", Content: "Bring snacks 🍌", Image: "seed-wave.gif", Ago: 28 * hour},
+				}},
+			{Author: "leo", Content: "Who's coming on Saturday? 🏃‍♂️", Ago: 7 * hour,
+				Comments: []comment{{Author: "iris", Content: "Me! 🙋‍♀️", Ago: 6 * hour}}},
+		},
+		Events: []event{{Title: "Saturday 10K", In: 3 * day,
+			Description: "Meet at the park gate at 7:00. Easy pace, coffee after ☕",
+			Going:       []string{"maya", "leo"}, NotGoing: []string{"iris"}}},
+		Chat: []chatLine{
+			{From: "maya", Text: "Welcome to the group chat 🏃‍♀️", Ago: 12 * day},
+			{From: "leo", Text: "Hi all 👋", Ago: 12 * day},
+			{From: "iris", Text: "The club shirts arrive on Friday 🎽", Ago: 26 * hour},
+			{From: "maya", Text: "🎉🎉🎉", Ago: 25 * hour},
+		}},
+	{Key: "g-books", Creator: "nora", Title: "Book Club", Ago: 10 * day,
+		Description: "One book a month, then we talk about it 📚",
+		Members: []member{
+			{User: "maya", Via: "request", Ago: 9 * day},
+			{User: "sam", Via: "invite", Ago: 8 * day},
+		},
+		Invites:  []invite{{From: "nora", To: "leo"}}, // Leo sees Accept / Decline
+		Requests: []string{"iris"},                    // Nora sees Iris's request
+		Posts: []groupPost{
+			{Author: "nora", Content: "This month: a short novel, about 200 pages 📖", Image: "seed-books.png", Ago: 9 * day,
+				Comments: []comment{{Author: "sam", Content: "Count me in!", Ago: 8 * day}}},
+			{Author: "maya", Content: "Halfway through. No spoilers please 🤐", Ago: 2 * day,
+				Comments: []comment{{Author: "nora", Content: "😄 Promise.", Ago: 2 * day}}},
+		},
+		Events: []event{{Title: "Book night", In: 9 * day,
+			Description: "We talk about this month's book. Snacks welcome 🍪",
+			Going:       []string{"nora", "sam"}, NotGoing: []string{"maya"}}},
+		Chat: []chatLine{
+			{From: "nora", Text: "Who finished the book? 📖", Ago: 20 * hour},
+			{From: "sam", Text: "Almost! Two chapters left", Ago: 19 * hour},
+			{From: "maya", Text: "Done ✅ Loved the ending 👨‍👩‍👧", Ago: 18 * hour},
+		}},
+}
+
+// message: a private message. Unread ones show on the Chats badge. Every
+// pair has an accepted follow in at least one direction (the chat rule).
+type message struct {
+	From, To, Text string
+	Ago            time.Duration
+	Unread         bool
+}
+
+var messages = []message{
+	{From: "leo", To: "maya", Text: "Morning! Running tomorrow? 🏃", Ago: 30 * hour},
+	{From: "maya", To: "leo", Text: "Yes! 7:00 at the park gate 🌅", Ago: 29 * hour},
+	{From: "leo", To: "maya", Text: "Perfect, I'll bring the camera 📷", Ago: 28 * hour},
+	{From: "maya", To: "leo", Text: "Remember the surprise for Iris 🎂🤫", Ago: 3 * hour},
+	{From: "leo", To: "maya", Text: "Got it, my lips are sealed 🤐", Ago: 2 * hour, Unread: true},
+	{From: "nora", To: "maya", Text: "Thanks again for the book tip 📚❤️", Ago: 6 * hour},
+	{From: "maya", To: "nora", Text: "Anytime! Family reading night? 👨‍👩‍👧", Ago: 5 * hour},
+	{From: "nora", To: "maya", Text: "Yes please 🇧🇭 🇸🇦 🇫🇷 friends are coming too", Ago: 1 * hour, Unread: true},
+	{From: "sam", To: "leo", Text: "Board games on Friday? 🎲", Ago: 4 * hour},
+	{From: "leo", To: "sam", Text: "Always 😄", Ago: 3 * hour},
+	{From: "iris", To: "maya", Text: "I can design shirts for the club 🎨", Ago: 90 * time.Minute, Unread: true},
+	{From: "theo", To: "maya", Text: "Hi Maya 👋 Can a beginner join a run?", Ago: 2 * day},
+	{From: "maya", To: "theo", Text: "Of course! Saturday, easy pace 😊", Ago: 47 * hour},
+}

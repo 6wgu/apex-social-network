@@ -220,23 +220,25 @@ go run ./cmd/test-email -otp     # a sample verification code email
 
 ## Demo accounts
 
-A fresh database is filled with six demo accounts and their posts, so every feature can be tried without registering or waiting for an email code. All of them are verified and share one password: **`Audit123!`**. The names are made up and the addresses use `example.com`, a domain reserved for examples.
+A fresh database is filled with six demo accounts with posts, groups, events, chats and notifications, so every feature can be tried without registering or waiting for an email code. All of them are verified and share one password: **`Audit123!`**. The names are made up and the addresses use `example.com`, a domain reserved for examples.
 
 | Name | Email | Profile | Try this |
 |---|---|---|---|
-| Maya Lind (`@maya`) | `maya@example.com` | Public | The busiest account: followers, a followers-only post and a private post only Leo can see. Open her profile as Theo to see a public profile from outside. |
-| Leo Hart (`@leo`) | `leo@example.com` | Public | Sees Maya's private post (he is its chosen viewer) and Nora's private profile (he follows her). His finish-line post has an animated GIF. |
-| Nora Vale (`@nora`) | `nora@example.com` | Private | Has a **follow request from Sam**: accept or decline it on her own profile. Her posts are hidden from anyone who does not follow her. |
-| Sam Park (`@sam`) | `sam@example.com` | Private | Has a **follow request from Iris**. His own request to Nora is still waiting ("Requested"). |
-| Iris Cole (`@iris`) | `iris@example.com` | Public | Follows Maya and Leo but not Nora: open Nora's profile to see the private-profile screen and send a follow request. |
-| Theo Brandt (`@theo`) | `theo@example.com` | Public | The newcomer: follows only Maya, so his feed shows her public and followers-only posts but none of Leo's followers-only ones. Try messaging Nora: not allowed, nobody follows the other. |
+| Maya Lind (`@maya`) | `maya@example.com` | Public | Creator of **Trail Runners**: accept **Sam**'s join request from the bell or the group's Requests tab. Has 3 unread chats (Leo, Nora, Iris) with emojis and flags. Her private post is visible only to Leo. |
+| Leo Hart (`@leo`) | `leo@example.com` | Public | Sees Maya's private post (he is its chosen viewer) and Nora's private profile (he follows her). Has an **invitation to Book Club** from Nora in the bell. |
+| Nora Vale (`@nora`) | `nora@example.com` | Private | Has a **follow request from Sam**: accept or decline it on her own profile or in the bell. Creator of **Book Club**, with a join request from **Iris**. |
+| Sam Park (`@sam`) | `sam@example.com` | Private | Has a **follow request from Iris**; his own request to Nora is still waiting. Member of Book Club: answer the "Book night" event. |
+| Iris Cole (`@iris`) | `iris@example.com` | Public | Member of Trail Runners ("Saturday 10K" event, group chat). Her Book Club join request is waiting. Not a follower of Nora, so Nora's profile shows the private screen. |
+| Theo Brandt (`@theo`) | `theo@example.com` | Public | The newcomer: follows only Maya. Has an **invitation to Trail Runners**. Try messaging Nora: not allowed, since neither follows the other. |
 
 ### Try it in 5 minutes
 
 1. Log in as **Nora**, open your profile and accept **Sam**'s follow request.
-2. Log in as **Theo**: like and comment on Maya's sunrise post, then open **Nora**'s profile (private) and press Follow.
-3. Log in as **Leo**: the feed shows Maya's post "Only Leo can see this"; log in as **Iris** and it is not there.
-4. Log in as **Maya**: write a post with an image and choose "Private" with a few followers.
+2. Log in as **Maya**: the bell shows Sam's join request for Trail Runners, and Chats shows 3 unread conversations.
+3. Log in as **Theo** in a second browser (or a private window): accept the Trail Runners invitation from the bell, open the group's **Events** tab and answer "Saturday 10K". Then chat with Maya: messages arrive live in both windows.
+4. Still as **Theo**: open **Nora**'s profile (private, no posts shown) and try to message her: not allowed.
+5. Log in as **Leo**: the feed shows Maya's post "Only Leo can see this". As **Iris** it is not there.
+6. As anyone: like and comment on a post, and write a post with an image, choosing "Private" and a few followers.
 
 ### How the demo data is added
 
