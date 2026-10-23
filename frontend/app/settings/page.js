@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { IMAGE_ACCEPT, imageProblem } from "@/lib/images";
 import useNicknameCheck from "@/lib/useNicknameCheck";
 import { NICKNAME_TAKEN, nicknameProblem, sentence } from "@/lib/validation";
 import { useAuth } from "@/components/AuthProvider";
@@ -14,13 +15,7 @@ import RacingLights from "@/components/RacingLights";
 import { CursorSetting } from "@/components/RacingCursor";
 import { notify } from "@/components/Toaster";
 
-const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
-const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const ABOUT_MAX = 500;
-
-function isAllowedAvatar(file) {
-  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif|webp)$/i.test(file.name);
-}
 
 function SectionHead({ icon, title, children }) {
   return (
@@ -87,10 +82,11 @@ export default function SettingsPage() {
 
   function chooseFile(e) {
     const selected = e.target.files[0] || null;
-    if (selected && !isAllowedAvatar(selected)) {
+    const problem = selected ? imageProblem(selected) : "";
+    if (problem) {
       e.target.value = "";
       setFile(null);
-      setError("Avatar must be a JPEG, PNG, GIF or WebP file.");
+      setError(`Avatar ${problem}.`);
       return;
     }
     setError("");
@@ -294,7 +290,7 @@ export default function SettingsPage() {
               </button>
             </div>
             <p className="hint">JPEG, PNG, GIF or WebP, up to 50 MB.</p>
-            <input ref={fileInput} type="file" accept={AVATAR_ACCEPT} onChange={chooseFile} className="visually-hidden" tabIndex={-1} />
+            <input ref={fileInput} type="file" accept={IMAGE_ACCEPT} onChange={chooseFile} className="visually-hidden" tabIndex={-1} />
             <button type="button" className="btn-secondary btn-block" onClick={() => fileInput.current?.click()}>
               Upload New Photo
             </button>

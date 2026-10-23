@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { IMAGE_ACCEPT, imageProblem } from "@/lib/images";
 import {
   MAX_AGE,
   MIN_AGE,
@@ -22,14 +23,7 @@ import Icon from "@/components/Icon";
 import RacingLights from "@/components/RacingLights";
 import LaunchOverlay, { GO_MS, MORPH_MS } from "@/components/LaunchOverlay";
 
-const AVATAR_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
-const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
-
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));
-
-function isAllowedAvatar(file) {
-  return file && AVATAR_TYPES.has(file.type) && /\.(jpe?g|png|gif|webp)$/i.test(file.name);
-}
 
 // The password rules under the password field. Each one turns green with a
 // ✓ as soon as it is met; until then it is grey, or red once the user has
@@ -155,10 +149,11 @@ export default function RegisterPage() {
 
   function chooseAvatar(e) {
     const file = e.target.files[0] || null;
-    if (file && !isAllowedAvatar(file)) {
+    const problem = file ? imageProblem(file) : "";
+    if (problem) {
       e.target.value = "";
       setAvatar(null);
-      setFieldError("avatar", "avatar must be a JPEG, PNG, GIF or WebP file");
+      setFieldError("avatar", `avatar ${problem}`);
       return;
     }
     setFieldError("avatar", "");
@@ -226,7 +221,7 @@ export default function RegisterPage() {
             </legend>
             <div className="customize">
               <label className={`avatar-drop${preview ? " has-image" : ""}`} title="Choose an avatar">
-                <input name="avatar" type="file" accept={AVATAR_ACCEPT} onChange={chooseAvatar} className="visually-hidden" />
+                <input name="avatar" type="file" accept={IMAGE_ACCEPT} onChange={chooseAvatar} className="visually-hidden" />
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={preview} alt="Chosen avatar" />

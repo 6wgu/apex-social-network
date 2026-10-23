@@ -165,7 +165,7 @@ function Comments({ postId, postAuthorId, onAdded, onRemoved }) {
           maxLength={2000}
           aria-label="Comment text"
         />
-        <ImagePicker value={image} onChange={setImage} compact label="Add an image to the comment" />
+        <ImagePicker value={image} onChange={setImage} onError={setError} compact label="Add an image to the comment" />
         <button className="btn-primary" disabled={busy || (!content.trim() && !image)}>
           Send
         </button>

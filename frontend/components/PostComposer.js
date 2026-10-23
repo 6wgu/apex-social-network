@@ -81,7 +81,7 @@ export default function PostComposer({ onCreated, groupId }) {
         />
       </div>
 
-      <ImagePicker value={image} onChange={setImage} />
+      <ImagePicker value={image} onChange={setImage} onError={setError} />
 
       {groupId ? (
         <p className="hint">Only members of this group can see this post.</p>
