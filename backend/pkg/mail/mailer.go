@@ -36,6 +36,9 @@ type Message struct {
 	Attachments []Attachment
 }
 
+// smtpTimeout bounds a whole SMTP conversation, from connecting to QUIT.
+const smtpTimeout = time.Minute
+
 type Mailer struct {
 	cfg Config
 	Log func(format string, args ...any)
@@ -129,6 +132,13 @@ func (m *Mailer) withClient(fn func(*smtp.Client) error) error {
 		conn, err = dialer.Dial("tcp", addr)
 	}
 	if err != nil {
+		return err
+	}
+	// The dial timeout only covers connecting. A server that stops answering
+	// later would hang the request (and the user's email lock) for good, so
+	// the whole conversation gets one deadline.
+	if err := conn.SetDeadline(time.Now().Add(smtpTimeout)); err != nil {
+		conn.Close()
 		return err
 	}
 	c, err := smtp.NewClient(conn, m.cfg.Host)
