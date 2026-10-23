@@ -667,6 +667,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.75); }
 }
 
 .field-eye:hover { background: rgba(255, 255, 255, .05); color: var(--text-1); }
+/* Edge adds its own reveal button to password inputs; ours is .field-eye */
+input::-ms-reveal { display: none; }
 .form .field-box:has(.field-eye) input { padding-right: 48px; }
 
 .field-badge {
