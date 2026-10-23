@@ -144,12 +144,11 @@ func (a *App) noRoute(mux *http.ServeMux, w http.ResponseWriter, r *http.Request
 // that is empty or has a separator is a directory request and gets a 404
 // instead of the file server's listing. A post's image follows the post's
 // privacy (canViewUpload): a viewer who may not see the post gets the same
-// 404 as for a missing file. nosniff stops browsers from guessing a
-// different type than the one we send.
+// 404 as for a missing file. middleware.SecurityHeaders adds nosniff, so
+// browsers do not guess a different type than the one we send.
 func (a *App) uploads() http.Handler {
 	files := http.StripPrefix("/uploads/", http.FileServer(http.Dir(a.UploadDir)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
 		name := strings.TrimPrefix(r.URL.Path, "/uploads/")
 		if name == "" || strings.ContainsAny(name, `/\`) {
 			writeError(w, http.StatusNotFound, "not found")
