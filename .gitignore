@@ -2,7 +2,6 @@
 backend/data/
 backend/uploads/
 *.db
-!backend/pkg/db/initial/social-network.db
 *.db-shm
 *.db-wal
 *.exe

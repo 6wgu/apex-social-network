@@ -14,7 +14,6 @@ import PostCard from "@/components/PostCard";
 import { Loading } from "@/components/RacingLights";
 import { notify } from "@/components/Toaster";
 import { useRealtime } from "@/components/RealtimeProvider";
-import WebmasterPost, { isWebmasterPost } from "@/components/WebmasterPost";
 
 // The feed as a column of cards that snap into place, with up / down
 // buttons beside it. More posts load near the end.
@@ -47,16 +46,12 @@ function FeedReel({ feed }) {
     target?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
   }
 
-  // The webmaster's post always comes first: the saved one when the
-  // database has it (likes and comments work), the hard-coded copy if not.
-  const saved = posts?.find(isWebmasterPost);
-  const count = (posts?.filter((p) => !isWebmasterPost(p)).length || 0) + 1; // + the webmaster's post
+  const count = posts?.length || 0;
 
   return (
     <>
       <div className="feed-reel" ref={box} onScroll={onScroll}>
-        {saved ? <PostCard key={saved.id} post={saved} /> : <WebmasterPost inFeed />}
-        {posts && posts.filter((p) => !isWebmasterPost(p)).map((p) => <PostCard key={p.id} post={p} />)}
+        {posts && posts.map((p) => <PostCard key={p.id} post={p} />)}
         {posts && posts.length === 0 && !loading && (
           <div className="card feed-empty">
             <h2>Your feed is quiet</h2>

@@ -11,6 +11,8 @@ services:
     environment:
       # Browser origins allowed to open /ws (comma-separated, exact matches only).
       FRONTEND_ORIGIN: http://localhost:3000,http://127.0.0.1:3000
+      # Demo accounts on the first start (empty database). SEED_DEMO=0 turns it off.
+      SEED_DEMO: ${SEED_DEMO:-1}
     ports:
       - "8080:8080"
     volumes:

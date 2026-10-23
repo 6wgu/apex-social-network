@@ -11,6 +11,7 @@
 - [Screenshots](#screenshots)
 - [Tech stack](#tech-stack)
 - [Getting started](#getting-started)
+- [Demo accounts](#demo-accounts)
 - [Project structure](#project-structure)
 - [Database](#database)
 - [API](#api)
@@ -196,6 +197,7 @@ cp backend/.env.example backend/.env
 | `MIGRATIONS_PATH` | `file://pkg/db/migrations/sqlite` | Migration files |
 | `FRONTEND_ORIGIN` | `http://localhost:3000,http://127.0.0.1:3000` | Browser origins allowed to open the WebSocket (comma-separated) |
 | `COOKIE_SECURE` | unset | `1` adds the `Secure` flag to the session cookie (use it behind HTTPS) |
+| `SEED_DEMO` | `1` | Add the [demo accounts](#demo-accounts) when the database has no users. `0` turns it off |
 | `SMTP_USER`, `SMTP_PASS` | empty | Gmail address and its App Password. Empty means console mode |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | `smtp.gmail.com`, `587`, `false` | Mail server |
 | `MAIL_FROM_NAME` | `APEX` | Sender name |
@@ -216,15 +218,41 @@ go run ./cmd/test-email -otp     # a sample verification code email
 
 `.env` is git-ignored and kept out of the Docker images. Never commit real credentials.
 
-### Demo account
+## Demo accounts
 
-A fresh clone starts from the database shipped in [`backend/pkg/db/initial`](backend/pkg/db/initial). The backend copies it in when no database exists yet (first start, or after `docker compose down -v`). It never touches an existing database.
+A fresh database is filled with six demo accounts and their posts, so every feature can be tried without registering or waiting for an email code. All of them are verified and share one password: **`Audit123!`**. The names are made up and the addresses use `example.com`, a domain reserved for examples.
 
-| Email | Password |
-|---|---|
-| `demo@social-network.local` | `DemoPass123!` |
+| Name | Email | Profile | Try this |
+|---|---|---|---|
+| Maya Lind (`@maya`) | `maya@example.com` | Public | The busiest account: followers, a followers-only post and a private post only Leo can see. Open her profile as Theo to see a public profile from outside. |
+| Leo Hart (`@leo`) | `leo@example.com` | Public | Sees Maya's private post (he is its chosen viewer) and Nora's private profile (he follows her). His finish-line post has an animated GIF. |
+| Nora Vale (`@nora`) | `nora@example.com` | Private | Has a **follow request from Sam**: accept or decline it on her own profile. Her posts are hidden from anyone who does not follow her. |
+| Sam Park (`@sam`) | `sam@example.com` | Private | Has a **follow request from Iris**. His own request to Nora is still waiting ("Requested"). |
+| Iris Cole (`@iris`) | `iris@example.com` | Public | Follows Maya and Leo but not Nora: open Nora's profile to see the private-profile screen and send a follow request. |
+| Theo Brandt (`@theo`) | `theo@example.com` | Public | The newcomer: follows only Maya, so his feed shows her public and followers-only posts but none of Leo's followers-only ones. Try messaging Nora: not allowed, nobody follows the other. |
 
-It also holds the webmaster's account and first post. These passwords are for local development only.
+### Try it in 5 minutes
+
+1. Log in as **Nora**, open your profile and accept **Sam**'s follow request.
+2. Log in as **Theo**: like and comment on Maya's sunrise post, then open **Nora**'s profile (private) and press Follow.
+3. Log in as **Leo**: the feed shows Maya's post "Only Leo can see this"; log in as **Iris** and it is not there.
+4. Log in as **Maya**: write a post with an image and choose "Private" with a few followers.
+
+### How the demo data is added
+
+The backend adds it on its first start, when the `users` table is empty: on a fresh clone with `docker compose up --build`, after `docker compose down -v`, or with a new database file when running without Docker. It never touches a database that already has accounts, and it never runs inside `go test`. The data and its images live in [`backend/pkg/db/seed`](backend/pkg/db/seed); the images are copied into the upload folder. Dates are relative to the first start, so posts look recent and events are in the future.
+
+- **Turn it off:** set `SEED_DEMO=0` (in `backend/.env`, the environment, or `SEED_DEMO=0 docker compose up --build`).
+- **Remove it:** this deletes the six demo accounts and everything they created, and keeps every other account:
+
+  ```bash
+  cd backend && go run . -reset-demo                  # without Docker
+  docker compose exec backend ./server -reset-demo    # with Docker
+  ```
+
+  If no accounts are left, the next start adds the demo data again, unless `SEED_DEMO=0`.
+
+The shared password is for local testing only.
 
 ## Project structure
 
@@ -234,7 +262,7 @@ social-network/
 │   ├── server.go             entry point: settings, database, migrations, routes, shutdown
 │   ├── cmd/test-email/       sends a test email to check the SMTP settings
 │   └── pkg/
-│       ├── db/initial/       starting database and its images, copied in on first start
+│       ├── db/seed/          demo accounts, posts and images, added to an empty database
 │       ├── db/migrations/    numbered .up.sql / .down.sql files
 │       ├── db/sqlite/        opens SQLite (foreign keys, WAL) and runs the migrations
 │       ├── handlers/         all routes, one file per feature
@@ -336,7 +364,7 @@ npm test
 npm run build
 ```
 
-The backend tests cover validation, password reset, email codes, unverified accounts, uploads, sessions, middleware, mail and the WebSocket hub. The frontend tests (`lib/*.test.mjs`) check the same validation cases as `backend/pkg/handlers/validation_test.go`, so the register page and the server always agree. Change both when a rule changes.
+The backend tests cover the demo data, validation, password reset, email codes, unverified accounts, uploads, sessions, middleware, mail and the WebSocket hub. The frontend tests (`lib/*.test.mjs`) check the same validation cases as `backend/pkg/handlers/validation_test.go`, so the register page and the server always agree. Change both when a rule changes.
 
 ## Team
 

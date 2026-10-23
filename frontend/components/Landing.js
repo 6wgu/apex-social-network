@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import RacingLights from "@/components/RacingLights";
 import { CarSvg } from "@/components/RacingCursor";
-import WebmasterPost from "@/components/WebmasterPost";
+import SamplePost from "@/components/SamplePost";
 
 // Each timing sector stands for one part of the app.
 const SECTORS = [
@@ -181,7 +181,7 @@ export default function Landing() {
             <span>APEX / your circle</span>
             <span className="preview-status">live · private by default</span>
           </div>
-          <WebmasterPost />
+          <SamplePost />
         </div>
       </section>
 

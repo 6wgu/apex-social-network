@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"social-network/pkg/db/initial"
+	"social-network/pkg/db/seed"
 	"social-network/pkg/db/sqlite"
 	"social-network/pkg/handlers"
 	"social-network/pkg/mail"
@@ -30,6 +30,7 @@ func env(key, fallback string) string {
 func main() {
 	envFile := mail.LoadDotEnv(".")
 	migrateFlag := flag.String("migrate", "up", `"up" runs pending migrations then starts the server; "down" rolls back all migrations and exits`)
+	resetDemo := flag.Bool("reset-demo", false, "delete the demo accounts and everything they created, then exit")
 	flag.Parse()
 
 	var (
@@ -40,10 +41,6 @@ func main() {
 		origins    = ws.ParseOrigins(env("FRONTEND_ORIGIN", "http://localhost:3000,http://127.0.0.1:3000"))
 	)
 
-	// A fresh clone starts from the shipped database and its images.
-	if err := initial.Install(dbPath, uploadDir); err != nil {
-		log.Fatalf("install starting database: %v", err)
-	}
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		log.Fatalf("open database: %v", err)
@@ -66,6 +63,15 @@ func main() {
 		log.Fatalf("unknown -migrate value %q (use up or down)", *migrateFlag)
 	}
 
+	if *resetDemo {
+		n, err := seed.Reset(db, uploadDir)
+		if err != nil {
+			log.Fatalf("reset demo data: %v", err)
+		}
+		log.Printf("removed %d demo accounts and everything they created; other accounts are untouched", n)
+		return
+	}
+
 	// Sessions that expired while the server was down are useless; drop them.
 	if err := session.DeleteExpired(db); err != nil {
 		log.Fatalf("delete expired sessions: %v", err)
@@ -75,6 +81,18 @@ func main() {
 
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		log.Fatalf("create upload dir: %v", err)
+	}
+
+	// An empty database (first start) gets the demo accounts and their
+	// content. SEED_DEMO=0 turns this off.
+	if seed.Enabled(os.Getenv("SEED_DEMO")) {
+		seeded, err := seed.Run(db, uploadDir)
+		if err != nil {
+			log.Fatalf("add demo data: %v", err)
+		}
+		if seeded {
+			log.Printf("demo data added: %d accounts, see \"Demo accounts\" in the README", len(seed.Emails()))
+		}
 	}
 
 	mailCfg := mail.FromEnv()
