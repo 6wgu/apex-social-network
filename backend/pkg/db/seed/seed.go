@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -336,8 +337,12 @@ func (s *seeder) insertGroups() error {
 	return nil
 }
 
+// The app lists conversations and notifications by id, so rows are
+// inserted oldest first, as they would have been created.
 func (s *seeder) insertMessages() error {
-	for _, m := range messages {
+	ordered := append([]message(nil), messages...)
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Ago > ordered[j].Ago })
+	for _, m := range ordered {
 		var readAt any // NULL: still unread
 		if !m.Unread {
 			readAt = s.at(-m.Ago + 10*time.Minute)
@@ -351,64 +356,60 @@ func (s *seeder) insertMessages() error {
 }
 
 // insertNotifications adds the notifications the app itself would have
-// created for the follows and groups above, one of every type. Those older
-// than two days are already read.
+// created for the follows and groups above, one of every type, oldest
+// first. Those older than two days are already read.
 func (s *seeder) insertNotifications() error {
 	public := map[string]bool{}
 	for _, u := range users {
 		public[u.Key] = u.Public
 	}
-	add := func(user, typ, actor string, ref any, ago time.Duration) error {
-		read := 0
-		if ago > 2*day {
-			read = 1
-		}
-		_, err := s.tx.Exec(`INSERT INTO notifications (user_id, type, actor_id, ref_id, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			s.users[user], typ, s.users[actor], ref, read, s.at(-ago))
-		if err != nil {
-			return fmt.Errorf("notification %s for %s: %w", typ, user, err)
-		}
-		return nil
+	type row struct {
+		user, typ, actor string
+		ref              any
+		ago              time.Duration
+	}
+	var rows []row
+	add := func(user, typ, actor string, ref any, ago time.Duration) {
+		rows = append(rows, row{user, typ, actor, ref, ago})
 	}
 	for _, f := range follows {
-		var err error
 		switch {
 		case f.Pending:
-			err = add(f.To, "follow_request", f.From, nil, f.Ago)
+			add(f.To, "follow_request", f.From, nil, f.Ago)
 		case public[f.To]:
-			err = add(f.To, "new_follower", f.From, nil, f.Ago)
+			add(f.To, "new_follower", f.From, nil, f.Ago)
 		default: // a private profile accepted the request
-			err = add(f.From, "follow_accepted", f.To, nil, f.Ago)
-		}
-		if err != nil {
-			return err
+			add(f.From, "follow_accepted", f.To, nil, f.Ago)
 		}
 	}
 	for _, g := range groups {
 		id := s.groups[g.Key]
 		for _, inv := range g.Invites {
-			if err := add(inv.To, "group_invite", inv.From, id, day); err != nil {
-				return err
-			}
+			add(inv.To, "group_invite", inv.From, id, day)
 		}
 		for _, u := range g.Requests {
-			if err := add(g.Creator, "group_join_request", u, id, 4*hour); err != nil {
-				return err
-			}
+			add(g.Creator, "group_join_request", u, id, 4*hour)
 		}
 		for _, m := range g.Members {
 			if m.Via == "request" {
-				if err := add(m.User, "group_request_accepted", g.Creator, id, m.Ago); err != nil {
-					return err
-				}
+				add(m.User, "group_request_accepted", g.Creator, id, m.Ago)
 			}
 		}
 		for i := range g.Events {
 			for _, m := range g.Members {
-				if err := add(m.User, "group_event", g.Creator, s.events[fmt.Sprintf("%s/%d", g.Key, i)], day); err != nil {
-					return err
-				}
+				add(m.User, "group_event", g.Creator, s.events[fmt.Sprintf("%s/%d", g.Key, i)], day)
 			}
+		}
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].ago > rows[j].ago })
+	for _, r := range rows {
+		read := 0
+		if r.ago > 2*day {
+			read = 1
+		}
+		if _, err := s.tx.Exec(`INSERT INTO notifications (user_id, type, actor_id, ref_id, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			s.users[r.user], r.typ, s.users[r.actor], r.ref, read, s.at(-r.ago)); err != nil {
+			return fmt.Errorf("notification %s for %s: %w", r.typ, r.user, err)
 		}
 	}
 	return nil
