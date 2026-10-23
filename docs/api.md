@@ -8,11 +8,11 @@ only by pull request, and tell both sides.
 - The browser calls everything on the frontend origin (`http://localhost:3000`). Next.js rewrites `/api/*`, `/uploads/*` and `/ws` to the backend (`:8080`).
 - JSON uses `snake_case`. Times are UTC strings in the format SQLite returns: `"2026-10-13 12:00:00"`.
 - Every error response has the same shape: `{"error": "human readable message"}`. Register errors also carry `"fields"`, one message per bad field (see Auth).
-- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login`, `POST /api/logout` and `GET /api/nicknames/available` returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users, and post images only to users who may see the post.
+- Auth uses the `session_id` cookie: HttpOnly, SameSite=Lax, 7-day expiry, plus `Secure` when the backend runs with `COOKIE_SECURE=1` (off by default, because the app is served over plain `http://localhost`). Every route except `GET /api/health`, `POST /api/register`, `POST /api/login`, `POST /api/logout`, `GET /api/nicknames/available` and the three `POST /api/password/*` routes returns **401** without a valid session (that includes `GET /ws`). That includes `/uploads/*`: images are only served to logged-in users, and post images only to users who may see the post.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
 - Images are JPEG, PNG, GIF or WebP, max 50 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif|.webp` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
 - Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`.
-- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate, `429` too soon for another verification code (with `Retry-After`), `502` the email could not be sent.
+- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate, `429` too soon for another email code, or too many password reset requests (with `Retry-After`), `502` the email could not be sent.
 
 ### Shared shapes
 
@@ -121,6 +121,26 @@ All four need a session, and the code always belongs to the logged-in user: ther
 **Starting over** (`DELETE /api/me`) deletes, in one transaction, the `users` row and with it (`ON DELETE CASCADE`) the user's sessions and every other row that points at them, plus the user's row in `otp_codes`. The avatar file, and any post or comment image of the deleted rows, is removed after the commit. The email and the nickname can be registered again straight away.
 
 **Abandoned accounts.** An account still unverified 24 hours after it was created (`UnverifiedAccountTTL` in `pkg/handlers/unverified.go`) is deleted the same way, with its sessions and files, when the backend starts and then every hour, so a mistyped or abandoned address is free again. Verified accounts are never deleted.
+
+## Password reset
+
+"Forgot password?" on the login page (`/forgot-password`): ask for a code, trade the code for a token, set the new password. The three routes (`pkg/handlers/password.go`) are public: no session is needed, and a session cookie, if one is sent, is ignored, so a signed-in browser can use them too.
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/api/password/forgot` | `{"email":"ada@example.com"}` | `200 {"status":"sent","message":"If an account exists for this email, we sent a code."}`, the same for every well-formed address. Only an address that belongs to an account is emailed. `400 {"error","fields":{"email"}}` for a badly formed address (the register messages). `429 {"error","retry_after"}` with `Retry-After` during the resend cooldown and over the limits below |
+| POST | `/api/password/verify-code` | `{"email","code":"123456"}` | `200 {"token":"…","expires_in":900}`. `400 {"error","reason"}` exactly as `/api/otp/verify`: `wrong` (with `attempts_left`, e.g. `wrong code, 4 attempts left`), `expired`, `too_many` or `missing`. `400 "email and code are required"` |
+| POST | `/api/password/reset` | `{"token","password"}` | `200 {"status":"changed"}`. `400 {"error","fields":{"password"}}` when the password breaks the register rules (the token is not used up). `400 {"error":"this password reset has expired or was already used, ask for a new code","reason":"invalid_token"}` for an unknown, expired or used token |
+
+**Nothing tells whether an account exists.** Every well-formed address gets the same `200` body, the same cooldown and the same limits. The email to an account's owner is sent in the background, so the answer takes the same time either way (no SMTP wait). An address without an account still gets a code stored, which is never sent: wrong guesses count down (`4 attempts left`, …) and run out (`too_many`) exactly as they do for a real code.
+
+**Codes.** A reset code is a separate row in `otp_codes` (`purpose = 'reset_password'`, subject `email:<address>`), apart from the verification code (`purpose = 'verify_email'`, subject `user:<id>`), so a verification code can never reset a password and a reset code can never verify an email (migration 000020). Otherwise they follow the same rules: 6 digits, a salted SHA-256 hash stored, valid for `OTP_TTL_MINUTES` (10), at most `OTP_MAX_ATTEMPTS` (5) wrong tries, single use, a new code replaces the old one, and a new one can be asked for after `OTP_RESEND_SECONDS` (60). Sending and checking the code of one address run one at a time. The email reads "Your APEX password reset code is 123456. It expires in 10 minutes." in the same branded card as the verification code. Its subject does not carry the code, so with SMTP no log line has it; in console mode the whole email, code included, is printed like any other.
+
+**Limits.** At most 5 requests an hour per address, and 5 an hour per client address; one more is `429` with `retry_after` in seconds (`too many password reset requests, try again in N minutes`). The client address is the TCP peer, except when the peer is a loopback or private address (a proxy): then it is the last address in `X-Forwarded-For`. The Next.js rewrite does not set that header, so behind it browsers are only held by the per-address limit and the cooldown unless a reverse proxy in front adds `X-Forwarded-For`.
+
+**Token.** The right code works once and is traded for a random token, valid for 15 minutes and for one reset. Only its SHA-256 hash is stored (`password_reset_tokens`, migration 000021); a user has at most one, and a new code's token replaces the old one. Expired reset codes and tokens are deleted whenever a code is asked for.
+
+**Reset.** The password gets the register rules (`password needs …`) and a new bcrypt hash. In one transaction the token is used up, the password changes, the account becomes verified (the code proved the address; an unverified account is verified from now on) and **every session of the user is deleted**, so every browser is logged out (`401`). Then their open `/ws` connections are closed and they get a "Your APEX password was changed" email. The page then shows "Password changed" with a button to the login page, which has the email filled in; there is no automatic login. Logged-in users opening `/forgot-password` are sent home, like `/login`.
 
 ## Profiles and users (Phase 1)
 

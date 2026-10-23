@@ -17,6 +17,8 @@ chat) and `group_messages` (group chat).
 | group_messages | Phase 4 (migration 000016) |
 | otp_codes, users.is_verified | Email verification (migration 000017) |
 | idx_users_nickname (unique) | Unique nicknames (migration 000019) |
+| otp_codes.purpose | Password reset (migration 000020: the table is rebuilt with the primary key `(purpose, subject)`) |
+| password_reset_tokens | Password reset (migration 000021) |
 
 **Follow requests** are rows in `follows` with `status = 'pending'`, as in P2's
 week-2 spec. There is no separate `follow_requests` table. Accepting a request
@@ -49,12 +51,19 @@ erDiagram
         DATETIME created_at
     }
     otp_codes {
-        TEXT subject PK "user:{id}"
+        TEXT purpose PK "verify_email | reset_password"
+        TEXT subject PK "user:{id} (verify) or email:{address} (reset)"
         TEXT code_hash "sha256(salt + code), never the code"
         TEXT salt
         DATETIME expires_at
         INTEGER attempts
         DATETIME last_sent_at
+    }
+    password_reset_tokens {
+        TEXT token_hash PK "sha256(token), never the token"
+        INTEGER user_id FK
+        DATETIME expires_at "15 minutes after the code was checked"
+        DATETIME created_at
     }
     sessions {
         TEXT id PK "uuid"
@@ -155,6 +164,7 @@ erDiagram
     }
 
     users ||--o{ sessions : has
+    users ||--o| password_reset_tokens : resets
     users ||--o{ follows : "follower"
     users ||--o{ follows : "following"
     users ||--o{ posts : writes
