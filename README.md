@@ -340,9 +340,10 @@ The backend tests cover validation, password reset, email codes, unverified acco
 
 ## Team
 
-| Name | Role |
+| Name | Username |
 |---|---|
-| `<name>` | `<role>` |
-| `<name>` | `<role>` |
-| `<name>` | `<role>` |
-| `<name>` | `<role>` |
+| Ahmed Ramadhan | aramadhan |
+| Abdulla Homaidan | ahomaida |
+| Abbas Al Abdulwahab | aalabdulw |
+| Hussain Madan | humadan |
+| Jassim Thamer | jthamer |
