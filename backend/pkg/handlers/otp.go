@@ -48,7 +48,7 @@ func (a *App) sendOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "email already verified")
 		return
 	}
-	res, err := a.OTP.Send(otpSubject(user.ID), user.Email, user.FirstName)
+	res, err := a.OTP.Send(otp.VerifyEmail, otpSubject(user.ID), user.Email, user.FirstName)
 	if err != nil {
 		log.Printf("otp send for user %d: %v", user.ID, err)
 		writeError(w, http.StatusBadGateway, sendFailed)
@@ -83,7 +83,7 @@ func (a *App) verifyOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "email already verified")
 		return
 	}
-	res, err := a.OTP.Verify(otpSubject(userID), body.Code)
+	res, err := a.OTP.Verify(otp.VerifyEmail, otpSubject(userID), body.Code)
 	if err != nil {
 		serverError(w, err)
 		return

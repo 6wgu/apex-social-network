@@ -30,10 +30,20 @@ type Record struct {
 	LastSentAt time.Time
 }
 
+// Purpose says what a code is for. Each purpose and subject has its own
+// code, attempts and cooldown, so a code sent to verify an email can never
+// reset a password, and the other way round.
+type Purpose string
+
+const (
+	VerifyEmail   Purpose = "verify_email"
+	ResetPassword Purpose = "reset_password"
+)
+
 type Store interface {
-	Get(subject string) (*Record, error)
-	Set(subject string, r Record) error
-	Delete(subject string) error
+	Get(p Purpose, subject string) (*Record, error)
+	Set(p Purpose, subject string, r Record) error
+	Delete(p Purpose, subject string) error
 }
 
 type Sender interface {
@@ -99,15 +109,30 @@ func hash(code, salt string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) Send(subject, email, name string) (Result, error) {
-	now := s.opt.Now()
-	old, err := s.store.Get(subject)
-	if err != nil {
+func (s *Service) Send(p Purpose, subject, email, name string) (Result, error) {
+	code, res, err := s.Issue(p, subject)
+	if err != nil || !res.OK {
+		return res, err
+	}
+	if err := s.Deliver(p, code, email, name); err != nil {
+		s.store.Delete(p, subject)
 		return Result{}, err
+	}
+	return res, nil
+}
+
+// Issue is Send without the email: it stores a new code and returns it, or
+// reports the cooldown. A code nobody is sent still answers Verify like a
+// real one, so a caller can hide whether anyone got a code.
+func (s *Service) Issue(p Purpose, subject string) (string, Result, error) {
+	now := s.opt.Now()
+	old, err := s.store.Get(p, subject)
+	if err != nil {
+		return "", Result{}, err
 	}
 	if old != nil {
 		if wait := old.LastSentAt.Add(s.opt.ResendAfter).Sub(now); wait > 0 {
-			return Result{Reason: Cooldown, RetryAfter: int((wait + time.Second - 1) / time.Second)}, nil
+			return "", Result{Reason: Cooldown, RetryAfter: int((wait + time.Second - 1) / time.Second)}, nil
 		}
 	}
 	code := GenerateCode(s.opt.Length)
@@ -115,39 +140,44 @@ func (s *Service) Send(subject, email, name string) (Result, error) {
 	rand.Read(saltBytes)
 	salt := hex.EncodeToString(saltBytes)
 	rec := Record{CodeHash: hash(code, salt), Salt: salt, ExpiresAt: now.Add(s.opt.TTL), LastSentAt: now}
-	if err := s.store.Set(subject, rec); err != nil {
-		return Result{}, err
+	if err := s.store.Set(p, subject, rec); err != nil {
+		return "", Result{}, err
 	}
-	msg := mail.CodeEmail(s.sender.FromName(), name, code, int(s.opt.TTL/time.Minute))
-	msg.To = []string{email}
-	if err := s.sender.Send(msg); err != nil {
-		s.store.Delete(subject)
-		return Result{}, err
-	}
-	return Result{OK: true}, nil
+	return code, Result{OK: true}, nil
 }
 
-func (s *Service) Verify(subject, code string) (Result, error) {
-	rec, err := s.store.Get(subject)
+// Deliver emails a code from Issue in the message for its purpose.
+func (s *Service) Deliver(p Purpose, code, email, name string) error {
+	ttl := int(s.opt.TTL / time.Minute)
+	msg := mail.CodeEmail(s.sender.FromName(), name, code, ttl)
+	if p == ResetPassword {
+		msg = mail.ResetCodeEmail(s.sender.FromName(), name, code, ttl)
+	}
+	msg.To = []string{email}
+	return s.sender.Send(msg)
+}
+
+func (s *Service) Verify(p Purpose, subject, code string) (Result, error) {
+	rec, err := s.store.Get(p, subject)
 	if err != nil || rec == nil {
 		return Result{Reason: Missing}, err
 	}
 	if s.opt.Now().After(rec.ExpiresAt) {
-		return Result{Reason: Expired}, s.store.Delete(subject)
+		return Result{Reason: Expired}, s.store.Delete(p, subject)
 	}
 	if rec.Attempts >= s.opt.MaxAttempts {
-		return Result{Reason: TooMany}, s.store.Delete(subject)
+		return Result{Reason: TooMany}, s.store.Delete(p, subject)
 	}
 	if subtle.ConstantTimeCompare([]byte(hash(strings.TrimSpace(code), rec.Salt)), []byte(rec.CodeHash)) == 1 {
-		return Result{OK: true}, s.store.Delete(subject)
+		return Result{OK: true}, s.store.Delete(p, subject)
 	}
 	rec.Attempts++
 	if rec.Attempts >= s.opt.MaxAttempts {
-		return Result{Reason: TooMany}, s.store.Delete(subject)
+		return Result{Reason: TooMany}, s.store.Delete(p, subject)
 	}
-	return Result{Reason: Wrong, AttemptsLeft: s.opt.MaxAttempts - rec.Attempts}, s.store.Set(subject, *rec)
+	return Result{Reason: Wrong, AttemptsLeft: s.opt.MaxAttempts - rec.Attempts}, s.store.Set(p, subject, *rec)
 }
 
-func (s *Service) Cancel(subject string) error {
-	return s.store.Delete(subject)
+func (s *Service) Cancel(p Purpose, subject string) error {
+	return s.store.Delete(p, subject)
 }

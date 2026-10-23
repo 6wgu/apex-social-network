@@ -69,7 +69,7 @@ func (a *App) changeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := a.OTP.Send(otpSubject(userID), email, user.FirstName)
+	res, err := a.OTP.Send(otp.VerifyEmail, otpSubject(userID), email, user.FirstName)
 	if err != nil {
 		log.Printf("otp send for user %d: %v", userID, err)
 		writeError(w, http.StatusBadGateway, sendFailed)
@@ -81,7 +81,7 @@ func (a *App) changeEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := a.DB.Exec(`UPDATE users SET email = ? WHERE id = ?`, email, userID); err != nil {
 		// The code went to an address this account did not get after all.
-		if cancelErr := a.OTP.Cancel(otpSubject(userID)); cancelErr != nil {
+		if cancelErr := a.OTP.Cancel(otp.VerifyEmail, otpSubject(userID)); cancelErr != nil {
 			log.Printf("cancel code for user %d: %v", userID, cancelErr)
 		}
 		if uniqueConflict(err) == "email" {

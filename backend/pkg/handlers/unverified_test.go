@@ -58,9 +58,9 @@ type codeStore struct {
 	pause atomic.Int64 // nanoseconds
 }
 
-func (s *codeStore) Get(subject string) (*otp.Record, error) {
+func (s *codeStore) Get(p otp.Purpose, subject string) (*otp.Record, error) {
 	time.Sleep(time.Duration(s.pause.Load()))
-	return s.Store.Get(subject)
+	return s.Store.Get(p, subject)
 }
 
 type testClock struct {
