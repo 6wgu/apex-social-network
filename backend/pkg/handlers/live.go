@@ -22,13 +22,14 @@ type postLikes struct {
 }
 
 // pushToViewers sends an event about postID to every online user who can
-// see that post, the actor's other tabs included.
+// see that post, the actor's other tabs included. A failed check skips only
+// that user; everyone else still gets the event.
 func (a *App) pushToViewers(postID int64, eventType string, payload any) {
 	for _, id := range a.Hub.OnlineUsers() {
 		ok, err := a.CanViewPost(id, postID)
 		if err != nil {
-			log.Printf("live %s for post %d: %v", eventType, postID, err)
-			return
+			log.Printf("live %s for post %d, user %d: %v", eventType, postID, id, err)
+			continue
 		}
 		if ok {
 			a.Hub.SendToUser(id, eventType, payload)
