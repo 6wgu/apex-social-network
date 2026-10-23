@@ -277,7 +277,7 @@ func (a *App) searchUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pattern := "%" + likeEscaper.Replace(search) + "%"
-	rows, err := a.DB.Query(`
+	users, err := a.userSummaries(`
 		SELECT id, first_name, last_name, nickname, avatar_path
 		FROM users
 		WHERE first_name LIKE ?1 ESCAPE '\'
@@ -287,21 +287,6 @@ func (a *App) searchUsers(w http.ResponseWriter, r *http.Request) {
 		ORDER BY first_name, last_name, id
 		LIMIT ?2`, pattern, maxSearchResults)
 	if err != nil {
-		serverError(w, err)
-		return
-	}
-	defer rows.Close()
-
-	users := []models.UserSummary{} // never null in JSON
-	for rows.Next() {
-		var u models.UserSummary
-		if err := rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Nickname, &u.AvatarPath); err != nil {
-			serverError(w, err)
-			return
-		}
-		users = append(users, u)
-	}
-	if err := rows.Err(); err != nil {
 		serverError(w, err)
 		return
 	}
