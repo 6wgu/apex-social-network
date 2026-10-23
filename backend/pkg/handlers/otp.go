@@ -36,6 +36,23 @@ func writeCooldown(w http.ResponseWriter, res otp.Result) {
 	})
 }
 
+// writeCodeProblem answers 400 for a code that did not work: wrong (with
+// the attempts left), expired, used up by wrong tries, or none to check.
+// The password reset routes answer the same way.
+func writeCodeProblem(w http.ResponseWriter, res otp.Result) {
+	msg := map[string]string{
+		otp.Missing: "no active code, ask for a new one",
+		otp.Expired: "the code has expired, ask for a new one",
+		otp.TooMany: "too many wrong attempts, ask for a new one",
+		otp.Wrong:   fmt.Sprintf("wrong code, %d attempts left", res.AttemptsLeft),
+	}[res.Reason]
+	out := map[string]any{"error": msg, "reason": res.Reason}
+	if res.Reason == otp.Wrong {
+		out["attempts_left"] = res.AttemptsLeft
+	}
+	writeJSON(w, http.StatusBadRequest, out)
+}
+
 func (a *App) sendOTP(w http.ResponseWriter, r *http.Request) {
 	userID := currentUserID(r)
 	defer a.lockEmail(userID)()
@@ -89,17 +106,7 @@ func (a *App) verifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !res.OK {
-		msg := map[string]string{
-			otp.Missing: "no active code, ask for a new one",
-			otp.Expired: "the code has expired, ask for a new one",
-			otp.TooMany: "too many wrong attempts, ask for a new one",
-			otp.Wrong:   fmt.Sprintf("wrong code, %d attempts left", res.AttemptsLeft),
-		}[res.Reason]
-		out := map[string]any{"error": msg, "reason": res.Reason}
-		if res.Reason == otp.Wrong {
-			out["attempts_left"] = res.AttemptsLeft
-		}
-		writeJSON(w, http.StatusBadRequest, out)
+		writeCodeProblem(w, res)
 		return
 	}
 	if _, err := a.DB.Exec(`UPDATE users SET is_verified = 1 WHERE id = ?`, userID); err != nil {
