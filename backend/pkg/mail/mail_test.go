@@ -13,6 +13,23 @@ import (
 	"testing"
 )
 
+func TestLoadDotEnvFindsParentFromRelativeDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("MAILTEST_PARENT=found\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Unsetenv("MAILTEST_PARENT") })
+	sub := filepath.Join(dir, "backend")
+	os.MkdirAll(sub, 0o755)
+	t.Chdir(sub)
+	if got := LoadDotEnv("."); got != filepath.Join(dir, ".env") {
+		t.Fatalf("LoadDotEnv(\".\") = %q, want the .env one folder up", got)
+	}
+	if v := os.Getenv("MAILTEST_PARENT"); v != "found" {
+		t.Fatalf("MAILTEST_PARENT = %q, want %q", v, "found")
+	}
+}
+
 func TestLoadDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	env := "\xef\xbb\xbf# a comment\n" +

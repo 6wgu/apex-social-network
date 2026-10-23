@@ -23,6 +23,9 @@ type Config struct {
 }
 
 func LoadDotEnv(dir string) string {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
 	for d := dir; ; d = filepath.Dir(d) {
 		path := filepath.Join(d, ".env")
 		if _, err := os.Stat(path); err != nil {
