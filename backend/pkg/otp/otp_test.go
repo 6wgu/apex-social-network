@@ -2,7 +2,9 @@ package otp
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,15 +102,21 @@ func TestExpiredCode(t *testing.T) {
 	}
 }
 
-func TestFailedSendLeavesNoCode(t *testing.T) {
+func TestFailedSendKeepsAndLogsTheCode(t *testing.T) {
 	svc, sender, _ := newTestService()
+	var logged []string
+	svc.Log = func(format string, args ...any) { logged = append(logged, fmt.Sprintf(format, args...)) }
 	sender.fail = true
-	if _, err := svc.Send(VerifyEmail, "user:1", "a@example.com", ""); err == nil {
-		t.Fatal("Send succeeded with a failing sender")
+	res, err := svc.Send(VerifyEmail, "user:1", "a@example.com", "")
+	if err != nil || !res.OK {
+		t.Fatalf("Send with a failing sender = %+v, %v; want OK", res, err)
 	}
-	sender.fail = false
-	if res, _ := svc.Send(VerifyEmail, "user:1", "a@example.com", ""); !res.OK {
-		t.Fatalf("retry Send = %+v", res)
+	if len(logged) != 2 || !strings.HasPrefix(logged[0], "verification code for a@example.com: ") {
+		t.Fatalf("log = %q", logged)
+	}
+	code := strings.TrimPrefix(logged[0], "verification code for a@example.com: ")
+	if res, _ := svc.Verify(VerifyEmail, "user:1", code); !res.OK {
+		t.Fatalf("Verify with the logged code = %+v", res)
 	}
 }
 

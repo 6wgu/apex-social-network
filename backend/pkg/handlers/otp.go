@@ -2,13 +2,10 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"social-network/pkg/otp"
 )
-
-const sendFailed = "could not send the verification email, please try again later"
 
 func otpSubject(userID int64) string {
 	return fmt.Sprintf("user:%d", userID)
@@ -56,8 +53,7 @@ func (a *App) sendOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := a.OTP.Send(otp.VerifyEmail, otpSubject(user.ID), user.Email, user.FirstName)
 	if err != nil {
-		log.Printf("otp send for user %d: %v", user.ID, err)
-		writeError(w, http.StatusBadGateway, sendFailed)
+		serverError(w, err)
 		return
 	}
 	if res.Reason == otp.Cooldown {

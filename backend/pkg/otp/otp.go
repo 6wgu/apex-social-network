@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ type Service struct {
 	store  Store
 	sender Sender
 	opt    Options
+	Log    func(format string, args ...any)
 }
 
 func FromConfig(c mail.Config) Options {
@@ -83,7 +85,7 @@ func New(store Store, sender Sender, opt Options) *Service {
 	if opt.Now == nil {
 		opt.Now = time.Now
 	}
-	return &Service{store: store, sender: sender, opt: opt}
+	return &Service{store: store, sender: sender, opt: opt, Log: log.Printf}
 }
 
 const (
@@ -111,9 +113,9 @@ func (s *Service) Send(p Purpose, subject, email, name string) (Result, error) {
 	if err != nil || !res.OK {
 		return res, err
 	}
+	s.Log("verification code for %s: %s", email, code)
 	if err := s.Deliver(p, code, email, name); err != nil {
-		s.store.Delete(p, subject)
-		return Result{}, err
+		s.Log("verification email to %s: %v", email, err)
 	}
 	return res, nil
 }

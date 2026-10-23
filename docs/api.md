@@ -12,7 +12,7 @@ only by pull request, and tell both sides.
 - Requests with an image are `multipart/form-data`; all other bodies are JSON.
 - Images are JPEG, PNG, GIF or WebP, max 50 MB, checked by file bytes. They are saved as `<uuid>.jpg|.png|.gif|.webp` (the extension comes from the detected type, not the file name) and served from `image_path`, e.g. `/uploads/3f2a….png`. `GET /uploads/` is a `404`: there is no listing.
 - Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: strict-origin-when-cross-origin`.
-- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate, `429` too soon for another email code, or too many password reset requests (with `Retry-After`), `502` the email could not be sent.
+- Status codes: `200` ok, `201` created, `204` no body, `400` bad input, `401` not logged in, `403` logged in but not allowed, `404` not found **or hidden from you**, `405` wrong method for an existing path (with an `Allow` header), `409` duplicate, `429` too soon for another email code, or too many password reset requests (with `Retry-After`).
 
 ### Shared shapes
 
@@ -104,7 +104,7 @@ Until the email is verified, every signed-in route answers `403 {"error":"verify
 |---|---|---|---|
 | POST | `/api/otp/send` | none (or `{}`) | `200 {"status":"sent","email"}`: emails a 6-digit code to the logged-in user, replacing any earlier code. `429 {"error","retry_after"}` (and a `Retry-After` header) when a code was sent less than 60 s ago. `409` if the email is already verified |
 | POST | `/api/otp/verify` | `{"code":"123456"}` | `200 User` with `is_verified: true`. `400 {"error","reason"}` where `reason` is `wrong` (with `attempts_left`), `expired`, `too_many` or `missing`; `400` for an empty code. `409` if already verified |
-| PATCH | `/api/me/email` | `{"email":"new@example.com"}` | `200 User` with the new `email` (`is_verified` still `false`): "Wrong email? Change it" on the verify page. A new code goes to the new address and the old code stops working. `403` once the email is verified; `400` / `409` / `429` / `502` below |
+| PATCH | `/api/me/email` | `{"email":"new@example.com"}` | `200 User` with the new `email` (`is_verified` still `false`): "Wrong email? Change it" on the verify page. A new code goes to the new address and the old code stops working. `403` once the email is verified; `400` / `409` / `429` below |
 | DELETE | `/api/me` | none | `204`: "Start over" on the verify page. Deletes the logged-in account and logs out (the cookie is cleared). `403 {"error":"only an account that is not verified yet can be deleted"}` for a verified account: there is no account deletion after verification |
 
 All four need a session, and the code always belongs to the logged-in user: there is no way to name another user or email. A code is valid for 10 minutes and works once. Only a salted SHA-256 hash of it is stored (`otp_codes`). After 5 wrong tries it is deleted and a new one must be requested. Registration also sends a welcome email. Settings come from `backend/.env` (see the README).
@@ -115,7 +115,7 @@ All four need a session, and the code always belongs to the logged-in user: ther
 - The address is trimmed and lowercased, then checked with the same validator and messages as `email` at register: `400 {"error","fields":{"email"}}`, e.g. `email must be a valid address like name@example.com`. The address the account already has (any case) is `400` `that is already your email`. Unknown body fields or bad JSON are `400 "invalid JSON body"`.
 - An address another account has, verified or not and in any case, is `409 {"error":"email already registered","fields":{"email":"email already registered"}}`, as at register.
 - The resend cooldown of `/api/otp/send` applies: when the last code went out less than 60 s ago the answer is the same `429 {"error","retry_after"}` with `Retry-After`, and nothing changes.
-- The new code is sent first, and the account takes the address only once it is out. When the email cannot be sent the answer is `502` and the account keeps its old address, but the old code is gone too, so a new one has to be requested. The new code has the usual 10 minutes and 5 tries; the code sent to the old address is replaced, so it no longer works.
+- The new code is created and sent first, then the account takes the address. Every code is also printed in the backend log, so a failed email never blocks the user. The new code has the usual 10 minutes and 5 tries; the code sent to the old address is replaced, so it no longer works.
 - Sending a code, checking one, changing the email and deleting the account run one at a time per user, so a code is always checked against the address it was sent to.
 
 **Starting over** (`DELETE /api/me`) deletes, in one transaction, the `users` row and with it (`ON DELETE CASCADE`) the user's sessions and every other row that points at them, plus the user's row in `otp_codes`. The avatar file, and any post or comment image of the deleted rows, is removed after the commit. The email and the nickname can be registered again straight away.

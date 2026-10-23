@@ -206,7 +206,7 @@ cp backend/.env.example backend/.env
 **Email.** The backend sends its emails (welcome, verification code, reset code, password changed) in one of two modes:
 
 - **Console mode** (default, no setup): `SMTP_USER` and `SMTP_PASS` are empty, nothing is sent, and every email, with its code, is printed in the backend terminal. With Docker, read it with `docker compose logs backend`.
-- **SMTP with Gmail:** turn on 2-Step Verification for a Gmail account, create an App Password at https://myaccount.google.com/apppasswords, and put the address and the 16-letter password in `SMTP_USER` and `SMTP_PASS`. Restart the backend (`docker compose up -d --force-recreate backend` with Docker). The log then says `email: Gmail login OK`. If port 587 is blocked, use `SMTP_PORT=465` and `SMTP_SECURE=true`.
+- **SMTP with Gmail:** turn on 2-Step Verification for a Gmail account, create an App Password at https://myaccount.google.com/apppasswords, and put the address and the 16-letter password in `SMTP_USER` and `SMTP_PASS`. Restart the backend (`docker compose up -d --force-recreate backend` with Docker). The log then says `email: Gmail login OK`. If port 587 is blocked, use `SMTP_PORT=465` and `SMTP_SECURE=true`. In both modes every verification and reset code is also printed in the backend terminal (`verification code for …` / `reset code for …`), and a failed send does not block the user.
 
 Check the SMTP settings by sending yourself a test email (to `SMTP_USER`, or `-to` another address). Without credentials it stops and asks you to fill them in.
 

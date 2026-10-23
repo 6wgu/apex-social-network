@@ -55,8 +55,7 @@ func (a *App) changeEmail(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.OTP.Send(otp.VerifyEmail, otpSubject(userID), email, user.FirstName)
 	if err != nil {
-		log.Printf("otp send for user %d: %v", userID, err)
-		writeError(w, http.StatusBadGateway, sendFailed)
+		serverError(w, err)
 		return
 	}
 	if res.Reason == otp.Cooldown {
