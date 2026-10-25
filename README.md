@@ -2,13 +2,13 @@
 
 **Connect at full speed.** A full-stack social network with profiles, followers, posts, groups, events and real-time chat.
 
-**[▶ Live demo](https://apex.zerot.dev)**: try it in the browser with no setup. Sign in with any [demo account](#demo-accounts).
+**<a href="https://apex.zerot.dev/" target="_blank" rel="noopener noreferrer">▶ Live demo</a>**: try it in the browser with no setup. Sign in with any [demo account](#demo-accounts).
 
 <a href="docs/screenshots/01-landing.webp"><img src="docs/screenshots/01-landing.webp" alt="APEX landing page"></a>
 
 ## Contents
 
-- [Live demo](https://apex.zerot.dev)
+- <a href="https://apex.zerot.dev/" target="_blank" rel="noopener noreferrer">Live demo</a>
 - [About](#about)
 - [Features](#features)
 - [Screenshots](#screenshots)
