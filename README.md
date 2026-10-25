@@ -2,10 +2,13 @@
 
 **Connect at full speed.** A full-stack social network with profiles, followers, posts, groups, events and real-time chat.
 
+**[▶ Live demo](https://apex.zerot.dev)**: try it in the browser with no setup. Sign in with any [demo account](#demo-accounts).
+
 <a href="docs/screenshots/01-landing.webp"><img src="docs/screenshots/01-landing.webp" alt="APEX landing page"></a>
 
 ## Contents
 
+- [Live demo](https://your-demo-url.com)
 - [About](#about)
 - [Features](#features)
 - [Screenshots](#screenshots)
@@ -133,6 +136,8 @@ Only the packages allowed by the project are used. The backend has no web framew
 
 ## Getting started
 
+> Just want to look around? Open the **[live demo](https://your-demo-url.com)**. The steps below are only for running APEX yourself.
+
 ### With Docker
 
 From the project root:
@@ -219,6 +224,8 @@ go run ./cmd/test-email -otp     # a sample verification code email
 `.env` is git-ignored and kept out of the Docker images. Never commit real credentials.
 
 ## Demo accounts
+
+These accounts also work on the **[live demo](https://your-demo-url.com)**.
 
 A fresh database is filled with six demo accounts with posts, groups, events, chats and notifications, so every feature can be tried without registering or waiting for an email code. All of them are verified and share one password: **`Audit123!`**. The names are made up and the addresses use `example.com`, a domain reserved for examples.
 
@@ -372,8 +379,8 @@ The backend tests cover the demo data, validation, password reset, email codes, 
 
 | Name | Username |
 |---|---|
-| Abbas Al Abdulwahab | aalabdulw |
 | Ahmed Ramadhan | aramadhan |
 | Abdulla Homaidan | ahomaida |
+| Abbas Al Abdulwahab | aalabdulw |
 | Hussain Madan | humadan |
 | Jassim Thamer | jthamer |
